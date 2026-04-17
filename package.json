@@ -1,0 +1,27 @@
+{
+  "name": "web3-ai-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web3 AI Agent - 面向 Web3 前端开发者的 AI Agent 项目",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "type-check": "turbo run type-check"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "prettier": "^3.2.5",
+    "turbo": "^2.0.0",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
