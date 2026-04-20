@@ -1,51 +1,69 @@
 import { ToolResult, ETHPriceData } from './types'
+import fetch from 'node-fetch'
+import { HttpsProxyAgent } from 'https-proxy-agent'
 
-const COINGECKO_API = 'https://api.coingecko.com/api/v3'
 const BINANCE_API = 'https://api.binance.com/api/v3'
+const HUOBI_API = 'https://api.huobi.pro'
+
+// 代理配置
+const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY
+const proxyAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined
+
+if (proxyAgent) {
+  console.log('✅ Web3 Tools 代理已配置:', proxyUrl)
+}
 
 /**
  * 获取 ETH 当前价格
+ * 支持多数据源容错和代理配置
  */
 export async function getETHPrice(): Promise<ToolResult<ETHPriceData>> {
-  // 尝试多个数据源
+  // 使用国内可访问的数据源
   const sources = [
     {
-      name: 'Binance',
-      fetch: async () => {
-        const response = await fetch(`${BINANCE_API}/ticker/price?symbol=ETHUSDT`)
-        if (!response.ok) throw new Error(`Binance API 错误: ${response.status}`)
-        const data = await response.json() as { price: string }
+      name: 'Binance CN',
+      url: `${BINANCE_API}/ticker/price?symbol=ETHUSDT`,
+      parse: (data: unknown): ETHPriceData => {
+        const priceData = data as { price: string }
         return {
-          price: parseFloat(data.price),
-          change24h: 0, // Binance 简单接口不包含 24h 变化
+          price: parseFloat(priceData.price),
+          change24h: 0,
           currency: 'USD',
         }
       },
     },
     {
-      name: 'CoinGecko',
-      fetch: async () => {
-        const response = await fetch(
-          `${COINGECKO_API}/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true`
-        )
-        if (!response.ok) throw new Error(`CoinGecko API 错误: ${response.status}`)
-        const data = await response.json() as { ethereum: { usd: number; usd_24h_change: number } }
+      name: 'Huobi',
+      url: `${HUOBI_API}/market/detail/merged?symbol=ethusdt`,
+      parse: (data: unknown): ETHPriceData => {
+        const tickData = data as { tick: { close: number; open: number } }
+        const close = tickData.tick.close
+        const open = tickData.tick.open
         return {
-          price: data.ethereum.usd,
-          change24h: data.ethereum.usd_24h_change,
+          price: close,
+          change24h: ((close - open) / open) * 100,
           currency: 'USD',
         }
       },
     },
   ]
 
-  // 依次尝试每个数据源
   for (const source of sources) {
     try {
-      const data = await source.fetch()
+      const response = await fetch(source.url, {
+        signal: AbortSignal.timeout(10000), // 10秒超时
+        agent: proxyAgent, // 使用代理
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      const priceData = source.parse(data)
+
       return {
         success: true,
-        data,
+        data: priceData,
         timestamp: new Date().toISOString(),
         source: source.name,
       }

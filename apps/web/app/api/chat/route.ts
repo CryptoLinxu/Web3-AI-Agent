@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { LLMFactory } from '@web3-ai-agent/ai-config'
 import { Tool, Message } from '@web3-ai-agent/ai-config'
 import { ChatRequest } from '@/types/chat'
+import { getETHPrice, getWalletBalance, getGasPrice } from '@web3-ai-agent/web3-tools'
 
 // 工具定义
 const tools: Tool[] = [
@@ -104,23 +105,27 @@ export async function POST(request: NextRequest) {
 
         let result
         try {
-          // 调用本地工具 API
-          const toolResponse = await fetch(
-            `${request.nextUrl.origin}/api/tools`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: functionName,
-                arguments: functionArgs,
-              }),
-            }
-          )
-          result = await toolResponse.json()
+          // 直接调用工具函数
+          switch (functionName) {
+            case 'getETHPrice':
+              result = await getETHPrice()
+              break
+            case 'getWalletBalance':
+              result = await getWalletBalance(functionArgs.address)
+              break
+            case 'getGasPrice':
+              result = await getGasPrice()
+              break
+            default:
+              result = {
+                success: false,
+                error: `未知工具: ${functionName}`,
+              }
+          }
         } catch (error) {
           result = {
-            error: true,
-            message: `工具调用失败: ${error instanceof Error ? error.message : '未知错误'}`,
+            success: false,
+            error: `工具调用失败: ${error instanceof Error ? error.message : '未知错误'}`,
           }
         }
 

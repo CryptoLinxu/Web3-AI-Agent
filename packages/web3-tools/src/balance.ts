@@ -1,8 +1,8 @@
 import { ethers } from 'ethers'
 import { ToolResult, WalletBalanceData } from './types'
 
-// 默认使用公共 RPC 节点
-const DEFAULT_RPC_URL = 'https://eth.llamarpc.com'
+// 默认使用公共 RPC 节点或环境变量配置
+const DEFAULT_RPC_URL = process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com'
 
 /**
  * 获取以太坊钱包 ETH 余额
