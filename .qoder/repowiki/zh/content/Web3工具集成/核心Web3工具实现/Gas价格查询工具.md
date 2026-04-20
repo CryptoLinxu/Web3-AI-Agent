@@ -2,6 +2,12 @@
 
 <cite>
 **本文引用的文件**
+- [gas.ts](file://packages/web3-tools/src/gas.ts)
+- [types.ts](file://packages/web3-tools/src/types.ts)
+- [route.ts](file://apps/web/app/api/tools/route.ts)
+- [price.ts](file://packages/web3-tools/src/price.ts)
+- [balance.ts](file://packages/web3-tools/src/balance.ts)
+- [package.json](file://packages/web3-tools/package.json)
 - [Web3-AI-Agent-PRD-MVP.md](file://docs/Web3-AI-Agent-PRD-MVP.md)
 - [SKILL.md](file://skills/web3-ai-agent/SKILL.md)
 - [COMMANDS.md](file://skills/web3-ai-agent/COMMANDS.md)
@@ -10,6 +16,14 @@
 - [coder/SKILL.md](file://skills/web3-ai-agent/coder/SKILL.md)
 - [qa/SKILL.md](file://skills/web3-ai-agent/qa/SKILL.md)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 更新了RPC节点配置机制，支持环境变量配置和默认节点回退
+- 改进了Fee Data获取流程，使用ethers库的getFeeData方法
+- 优化了单位转换逻辑，统一使用Gwei单位显示
+- 增强了错误处理和降级策略
+- 完善了API接口设计和响应格式
 
 ## 目录
 1. [简介](#简介)
@@ -91,7 +105,7 @@ ORG --> SKILL
 - [origin/SKILL.md:41-50](file://skills/web3-ai-agent/origin/SKILL.md#L41-L50)
 
 ## 架构总览
-Gas价格查询工具的实现遵循Web3-AI-Agent的技能系统与PRD约束，采用“入口路由—架构设计—验证—编码—总结”的交付流程。
+Gas价格查询工具的实现遵循Web3-AI-Agent的技能系统与PRD约束，采用"入口路由—架构设计—验证—编码—总结"的交付流程。
 
 ```mermaid
 sequenceDiagram
@@ -154,6 +168,7 @@ Fallback --> Return
 
 ### API接口设计
 - 请求参数
+  - rpcUrl：可选的RPC节点地址，支持自定义节点配置
   - chainId：目标链标识（如以太坊主网、Sepolia等）
   - level：Gas层级（快速/标准/慢速），用于选择优先费区间
   - blockTag：区块标签（latest/pending/number），用于查询特定区块的参考价格
@@ -161,7 +176,7 @@ Fallback --> Return
   - gasPrice：基础Gas价格（Wei）
   - maxFeePerGas：最大费用（Wei），适用于EIP-1559
   - maxPriorityFeePerGas：最大优先费用（Wei），适用于EIP-1559
-  - level：返回的层级（快速/标准/慢速）
+  - unit：价格单位（Gwei）
   - timestamp：数据采集时间戳（毫秒）
   - source：数据来源（RPC节点名称或标识）
 - 单位换算
@@ -174,28 +189,29 @@ Fallback --> Return
 ```mermaid
 erDiagram
 GAS_RESPONSE {
-string chainId
-string level
-number gasPrice
-number maxFeePerGas
-number maxPriorityFeePerGas
-number timestamp
+string gasPrice
+string maxFeePerGas
+string maxPriorityFeePerGas
+string unit
+string timestamp
 string source
 }
 ```
 
+**更新** 响应格式现在包含unit字段，统一显示Gwei单位
+
 ### 错误处理与降级策略
 - 网络超时
   - 设置短超时阈值（如2-5秒），超时后尝试备用节点
-  - 返回“网络超时，建议稍后重试”并附带上次有效缓存
+  - 返回"网络超时，建议稍后重试"并附带上次有效缓存
 - API不可用
   - 切换至备用RPC提供商或本地回退逻辑
-  - 返回“API不可用，使用降级数据”并标注数据时效
+  - 返回"API不可用，使用降级数据"并标注数据时效
 - 数据异常
   - 对数值字段进行边界校验（非负、合理范围）
   - 对缺失字段进行默认填充或标记缺失，并记录日志
 - 降级提示
-  - 明确标注“数据来自工具查询，非模型主观生成”
+  - 明确标注"数据来自工具查询，非模型主观生成"
   - 提供风险提示与免责声明，避免误导用户决策
 
 ```mermaid
@@ -215,7 +231,7 @@ Warn --> End(["结束"])
   - 不对市场走势做确定性承诺，仅提供数据参考
   - 工具失败时禁止伪造结果，必须显式说明不确定性
 - 用户提示策略
-  - 在响应中附加“数据来自工具查询，非模型主观生成”
+  - 在响应中附加"数据来自工具查询，非模型主观生成"
   - 对高风险问题（如重仓买入）给出保守建议与免责声明
   - 提示用户自行评估市场风险，谨慎决策
 
@@ -246,7 +262,9 @@ Warn --> End(["结束"])
   - 统一错误码与消息格式，便于上层处理
 - 降级策略
   - 优先返回缓存数据，同时异步刷新
-  - 对关键字段缺失时，返回部分数据并标注“数据不完整”
+  - 对关键字段缺失时，返回部分数据并标注"数据不完整"
+
+**更新** 当前实现使用ethers库的JsonRpcProvider和getFeeData方法，提供更可靠的Fee Data获取
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:159-171](file://docs/Web3-AI-Agent-PRD-MVP.md#L159-L171)
@@ -307,6 +325,8 @@ ORG --> SKILL["web3-ai-agent<br/>总入口"]
   - 检查缓存TTL与刷新策略
   - 优化去抖与合并策略，避免过度延迟
 
+**更新** 当前实现支持环境变量配置ETHEREUM_RPC_URL，可自定义RPC节点
+
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:159-171](file://docs/Web3-AI-Agent-PRD-MVP.md#L159-L171)
 
@@ -322,3 +342,9 @@ Gas价格查询工具作为Web3-AI-Agent MVP的重要组成部分，需在严格
   - [Web3-AI-Agent-PRD-MVP.md](file://docs/Web3-AI-Agent-PRD-MVP.md)
   - [COMMANDS.md](file://skills/web3-ai-agent/COMMANDS.md)
   - [SKILL.md](file://skills/web3-ai-agent/SKILL.md)
+- 代码示例
+  - [gas.ts](file://packages/web3-tools/src/gas.ts)
+  - [types.ts](file://packages/web3-tools/src/types.ts)
+  - [route.ts](file://apps/web/app/api/tools/route.ts)
+
+**更新** 新增了RPC节点配置和Fee Data获取的实现细节，提供了更完整的代码示例路径
