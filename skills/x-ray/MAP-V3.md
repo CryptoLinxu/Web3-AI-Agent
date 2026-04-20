@@ -1,7 +1,119 @@
 # Web3 AI Agent Skill Map V3
 
 > 最后更新：2026-04-17  
-> 当前阶段：全局模型切换功能已完成（Audit 99分）→ 可继续其他功能开发或测试验证
+> 当前阶段：项目归档沉淀完成 → MVP 可展示，待补充测试和部署文档
+
+## 项目状态速览
+
+| 模块 | 状态 | 说明 |
+|------|------|------|
+| 项目初始化 | ✅ 完成 | Monorepo + Next.js + Web3 工具 |
+| 模型切换功能 | ✅ 完成 | 支持 OpenAI/Anthropic，Audit 99分 |
+| Chat UI | ✅ 可用 | 基础对话 + 工具调用 |
+| 归档沉淀 | ✅ 完成 | 已完成 digest + update-map |
+| 待补充 | 🔄 待办 | 测试覆盖、部署文档、CI/CD |
+
+## 已完成能力清单
+
+### 核心功能
+- ✅ **Chat UI**：基础聊天界面，消息列表，工具结果展示
+- ✅ **多模型支持**：OpenAI + Anthropic 双模型切换
+- ✅ **Web3 工具**：ETH 价格、钱包余额、Gas 价格查询
+- ✅ **Agent Loop**：意图识别 → 工具调用 → 结果回填 → 回复生成
+- ✅ **工具调用**：3 个核心 Web3 工具已接入
+
+### 工程能力
+- ✅ **Monorepo**：pnpm workspace + turbo 构建
+- ✅ **类型安全**：TypeScript 全项目覆盖
+- ✅ **配置管理**：环境变量驱动模型切换
+- ✅ **统一接口**：`ILLMProvider` 适配器模式
+
+### 文档体系
+- ✅ [README.md](/README.md) - 项目总览
+- ✅ [ARCHITECTURE.md](/ARCHITECTURE.md) - 架构设计
+- ✅ [PRD-MVP.md](/docs/Web3-AI-Agent-PRD-MVP.md) - 产品需求
+- ✅ [里程碑 Checklist](/docs/Web3-AI-Agent-项目里程碑-Checklist.md) - 进度跟踪
+- ✅ [Skill Map](/skills/x-ray/MAP-V3.md) - 技能地图
+
+## 使用方式
+
+```bash
+# 1. 安装依赖
+pnpm install
+
+# 2. 配置环境变量
+cp apps/web/.env.example apps/web/.env.local
+# 编辑 .env.local 填入 OPENAI_API_KEY
+
+# 3. 启动开发服务器
+pnpm dev
+# 访问 http://localhost:3000
+```
+
+代码中使用：
+```typescript
+import { LLMFactory } from '@web3-ai-agent/ai-config'
+const provider = LLMFactory.getProvider()
+const response = await provider.chat(messages, { tools })
+```
+
+## 项目结构
+
+```
+AI-Agent/
+├── apps/
+│   └── web/                    # Next.js Web 应用
+│       ├── app/
+│       │   ├── api/
+│       │   │   ├── chat/       # 对话 API（使用 ai-config）
+│       │   │   └── tools/      # 工具 API
+│       │   └── page.tsx        # Chat UI
+│       └── .env.example        # 多模型配置示例
+├── packages/
+│   ├── ai-config/              # AI 模型配置包
+│   │   ├── src/
+│   │   │   ├── types.ts        # 统一类型定义
+│   │   │   ├── config.ts       # 配置管理
+│   │   │   ├── factory.ts      # LLM 工厂
+│   │   │   └── providers/      # 提供商适配器
+│   │   │       ├── openai.ts   # OpenAI 适配器
+│   │   │       └── anthropic.ts # Anthropic 适配器
+│   │   └── package.json
+│   └── web3-tools/             # Web3 工具包
+├── docs/                       # 项目文档
+├── skills/x-ray/               # Skill 体系
+└── README.md
+```
+
+## 待办事项（下一步）
+
+### 高优先级
+- [ ] **测试覆盖**：为核心功能添加单元测试和集成测试
+- [ ] **部署文档**：补充生产环境部署指南
+- [ ] **Anthropic 验证**：实际测试 Anthropic 工具调用链
+
+### 中优先级
+- [ ] **流式响应**：实现 SSE 流式输出
+- [ ] **持久化存储**：添加数据库保存对话历史
+- [ ] **API 文档**：补充详细 API 接口文档
+
+### 低优先级
+- [ ] **CI/CD**：自动化测试和部署流程
+- [ ] **监控告警**：运行时监控和错误告警
+- [ ] **更多模型**：支持本地模型、Azure OpenAI 等
+
+## 下一步建议入口
+
+- `/origin` - 新任务入口
+- `/browser-verify` - 浏览器验收测试
+- `/explore` - 探索项目现状
+- `/pipeline feat` - 开发新功能（如流式响应）
+- `/pipeline patch` - 修复测试中发现的问题
+
+## 历史状态
+
+> 2026-04-17：全局模型切换功能已完成（Audit 99分）→ 可继续其他功能开发或测试验证  
+> 2026-04-17：阶段 1 完成（项目初始化）→ 准备进入阶段 2（PRD 已就绪）
 
 ## 项目状态速览
 
