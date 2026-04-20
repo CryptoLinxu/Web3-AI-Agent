@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ethers } from 'ethers'
+import { HttpsProxyAgent } from 'https-proxy-agent'
+import fetch from 'node-fetch'
+
+// 创建代理 agent
+const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY
+const proxyAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined
+
+if (proxyAgent) {
+  console.log('✅ 代理已配置:', proxyUrl)
+}
 
 interface ToolRequest {
   name: string
@@ -8,30 +18,53 @@ interface ToolRequest {
 
 // 工具实现
 async function getETHPrice() {
-  try {
-    // 使用 CoinGecko API 获取 ETH 价格
-    const response = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true',
-      { next: { revalidate: 60 } }
-    )
+  // 使用国内可访问的数据源
+  const sources = [
+    {
+      name: 'Binance CN',
+      url: 'https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT',
+      parse: (data: any) => ({
+        price: parseFloat(data.price),
+        change24h: 0,
+        currency: 'USD',
+      }),
+    },
+    {
+      name: 'Huobi',
+      url: 'https://api.huobi.pro/market/detail/merged?symbol=ethusdt',
+      parse: (data: any) => ({
+        price: data.tick.close,
+        change24h: ((data.tick.close - data.tick.open) / data.tick.open) * 100,
+        currency: 'USD',
+      }),
+    },
+  ]
 
-    if (!response.ok) {
-      throw new Error('价格数据获取失败')
+  for (const source of sources) {
+    try {
+      const response = await fetch(source.url, { 
+        signal: AbortSignal.timeout(10000), // 10秒超时
+        agent: proxyAgent // 使用代理
+      })
+      if (!response.ok) continue
+      
+      const data = await response.json()
+      const priceData = source.parse(data)
+      
+      return {
+        ...priceData,
+        source: source.name,
+        timestamp: new Date().toISOString(),
+      }
+    } catch (error) {
+      console.warn(`${source.name} 数据源失败:`, error)
+      continue
     }
+  }
 
-    const data = await response.json()
-    return {
-      price: data.ethereum.usd,
-      change24h: data.ethereum.usd_24h_change,
-      currency: 'USD',
-      source: 'CoinGecko',
-      timestamp: new Date().toISOString(),
-    }
-  } catch (error) {
-    return {
-      error: true,
-      message: error instanceof Error ? error.message : '获取价格失败',
-    }
+  return {
+    error: true,
+    message: '所有价格数据源都不可用',
   }
 }
 

@@ -10,13 +10,16 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "14.2.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "@web3-ai-agent/ai-config": "workspace:*",
+    "@web3-ai-agent/web3-tools": "workspace:*",
     "ai": "^3.0.0",
     "ethers": "^6.11.0",
-    "@web3-ai-agent/web3-tools": "workspace:*",
-    "@web3-ai-agent/ai-config": "workspace:*"
+    "https-proxy-agent": "^9.0.0",
+    "next": "14.2.0",
+    "node-fetch": "3",
+    "proxy-agent": "^8.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@types/node": "^20",
