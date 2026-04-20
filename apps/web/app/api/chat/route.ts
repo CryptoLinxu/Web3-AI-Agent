@@ -92,7 +92,17 @@ export async function POST(request: NextRequest) {
     ]
 
     // 第一次调用：让模型决定是否需要工具
+    console.log('\n========== 第 1 次 API 调用 ==========')
+    console.log('📤 发送给 AI 的消息:')
+    console.log(JSON.stringify(chatMessages, null, 2))
+    console.log('\n🔧 工具定义:')
+    console.log(JSON.stringify(tools, null, 2))
+    
     const response = await provider.chat(chatMessages, { tools })
+    
+    console.log('\n📥 AI 的回复:')
+    console.log(JSON.stringify(response, null, 2))
+    console.log('======================================\n')
 
     // 如果需要调用工具
     if (response.toolCalls && response.toolCalls.length > 0) {
@@ -152,7 +162,15 @@ export async function POST(request: NextRequest) {
       ]
 
       // 第二次调用：让模型基于工具结果生成回复
+      console.log('\n========== 第 2 次 API 调用 ==========')
+      console.log('📤 带工具结果的消息:')
+      console.log(JSON.stringify(messagesWithToolResults, null, 2))
+      
       const secondResponse = await provider.chat(messagesWithToolResults)
+      
+      console.log('\n📥 最终回复:')
+      console.log(secondResponse.content)
+      console.log('======================================\n')
 
       return NextResponse.json({
         content: secondResponse.content,
