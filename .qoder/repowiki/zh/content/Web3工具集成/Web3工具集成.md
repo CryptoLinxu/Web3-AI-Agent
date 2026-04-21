@@ -22,11 +22,10 @@
 
 ## 更新摘要
 **变更内容**
-- 更新架构说明以反映从API路由调用改为直接包导入的架构重构
-- 新增代理支持、多数据源容错、超时处理等新功能特性
-- 更新工具实现位置至packages/web3-tools/src/目录
-- 更新依赖管理为monorepo包结构
-- 更新API接口文档以反映新的工具调用方式
+- 新增BTC价格查询功能，现支持ETH和BTC两种主流加密货币的价格查询
+- 更新工具调用API以包含BTC价格查询工具
+- 更新系统提示和前端展示以反映扩展后的功能范围
+- 保持原有的代理支持、多数据源容错、超时处理等增强功能
 
 ## 目录
 1. [简介](#简介)
@@ -41,9 +40,9 @@
 10. [附录](#附录)
 
 ## 简介
-本文件面向Web3开发者，系统化阐述AI-Agent项目的Web3工具集成方案。项目已从概念设计升级为完整实现，包含ETH价格查询、钱包余额查询、Gas价格查询等核心工具，以及完整的工具抽象层设计。围绕"工具抽象层、工具调用接口、数据格式化与错误处理策略"，结合MVP阶段的三大核心工具进行设计与实现指导；并提供扩展机制、API接口文档、性能优化与故障恢复建议，帮助团队在可控风险边界内构建可演进的Web3数据服务能力。
+本文件面向Web3开发者，系统化阐述AI-Agent项目的Web3工具集成方案。项目已从概念设计升级为完整实现，包含ETH和BTC价格查询、钱包余额查询、Gas价格查询等核心工具，以及完整的工具抽象层设计。围绕"工具抽象层、工具调用接口、数据格式化与错误处理策略"，结合MVP阶段的四大核心工具进行设计与实现指导；并提供扩展机制、API接口文档、性能优化与故障恢复建议，帮助团队在可控风险边界内构建可演进的Web3数据服务能力。
 
-**更新** 项目现已完成架构重构，采用monorepo包管理模式，工具实现迁移至packages/web3-tools/src/目录，支持代理配置、多数据源容错和超时处理等增强功能。
+**更新** 项目现已集成BTC价格查询功能，现支持ETH和BTC两种主流加密货币的价格查询，增强了Web3工具包的功能完整性。
 
 ## 项目结构
 该项目采用"技能系统（Skill System）+ 工具层 + API层"的分层组织方式，现已升级为monorepo架构：
@@ -80,14 +79,15 @@ I --> L["公共RPC节点<br/>llamarpc.com"]
 - 工具抽象层
   - 设计理念：将Web3数据查询抽象为标准化工具，统一输入/输出契约、错误处理与降级策略，保证Agent在不同数据源间平滑切换。
   - 关键属性：工具名称、输入参数、输出结构、错误码、降级策略、数据来源标识。
-- 三大核心工具
+- 四大核心工具
   - ETH价格查询：支持多数据源容错（Binance/Huobi），内置代理支持和10秒超时处理，返回ETH价格与24小时变化率。
+  - BTC价格查询：支持多数据源容错（Binance/Huobi），内置代理支持和10秒超时处理，返回BTC价格与24小时变化率。
   - 钱包余额查询：校验钱包地址合法性，查询链上ETH余额并标注数据来源，支持自定义RPC节点。
   - Gas价格查询：检查网络可用性，返回当前Gas价格（基础/优先级/乐观），支持自定义RPC节点。
 - 错误处理与降级
   - 参数无效、外部API超时、网络不可用、工具失败等场景均需返回可理解的失败说明与保守建议，避免伪造数据。
 
-**更新** 新增代理支持、多数据源容错、超时处理等增强功能，提升工具的可靠性和可用性。
+**更新** 新增BTC价格查询工具，现支持ETH和BTC两种主流加密货币的价格查询，同时保持原有的代理支持、多数据源容错、超时处理等增强功能。
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:84-156](file://docs/Web3-AI-Agent-PRD-MVP.md#L84-L156)
@@ -96,7 +96,7 @@ I --> L["公共RPC节点<br/>llamarpc.com"]
 ## 架构总览
 Web3工具集成的总体架构由"技能系统路由 + 工具层 + API层 + 外部数据源"四层组成。技能系统负责任务识别与流程编排，工具层负责数据获取与结果格式化，API层提供统一接口，外部数据源包括链上节点、价格API与第三方Web3数据提供商。
 
-**更新** 架构已重构为monorepo模式，工具实现位于packages/web3-tools/src/目录，通过包导入方式直接调用，提升性能和可维护性。
+**更新** 架构已重构为monorepo模式，工具实现位于packages/web3-tools/src/目录，通过包导入方式直接调用，提升性能和可维护性。现已集成BTC价格查询功能，支持ETH和BTC两种主流加密货币的价格查询。
 
 ```mermaid
 graph TB
@@ -113,19 +113,21 @@ API --> CHAT["聊天API<br/>/api/chat"]
 end
 subgraph "工具层"
 T --> W1["ETH价格查询<br/>getETHPrice<br/>多数据源容错"]
-T --> W2["钱包余额查询<br/>getWalletBalance<br/>地址验证"]
-T --> W3["Gas价格查询<br/>getGasPrice<br/>RPC节点支持"]
+T --> W2["BTC价格查询<br/>getBTCPrice<br/>多数据源容错"]
+T --> W3["钱包余额查询<br/>getWalletBalance<br/>地址验证"]
+T --> W4["Gas价格查询<br/>getGasPrice<br/>RPC节点支持"]
 end
 subgraph "外部数据源"
 W1 --> EX1["Binance CN<br/>Huobi<br/>价格API"]
-W2 --> EX2["Ethereum RPC<br/>llamarpc.com"]
-W3 --> EX3["公共RPC节点<br/>自定义RPC支持"]
+W2 --> EX1
+W3 --> EX2["Ethereum RPC<br/>llamarpc.com"]
+W4 --> EX3["公共RPC节点<br/>自定义RPC支持"]
 end
 ```
 
 **图表来源**
-- [apps/web/app/api/tools/route.ts:1-47](file://apps/web/app/api/tools/route.ts#L1-L47)
-- [apps/web/app/api/chat/route.ts:1-185](file://apps/web/app/api/chat/route.ts#L1-L185)
+- [apps/web/app/api/tools/route.ts:1-50](file://apps/web/app/api/tools/route.ts#L1-L50)
+- [apps/web/app/api/chat/route.ts:1-219](file://apps/web/app/api/chat/route.ts#L1-L219)
 - [packages/web3-tools/src/index.ts:1-7](file://packages/web3-tools/src/index.ts#L1-L7)
 
 ## 详细组件分析
@@ -143,7 +145,7 @@ end
   - 缓存命中：优先返回缓存结果，设置TTL与失效策略
   - 保守回复：失败时不输出虚构数据，明确标注"数据来源未知"
 
-**更新** 新增代理支持和超时处理机制，提升工具的稳定性和可靠性。
+**更新** 新增BTC价格查询工具，保持原有的代理支持和超时处理机制，提升工具的稳定性和可靠性。
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:174-197](file://docs/Web3-AI-Agent-PRD-MVP.md#L174-L197)
@@ -185,6 +187,44 @@ ErrParam --> Done
 
 **章节来源**
 - [packages/web3-tools/src/price.ts:16-84](file://packages/web3-tools/src/price.ts#L16-L84)
+
+### BTC价格查询工具
+- 数据获取机制
+  - 使用多数据源容错机制，支持Binance CN和Huobi价格API
+  - 内置代理支持，支持HTTPS_PROXY和HTTP_PROXY环境变量
+  - 10秒超时限制，确保响应及时性
+  - 返回价格数值、24小时变化百分比、货币单位
+- 数据格式化
+  - 数值保留合理精度，单位统一为USD
+  - 结果中明确标注"数据来自Binance/Huobi"
+- 错误处理
+  - API不可达：返回"所有价格数据源都不可用，请稍后重试"
+  - 解析失败：返回"数据解析异常，无法生成价格结果"
+
+```mermaid
+flowchart TD
+Start(["开始"]) --> Proxy["检查代理配置<br/>HTTPS_PROXY/HTTP_PROXY"]
+Proxy --> Validate["校验输入参数"]
+Validate --> Valid{"参数有效?"}
+Valid --> |否| ErrParam["返回参数无效"]
+Valid --> |是| Loop["遍历数据源列表"]
+Loop --> TryBinance["尝试Binance CN"]
+TryBinance --> BinOk{"Binance成功?"}
+BinOk --> |是| Format["格式化结果<br/>含来源/时间戳"]
+BinOk --> |否| TryHuobi["尝试Huobi"]
+TryHuobi --> HuoOk{"Huobi成功?"}
+HuoOk --> |是| Format
+HuoOk --> |否| ErrAll["所有数据源失败"]
+ErrAll --> Done(["结束"])
+Format --> Done
+ErrParam --> Done
+```
+
+**图表来源**
+- [packages/web3-tools/src/price.ts:89-153](file://packages/web3-tools/src/price.ts#L89-L153)
+
+**章节来源**
+- [packages/web3-tools/src/price.ts:85-153](file://packages/web3-tools/src/price.ts#L85-L153)
 
 ### 钱包余额查询工具
 - 地址验证与余额获取流程
@@ -262,7 +302,7 @@ ErrFee --> Done
   - 在技能系统中注册工具，确保Agent可调用
   - 编写测试用例与异常路径验证
 
-**更新** 新增代理支持和超时处理机制，提升工具的稳定性和可用性。
+**更新** 新增BTC价格查询工具，扩展了工具系统的功能范围，同时保持了良好的扩展机制。
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:143-156](file://docs/Web3-AI-Agent-PRD-MVP.md#L143-L156)
@@ -279,7 +319,7 @@ ErrFee --> Done
   - @web3-ai-agent/web3-tools包提供核心工具功能
   - @web3-ai-agent/web应用依赖工具包
 
-**更新** 依赖管理已迁移到monorepo模式，使用pnpm workspace进行包管理。
+**更新** 依赖管理已迁移到monorepo模式，使用pnpm workspace进行包管理。BTC价格查询工具与ETH价格查询工具共享相同的外部依赖。
 
 ```mermaid
 graph LR
@@ -325,7 +365,7 @@ END
   - HTTP请求设置10秒超时限制
   - RPC调用使用ethers提供的超时机制
 
-**更新** 新增代理支持、超时处理等性能优化措施，提升工具的稳定性和响应速度。
+**更新** 新增BTC价格查询工具后，缓存策略同样适用于BTC价格数据，保持了统一的性能优化策略。
 
 ## 故障排查指南
 - 常见问题与处理
@@ -343,15 +383,15 @@ END
   - 查看工具返回的source字段确认数据来源
   - 检查工具调用的timestamp和error字段
 
-**更新** 新增代理配置和超时处理相关的故障排查指南。
+**更新** 新增BTC价格查询工具的故障排查指南，包括BTC价格数据源的可用性检查和错误处理。
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:174-197](file://docs/Web3-AI-Agent-PRD-MVP.md#L174-L197)
 
 ## 结论
-本方案以"技能系统路由 + 工具层抽象 + API层 + 外部数据源"为核心，围绕MVP三大工具构建了可演进的Web3数据服务能力。通过标准化接口、统一错误处理与降级策略，以及可插拔的扩展机制，团队可在可控风险边界内持续迭代，逐步完善多链支持与高级能力。
+本方案以"技能系统路由 + 工具层抽象 + API层 + 外部数据源"为核心，围绕MVP四大工具构建了可演进的Web3数据服务能力。通过标准化接口、统一错误处理与降级策略，以及可插拔的扩展机制，团队可在可控风险边界内持续迭代，逐步完善多链支持与高级能力。
 
-**更新** 架构重构完成后，系统采用monorepo包管理模式，工具实现更加模块化和可维护，新增的代理支持、多数据源容错和超时处理等功能显著提升了系统的稳定性和可靠性。
+**更新** 架构重构完成后，系统采用monorepo包管理模式，工具实现更加模块化和可维护。新增的BTC价格查询功能显著增强了系统的功能完整性，现支持ETH和BTC两种主流加密货币的价格查询，同时保持了原有的代理支持、多数据源容错和超时处理等功能，进一步提升了系统的稳定性和可靠性。
 
 ## 附录
 
@@ -359,6 +399,12 @@ END
 - ETH价格查询
   - 方法：GET
   - 路径：/api/tools/getETHPrice
+  - 请求参数：无
+  - 成功响应：包含price、change24h、currency字段
+  - 失败响应：包含error字段
+- BTC价格查询
+  - 方法：GET
+  - 路径：/api/tools/getBTCPrice
   - 请求参数：无
   - 成功响应：包含price、change24h、currency字段
   - 失败响应：包含error字段
@@ -375,10 +421,10 @@ END
   - 成功响应：包含gasPrice、maxFeePerGas、maxPriorityFeePerGas、unit字段
   - 失败响应：包含error字段
 
-**更新** API接口文档保持不变，工具调用方式已从直接调用改为通过API路由间接调用。
+**更新** 新增BTC价格查询API接口，现支持四种Web3工具的统一API调用。
 
 **章节来源**
-- [apps/web/app/api/tools/route.ts:9-47](file://apps/web/app/api/tools/route.ts#L9-L47)
+- [apps/web/app/api/tools/route.ts:9-50](file://apps/web/app/api/tools/route.ts#L9-L50)
 
 ### 工具调用示例
 - 前端调用流程
@@ -389,25 +435,26 @@ END
   - 生成最终回复并返回给前端
 - 直接触发方式
   - 直接导入@web3-ai-agent/web3-tools包
-  - 调用getETHPrice、getWalletBalance、getGasPrice函数
+  - 调用getETHPrice、getBTCPrice、getWalletBalance、getGasPrice函数
   - 处理返回的ToolResult对象
 
-**更新** 新增直接包导入调用方式，支持两种调用模式：
+**更新** 新增BTC价格查询工具的直接调用方式，支持四种Web3工具的统一调用。
 
 **章节来源**
-- [apps/web/app/api/chat/route.ts:77-185](file://apps/web/app/api/chat/route.ts#L77-L185)
+- [apps/web/app/api/chat/route.ts:77-219](file://apps/web/app/api/chat/route.ts#L77-L219)
 - [apps/web/app/page.tsx:42-105](file://apps/web/app/page.tsx#L42-L105)
 
 ### 类型定义
 - ToolResult：工具调用结果的标准格式
 - ETHPriceData：ETH价格数据结构
+- BTCPriceData：BTC价格数据结构
 - WalletBalanceData：钱包余额数据结构
 - GasPriceData：Gas价格数据结构
 
-**更新** 类型定义保持不变，位于packages/web3-tools/src/types.ts中。
+**更新** 新增BTCPriceData类型定义，与ETHPriceData保持一致的数据结构。
 
 **章节来源**
-- [packages/web3-tools/src/types.ts:1-34](file://packages/web3-tools/src/types.ts#L1-L34)
+- [packages/web3-tools/src/types.ts:1-40](file://packages/web3-tools/src/types.ts#L1-L40)
 
 ### 环境变量配置
 - RPC节点配置
@@ -420,4 +467,4 @@ END
   - HTTP请求超时：10秒
   - RPC调用超时：由ethers库处理
 
-**更新** 新增代理支持和超时处理相关的环境变量配置说明。
+**更新** BTC价格查询工具同样支持代理配置和超时处理，保持与ETH价格查询工具的一致性。

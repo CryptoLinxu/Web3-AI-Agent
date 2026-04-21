@@ -42,18 +42,18 @@ route -> define(按需) -> check-in -> design(按需) -> build -> closeout
 
 ### 4.1 FEAT Pipeline（完整流程）
 ```
-origin -> pipeline(FEAT) -> pm(按需) -> prd -> req -> check-in -> architect -> qa -> coder -> audit -> digest -> changelog -> update-map
+origin -> pipeline(FEAT) -> pm(按需) -> prd -> req -> check-in -> architect -> qa -> coder -> audit -> digest -> changelog -> project-checklist -> update-map
 ```
 
 ### 4.2 PATCH Pipeline（快速流程）
 ```
-origin -> pipeline(PATCH) -> req -> check-in -> coder -> qa -> digest -> changelog -> update-map
+origin -> pipeline(PATCH) -> req -> check-in -> coder -> qa -> digest -> changelog -> project-checklist -> update-map
 ```
 - 按需插入：architect（涉及结构变化）、audit（涉及安全/资金）
 
 ### 4.3 REFACTOR Pipeline（设计优先）
 ```
-origin -> pipeline(REFACTOR) -> req -> check-in -> architect -> qa -> coder -> audit(轻/重) -> digest -> changelog -> update-map
+origin -> pipeline(REFACTOR) -> req -> check-in -> architect -> qa -> coder -> audit(轻/重) -> digest -> changelog -> project-checklist -> update-map
 ```
 
 ## 5. 执行硬规则
@@ -84,7 +84,7 @@ origin -> pipeline(REFACTOR) -> req -> check-in -> architect -> qa -> coder -> a
 /check-in        - 实施前对齐
 /architect       - 结构设计
 /qa /coder /audit - 交付执行
-/digest /changelog /update-map - 收尾闭环
+/digest /changelog /project-checklist /update-map - 收尾闭环
 /explore         - 只读探索
 /init-docs       - 初始化文档
 /browser-verify  - 浏览器验收
@@ -112,5 +112,6 @@ origin -> pipeline(REFACTOR) -> req -> check-in -> architect -> qa -> coder -> a
 | [TEMPLATES-V3.md](/skills/x-ray/TEMPLATES-V3.md) | 模板库 |
 | [MAP-V3.md](/skills/x-ray/MAP-V3.md) | 技能地图 |
 | [docs/changelog/](/docs/changelog/README.md) | 变更历史记录（AI 上下文） |
+| [docs/checklist/](/docs/checklist/PROJECT-CHECKLIST.md) | 项目清单与规划（自我进化） |
 
 > **注意**：虽然 web3-ai-agent 是项目总入口概念，但实际执行时必须使用 `/origin` 命令进入路由，不允许直接调用子 skill。
