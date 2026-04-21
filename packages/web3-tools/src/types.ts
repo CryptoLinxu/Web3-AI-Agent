@@ -14,6 +14,12 @@ export interface ETHPriceData {
   currency: string
 }
 
+export interface BTCPriceData {
+  price: number
+  change24h: number
+  currency: string
+}
+
 export interface WalletBalanceData {
   address: string
   balance: string

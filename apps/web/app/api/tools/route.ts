@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getETHPrice, getWalletBalance, getGasPrice } from '@web3-ai-agent/web3-tools'
+import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice } from '@web3-ai-agent/web3-tools'
 
 interface ToolRequest {
   name: string
@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
         break
       case 'getGasPrice':
         result = await getGasPrice()
+        break
+      case 'getBTCPrice':
+        result = await getBTCPrice()
         break
       default:
         result = {

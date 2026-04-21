@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { LLMFactory } from '@web3-ai-agent/ai-config'
 import { Tool, Message } from '@web3-ai-agent/ai-config'
 import { ChatRequest } from '@/types/chat'
-import { getETHPrice, getWalletBalance, getGasPrice } from '@web3-ai-agent/web3-tools'
+import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice } from '@web3-ai-agent/web3-tools'
 
 // 工具定义
 const tools: Tool[] = [
@@ -47,6 +47,18 @@ const tools: Tool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'getBTCPrice',
+      description: '获取 BTC 当前价格（美元）',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
 ]
 
 // 系统 Prompt
@@ -54,6 +66,7 @@ const SYSTEM_PROMPT = `你是 Web3 AI Agent，一个专门帮助用户查询 Web
 
 ## 你的能力
 - 查询 ETH 实时价格
+- 查询 BTC 实时价格
 - 查询以太坊钱包余额
 - 查询当前 Gas 价格
 
@@ -125,6 +138,9 @@ export async function POST(request: NextRequest) {
               break
             case 'getGasPrice':
               result = await getGasPrice()
+              break
+            case 'getBTCPrice':
+              result = await getBTCPrice()
               break
             default:
               result = {
