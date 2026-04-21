@@ -174,27 +174,64 @@ export class AnthropicAdapter implements ILLMProvider {
         stream: true,
       })
 
+      // 工具调用参数缓冲区（Anthropic 通过 input_json_delta 分片传输）
+      const toolUseBuffers: Record<string, {
+        id: string
+        name: string
+        inputJson: string
+      }> = {}
+
       for await (const chunk of stream) {
         if (chunk.type === 'content_block_delta') {
           const delta = chunk.delta
           if (delta.type === 'text_delta') {
             yield { type: 'content', content: delta.text || '' }
           }
+          if (delta.type === 'input_json_delta') {
+            // 累加工具参数 JSON 分片
+            const blockIndex = chunk.index.toString()
+            if (toolUseBuffers[blockIndex]) {
+              toolUseBuffers[blockIndex].inputJson += delta.partial_json || ''
+            }
+          }
         }
 
         if (chunk.type === 'content_block_start') {
           const contentBlock = chunk.content_block
           if (contentBlock.type === 'tool_use') {
-            yield {
-              type: 'tool_call',
-              toolCall: {
-                id: contentBlock.id,
-                type: 'function',
-                function: {
-                  name: contentBlock.name,
-                  arguments: JSON.stringify(contentBlock.input),
+            const blockIndex = chunk.index.toString()
+            // 初始化缓冲区，input 先置为空 JSON
+            toolUseBuffers[blockIndex] = {
+              id: contentBlock.id,
+              name: contentBlock.name,
+              inputJson: JSON.stringify(contentBlock.input || {}),
+            }
+          }
+        }
+
+        if (chunk.type === 'content_block_stop') {
+          const blockIndex = chunk.index.toString()
+          const buf = toolUseBuffers[blockIndex]
+          if (buf) {
+            // 尝试解析完整参数，确认 JSON 合法后再 yield
+            try {
+              const input = JSON.parse(buf.inputJson)
+              yield {
+                type: 'tool_call',
+                toolCall: {
+                  id: buf.id,
+                  type: 'function',
+                  function: {
+                    name: buf.name,
+                    arguments: JSON.stringify(input),
+                  },
                 },
-              },
+              }
+              delete toolUseBuffers[blockIndex]
+            } catch {
+              // JSON 不完整，跳过（理论上不应发生，但做防御）
+              console.warn('Anthropic tool_use 参数 JSON 解析失败:', buf.inputJson)
+              delete toolUseBuffers[blockIndex]
             }
           }
         }

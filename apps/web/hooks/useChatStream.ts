@@ -34,6 +34,7 @@ export function useChatStream(): UseChatStreamReturn {
   const contentBufferRef = useRef('')
   const lastUpdateTimeRef = useRef(0)
   const throttledUpdateRef = useRef<number | null>(null)
+  const toolCallsBufferRef = useRef<ToolCallUIState[]>([])
 
   // 清理函数
   useEffect(() => {
@@ -127,12 +128,20 @@ export function useChatStream(): UseChatStreamReturn {
 
       case 'tool_call':
         if (chunk.toolCall) {
+          let args: Record<string, unknown> = {}
+          try {
+            args = JSON.parse(chunk.toolCall.function.arguments)
+          } catch {
+            console.error('工具参数解析失败:', chunk.toolCall.function.arguments)
+          }
           const toolCall: ToolCallUIState = {
             id: chunk.toolCall.id,
             name: chunk.toolCall.function.name,
-            arguments: JSON.parse(chunk.toolCall.function.arguments),
+            arguments: args,
             status: 'running',
           }
+          // 同时更新 ref 和 state
+          toolCallsBufferRef.current = [...toolCallsBufferRef.current, toolCall]
           setToolCalls((prev) => [...prev, toolCall])
         }
         break
@@ -164,11 +173,20 @@ export function useChatStream(): UseChatStreamReturn {
     contentBufferRef.current = ''
     lastUpdateTimeRef.current = 0
 
-    abortControllerRef.current = new AbortController()
-
     let retryCount = 0
+    // 重置工具调用收集缓冲区
+    toolCallsBufferRef.current = []
 
     while (retryCount <= MAX_RETRIES) {
+      // 每次重试前重置缓冲区和状态
+      contentBufferRef.current = ''
+      lastUpdateTimeRef.current = 0
+      setContent('')
+      // 注意：不重置 setToolCalls，保留已收集的工具调用状态
+
+      // 每次重试创建新的 AbortController
+      abortControllerRef.current = new AbortController()
+
       try {
         const controller = abortControllerRef.current
         const timeoutId = setTimeout(() => controller?.abort(), TIMEOUT_MS)
@@ -186,6 +204,10 @@ export function useChatStream(): UseChatStreamReturn {
         clearTimeout(timeoutId)
 
         if (!response.ok) {
+          // 4xx 客户端错误不重试
+          if (response.status >= 400 && response.status < 500) {
+            throw new Error(`客户端错误 ${response.status}: ${response.statusText}`)
+          }
           throw new Error(`HTTP ${response.status}: ${response.statusText}`)
         }
 
@@ -194,7 +216,7 @@ export function useChatStream(): UseChatStreamReturn {
         // 同步返回最终结果（避免 React state 延迟）
         return {
           content: contentBufferRef.current,
-          toolCalls: [], // 在 consumeStream 中已经通过 setToolCalls 更新了
+          toolCalls: toolCallsBufferRef.current,
         }
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : '未知错误'
@@ -203,14 +225,21 @@ export function useChatStream(): UseChatStreamReturn {
         if (err instanceof DOMException && err.name === 'AbortError') {
           setError('请求已取消')
           setIsStreaming(false)
-          return { content: contentBufferRef.current, toolCalls: [] }
+          return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current }
+        }
+
+        // 客户端错误不重试
+        if (errorMessage.startsWith('客户端错误')) {
+          setError(`请求失败: ${errorMessage}`)
+          setIsStreaming(false)
+          return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current }
         }
 
         retryCount++
         if (retryCount > MAX_RETRIES) {
           setError(`请求失败: ${errorMessage}`)
           setIsStreaming(false)
-          return { content: contentBufferRef.current, toolCalls: [] }
+          return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current }
         }
 
         // 等待 1s 后重试
@@ -219,7 +248,7 @@ export function useChatStream(): UseChatStreamReturn {
     }
 
     // 理论上不会执行到这里，但 TypeScript 需要返回值
-    return { content: contentBufferRef.current, toolCalls: [] }
+    return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current }
   }, [consumeStream])
 
   // 中止请求

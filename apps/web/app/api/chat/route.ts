@@ -198,29 +198,38 @@ export async function POST(request: NextRequest) {
           async start(controller) {
             const encoder = new TextEncoder()
 
-            // 发送工具调用信息
-            for (const tc of toolCalls) {
-              const chunk: StreamChunk = {
-                type: 'tool_call',
-                toolCall: {
-                  id: tc.id,
-                  type: 'function',
-                  function: {
-                    name: tc.name,
-                    arguments: JSON.stringify(tc.arguments),
+            try {
+              // 发送工具调用信息
+              for (const tc of toolCalls) {
+                const chunk: StreamChunk = {
+                  type: 'tool_call',
+                  toolCall: {
+                    id: tc.id,
+                    type: 'function',
+                    function: {
+                      name: tc.name,
+                      arguments: JSON.stringify(tc.arguments),
+                    },
                   },
-                },
+                }
+                controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(chunk)}\n\n`))
               }
-              controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(chunk)}\n\n`))
-            }
 
-            // 流式输出最终回复
-            const secondStream = provider.chatStream(messagesWithToolResults)
-            for await (const chunk of secondStream) {
-              controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(chunk)}\n\n`))
-            }
+              // 流式输出最终回复
+              const secondStream = provider.chatStream(messagesWithToolResults)
+              for await (const chunk of secondStream) {
+                controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(chunk)}\n\n`))
+              }
 
-            controller.close()
+              controller.close()
+            } catch (err) {
+              const errorChunk: StreamChunk = {
+                type: 'error',
+                error: err instanceof Error ? err.message : '流式输出失败',
+              }
+              controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(errorChunk)}\n\n`))
+              controller.close()
+            }
           },
         })
 
@@ -229,6 +238,7 @@ export async function POST(request: NextRequest) {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
           },
         })
       }
@@ -252,12 +262,21 @@ export async function POST(request: NextRequest) {
         async start(controller) {
           const encoder = new TextEncoder()
 
-          const streamResponse = provider.chatStream(chatMessages, { tools })
-          for await (const chunk of streamResponse) {
-            controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(chunk)}\n\n`))
-          }
+          try {
+            const streamResponse = provider.chatStream(chatMessages, { tools })
+            for await (const chunk of streamResponse) {
+              controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(chunk)}\n\n`))
+            }
 
-          controller.close()
+            controller.close()
+          } catch (err) {
+            const errorChunk: StreamChunk = {
+              type: 'error',
+              error: err instanceof Error ? err.message : '流式输出失败',
+            }
+            controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(errorChunk)}\n\n`))
+            controller.close()
+          }
         },
       })
 
@@ -266,6 +285,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
           'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
         },
       })
     }
@@ -280,6 +300,34 @@ export async function POST(request: NextRequest) {
     // 区分配置错误和其他错误
     const errorMessage = error instanceof Error ? error.message : '未知错误'
     const isConfigError = errorMessage.includes('未配置') || errorMessage.includes('API Key')
+    const status = isConfigError ? 503 : 500
+
+    // 如果是流式请求，返回 SSE 格式的错误
+    if (request.headers.get('accept') === 'text/event-stream') {
+      const encoder = new TextEncoder()
+      const stream = new ReadableStream({
+        start(controller) {
+          const errorChunk: StreamChunk = {
+            type: 'error',
+            error: isConfigError
+              ? `模型配置错误: ${errorMessage}。请联系管理员检查环境变量配置。`
+              : '抱歉，处理您的请求时出现了错误。请稍后重试。',
+          }
+          controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(errorChunk)}\n\n`))
+          controller.close()
+        },
+      })
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
+        },
+        status,
+      })
+    }
 
     return NextResponse.json(
       {
@@ -288,7 +336,7 @@ export async function POST(request: NextRequest) {
           ? `模型配置错误: ${errorMessage}。请联系管理员检查环境变量配置。`
           : '抱歉，处理您的请求时出现了错误。请稍后重试。',
       },
-      { status: isConfigError ? 503 : 500 }
+      { status }
     )
   }
 }

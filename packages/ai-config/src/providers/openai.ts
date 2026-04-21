@@ -156,6 +156,13 @@ export class OpenAIAdapter implements ILLMProvider {
         stream: true,
       })
 
+      // 工具调用分片缓冲区，按 index 聚合
+      const toolCallBuffers: Record<number, {
+        id?: string
+        name?: string
+        arguments: string
+      }> = {}
+
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta
 
@@ -165,17 +172,35 @@ export class OpenAIAdapter implements ILLMProvider {
 
         if (delta?.tool_calls) {
           for (const tc of delta.tool_calls) {
-            if (tc.function?.name && tc.function?.arguments) {
-              yield {
-                type: 'tool_call',
-                toolCall: {
-                  id: tc.id || '',
-                  type: 'function',
-                  function: {
-                    name: tc.function.name,
-                    arguments: tc.function.arguments,
+            const idx = tc.index ?? 0
+            if (!toolCallBuffers[idx]) {
+              toolCallBuffers[idx] = { arguments: '' }
+            }
+            if (tc.id) toolCallBuffers[idx].id = tc.id
+            if (tc.function?.name) toolCallBuffers[idx].name = tc.function.name
+            if (tc.function?.arguments) {
+              toolCallBuffers[idx].arguments += tc.function.arguments
+            }
+
+            const buf = toolCallBuffers[idx]
+            // 当 id、name、arguments 都齐全时，尝试解析确认 JSON 完整
+            if (buf.id && buf.name && buf.arguments) {
+              try {
+                JSON.parse(buf.arguments)
+                yield {
+                  type: 'tool_call',
+                  toolCall: {
+                    id: buf.id,
+                    type: 'function',
+                    function: {
+                      name: buf.name,
+                      arguments: buf.arguments,
+                    },
                   },
-                },
+                }
+                delete toolCallBuffers[idx]
+              } catch {
+                // JSON 不完整，等待更多参数分片
               }
             }
           }

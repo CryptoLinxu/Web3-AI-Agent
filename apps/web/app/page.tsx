@@ -17,13 +17,11 @@ export default function Home() {
   ])
   const [isLoading, setIsLoading] = useState(false)
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
-  const [streamingContentState, setStreamingContentState] = useState('')
 
   const {
     isStreaming,
     content: streamingContent,
     error: streamError,
-    toolCalls: streamingToolCalls,
     sendMessage,
   } = useChatStream()
 
@@ -71,15 +69,15 @@ export default function Home() {
         }))
       )
 
-      // 流式完成后，使用返回值同步更新最终消息
+      // 流式完成后，使用返回值同步更新最终消息（避免闭包问题）
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMessageId
             ? {
                 ...m,
                 content: result.content,
-                toolCalls: streamingToolCalls.length > 0 
-                  ? streamingToolCalls.map((tc) => ({
+                toolCalls: result.toolCalls.length > 0
+                  ? result.toolCalls.map((tc) => ({
                       id: tc.id,
                       name: tc.name,
                       arguments: tc.arguments,
@@ -130,7 +128,6 @@ export default function Home() {
             isLoading={isLoading}
             streamingMessageId={streamingMessageId}
             isStreaming={isStreaming}
-            streamingToolCalls={streamingToolCalls}
           />
         </div>
 
