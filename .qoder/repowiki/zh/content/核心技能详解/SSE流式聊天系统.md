@@ -22,6 +22,7 @@
 - 新增了完整的try-catch包装和SSE格式错误块
 - 区分了配置错误与运行时错误
 - 改进了客户端重试机制和工具调用缓冲机制
+- **新增** 学习笔记中的详细SSE实现教程，提供了更深入的Function Calling理解和最佳实践
 
 ## 目录
 1. [简介](#简介)
@@ -32,7 +33,8 @@
 6. [依赖关系分析](#依赖关系分析)
 7. [性能考虑](#性能考虑)
 8. [故障排除指南](#故障排除指南)
-9. [结论](#结论)
+9. [学习笔记中的SSE实现指南](#学习笔记中的sse实现指南)
+10. [结论](#结论)
 
 ## 简介
 
@@ -489,11 +491,11 @@ FinalError --> Cleanup
 
 ## 学习笔记中的SSE实现指南
 
-**更新** 学习笔记中包含了详细的SSE实现指南，特别强调了Function Calling的完整实现流程：
+**更新** 学习笔记中包含了详细的SSE实现指南，特别强调了Function Calling的完整实现流程，提供了更深入的理解和最佳实践：
 
 ### Function Calling 完整流程
 
-**更新** 系统实现了两次API调用的职责分工：
+**更新** 系统实现了两次API调用的职责分工，学习笔记提供了完整的流程图和代码证据：
 
 ```mermaid
 flowchart TD
@@ -511,9 +513,12 @@ GenerateAnswer --> Return[返回用户]
 **图表来源**
 - [docs/学习笔记.md:65-168](file://docs/学习笔记.md#L65-L168)
 
+**章节来源**
+- [docs/学习笔记.md:7-61](file://docs/学习笔记.md#L7-L61)
+
 ### SSE流式数据转换链
 
-**更新** 系统实现了完整的SSE数据流转换链：
+**更新** 系统实现了完整的SSE数据流转换链，学习笔记详细描述了整个数据流过程：
 
 ```mermaid
 sequenceDiagram
@@ -535,9 +540,13 @@ Frontend->>Frontend : 更新UI状态
 - [apps/web/app/api/chat/route.ts:119-246](file://apps/web/app/api/chat/route.ts#L119-L246)
 - [apps/web/hooks/useChatStream.ts:76-116](file://apps/web/hooks/useChatStream.ts#L76-L116)
 
+**章节来源**
+- [apps/web/app/api/chat/route.ts:196-244](file://apps/web/app/api/chat/route.ts#L196-L244)
+- [apps/web/hooks/useChatStream.ts:76-116](file://apps/web/hooks/useChatStream.ts#L76-L116)
+
 ### 节流机制实现
 
-**更新** 系统实现了智能节流更新机制：
+**更新** 系统实现了智能节流更新机制，学习笔记详细解释了节流原理：
 
 ```mermaid
 flowchart LR
@@ -553,9 +562,12 @@ Clear --> Stream
 **图表来源**
 - [apps/web/hooks/useChatStream.ts:46-58](file://apps/web/hooks/useChatStream.ts#L46-L58)
 
+**章节来源**
+- [apps/web/hooks/useChatStream.ts:46-58](file://apps/web/hooks/useChatStream.ts#L46-L58)
+
 ### 错误处理策略
 
-**更新** 系统实现了多层次的错误处理策略：
+**更新** 系统实现了多层次的错误处理策略，学习笔记提供了详细的错误分类和处理方案：
 
 ```mermaid
 flowchart TD
@@ -577,6 +589,66 @@ SSEFormat --> User[用户友好提示]
 - [apps/web/app/api/chat/route.ts:297-343](file://apps/web/app/api/chat/route.ts#L297-L343)
 - [apps/web/hooks/useChatStream.ts:171-219](file://apps/web/hooks/useChatStream.ts#L171-L219)
 
+**章节来源**
+- [apps/web/app/api/chat/route.ts:297-343](file://apps/web/app/api/chat/route.ts#L297-L343)
+- [apps/web/hooks/useChatStream.ts:171-219](file://apps/web/hooks/useChatStream.ts#L171-L219)
+
+### 工具定义和执行深度解析
+
+**更新** 学习笔记提供了工具定义、执行和实现的完整链路：
+
+#### 工具定义系统
+
+```mermaid
+classDiagram
+class ToolDefinition {
++name string
++description string
++parameters JSONSchema
++execute() ToolResult
+}
+class ToolExecution {
++functionName string
++functionArgs JSON
++result ToolResult
+}
+class ToolImplementation {
++getETHPrice() Promise
++getWalletBalance(address) Promise
++getGasPrice() Promise
+}
+ToolDefinition --> ToolExecution : 使用
+ToolExecution --> ToolImplementation : 调用
+```
+
+**图表来源**
+- [apps/web/app/api/chat/route.ts:8-62](file://apps/web/app/api/chat/route.ts#L8-L62)
+
+**章节来源**
+- [docs/学习笔记.md:251-350](file://docs/学习笔记.md#L251-L350)
+
+### AI决策机制详解
+
+**更新** 学习笔记深入解释了AI如何基于工具描述和用户问题进行决策：
+
+```mermaid
+flowchart TD
+UserQuestion[用户问题] --> SemanticMatch[语义匹配]
+ToolDescription[工具描述] --> SemanticMatch
+SemanticMatch --> Decision{匹配度评估}
+Decision --> |高匹配| CallTool[调用工具]
+Decision --> |低匹配| NoTool[不调用工具]
+CallTool --> GenerateAnswer[生成回答]
+NoTool --> GenerateAnswer
+GenerateAnswer --> Return[返回结果]
+```
+
+**图表来源**
+- [docs/学习笔记.md:447-565](file://docs/learning_notes.md#L447-L565)
+
+**章节来源**
+- [docs/学习笔记.md:447-565](file://docs/学习笔记.md#L447-L565)
+
 ## 结论
 
 **更新** Web3 AI Agent 的 SSE 流式聊天系统经过重大改进，现在是一个功能完整、架构清晰且高度可靠的现代化聊天应用。系统的显著优势包括：
@@ -589,8 +661,15 @@ SSEFormat --> User[用户友好提示]
 6. **代理兼容性**：支持X-Accel-Buffering头，提升Nginx等反向代理的兼容性
 7. **智能重试机制**：自动重试（最多2次），超时时间为30秒
 8. **完整的Function Calling实现**：两次API调用的职责分工，工具调用的完整生命周期管理
+9. **深入的学习资源**：学习笔记提供了详细的实现指南和最佳实践
 
 该系统为 Web3 前端开发者提供了一个优秀的参考实现，展示了如何将 AI 能力与 Web3 技术有机结合，创造出具有实际价值的应用程序。
+
+**学习笔记的价值**：
+- 提供了Function Calling的深度理解，包括两次API调用的哲学和实现细节
+- 展示了完整的代码证据和流程图，便于开发者理解和实现
+- 包含了最佳实践和常见陷阱的避免方法
+- 提供了从理论到实践的完整学习路径
 
 未来可以考虑的改进方向：
 - 添加流式输出的用户控制选项
@@ -601,3 +680,4 @@ SSEFormat --> User[用户友好提示]
 - 考虑支持 Server-Sent Events 原生 EventSource（简化实现）
 - 进一步优化节流机制和内存管理
 - 增强错误恢复和用户反馈机制
+- 基于学习笔记的内容扩展更多SSE实现案例
