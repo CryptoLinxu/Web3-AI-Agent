@@ -1,7 +1,7 @@
 # Web3 AI Agent Skill Map V3
 
-> 最后更新：2026-04-17  
-> 当前阶段：SSE 流式输出全链路完成 → 前后端均支持流式，Audit 95分
+> 最后更新：2026-04-21
+> 当前阶段：project-checklist 体系建立完成 → 项目自我进化能力形成，待 Memory 和测试覆盖
 
 ## 项目状态速览
 
@@ -14,7 +14,8 @@
 | BTC 价格工具 | ✅ 完成 | 支持 Binance/Huobi 双数据源，Audit 98分 |
 | SSE 流式后端 | ✅ 完成 | 双模型流式输出，Audit 93分 |
 | SSE 流式前端 | ✅ 完成 | 前端消费 Hook + 流式渲染，Audit 95分 |
-| 待验证 | 🔄 待办 | 功能测试、浏览器验收 |
+| 归档沉淀 | ✅ 完成 | changelog + project-checklist + digest |
+| 待验证 | 🔄 待办 | 功能测试、浏览器验收、Anthropic 验证 |
 | 待补充 | ⏳ 待办 | 测试覆盖、部署文档、CI/CD |
 
 ## 已完成能力清单
@@ -27,6 +28,10 @@
 - ✅ **工具调用**：3 个核心 Web3 工具已接入
 - ✅ **SSE 流式后端**：双模型流式输出，支持 content/tool_call/done/error 事件
 - ✅ **SSE 流式前端**：useChatStream Hook + 流式渲染，50ms 节流，30s 超时
+
+### 项目治理
+- ✅ **Changelog 体系**：完整变更记录，AI 上下文追溯
+- ✅ **Project Checklist**：功能清单 + 未来规划 + 优先级建议，项目自我进化
 
 ### 工程能力
 - ✅ **Monorepo**：pnpm workspace + turbo 构建
@@ -42,6 +47,8 @@
 - ✅ [ARCHITECTURE.md](/ARCHITECTURE.md) - 架构设计
 - ✅ [PRD-MVP.md](/docs/Web3-AI-Agent-PRD-MVP.md) - 产品需求
 - ✅ [里程碑 Checklist](/docs/Web3-AI-Agent-项目里程碑-Checklist.md) - 进度跟踪
+- ✅ [docs/changelog/](/docs/changelog/README.md) - 变更历史记录
+- ✅ [docs/checklist/](/docs/checklist/PROJECT-CHECKLIST.md) - 项目清单与规划
 - ✅ [Skill Map](/skills/x-ray/MAP-V3.md) - 技能地图
 
 ## 使用方式
@@ -97,15 +104,15 @@ AI-Agent/
 ## 待办事项（下一步）
 
 ### 高优先级
+- [ ] **最小会话 Memory**：支持多轮对话上下文保持
 - [ ] **测试覆盖**：为核心功能添加单元测试和集成测试
-- [ ] **部署文档**：补充生产环境部署指南
 - [ ] **Anthropic 验证**：实际测试 Anthropic 工具调用链
 - [ ] **浏览器验收**：测试 SSE 流式显示效果
-- [ ] **浏览器兼容性检测**：添加 ReadableStream 兼容性检查和降级
 
 ### 中优先级
-- [ ] **持久化存储**：添加数据库保存对话历史
+- [ ] **部署文档**：补充生产环境部署指南
 - [ ] **API 文档**：补充详细 API 接口文档
+- [ ] **持久化存储**：添加数据库保存对话历史
 
 ### 低优先级
 - [ ] **CI/CD**：自动化测试和部署流程
@@ -115,15 +122,16 @@ AI-Agent/
 ## 下一步建议入口
 
 - `/origin` - 新任务入口
-- `/browser-verify` - 浏览器验收测试
+- `/browser-verify` - 浏览器验收测试（验证 SSE 流式效果）
 - `/explore` - 探索项目现状
-- `/pipeline feat` - 开发新功能（如流式响应）
+- `/pipeline feat` - 开发新功能（如 Memory、持久化存储）
 - `/pipeline patch` - 修复测试中发现的问题
 
 ## 历史状态
 
-> 2026-04-17：SSE 流式输出前端完成（Audit 95分）→ 全链路流式实现，用户可实时看到 AI 回复  
-> 2026-04-17：SSE 流式输出后端完成（Audit 93分）→ 双模型流式实现，前端消费待后续迭代  
+> 2026-04-21：project-checklist 体系建立完成 → 项目自我进化能力形成，后续规划清晰
+> 2026-04-21：SSE 流式输出功能提交（前后端完整实现）→ 用户可实时看到 AI 回复生成过程
+> 2026-04-17：SSE 流式输出前端完成（Audit 95分）→ 全链路流式实现
 > 2026-04-17：BTC 价格工具完成（Audit 98分）→ 支持 Binance/Huobi 双数据源  
 > 2026-04-17：Web3 工具重构完成（Audit 95分）→ 代码结构优化，待功能测试验证  
 > 2026-04-17：全局模型切换功能已完成（Audit 99分）→ 可继续其他功能开发或测试验证  

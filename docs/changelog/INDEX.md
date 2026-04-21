@@ -4,6 +4,12 @@
 
 ## 2026-04
 
+### 2026-04-21（1 个功能）
+
+| 文件 | 主题 | 类型 | Commit |
+|------|------|------|--------|
+| [feat-sse-streaming](2026-04-21-feat-sse-streaming.md) | SSE 流式输出功能 | FEAT | c366090 |
+
 ### 2026-04-20（3 个功能）
 
 | 文件 | 主题 | 类型 | Commit |
@@ -20,8 +26,8 @@
 
 ## 统计
 
-- **总记录数**: 4
-- **FEAT**: 4
+- **总记录数**: 5
+- **FEAT**: 5
 - **PATCH**: 0
 - **REFACTOR**: 0
 
@@ -39,6 +45,7 @@
 
 ### Chat 功能
 - [Function Calling 调试日志](2026-04-20-feat-function-calling-debug.md) - 2026-04-20
+- [SSE 流式输出功能](2026-04-21-feat-sse-streaming.md) - 2026-04-21
 
 ## 关键词索引
 
@@ -52,6 +59,8 @@
 | web3-tools | [2026-04-20-feat-web3-tools-refactor.md](2026-04-20-feat-web3-tools-refactor.md), [2026-04-20-feat-proxy-and-models.md](2026-04-20-feat-proxy-and-models.md) |
 | 架构重构 | [2026-04-20-feat-web3-tools-refactor.md](2026-04-20-feat-web3-tools-refactor.md) |
 | Function Calling | [2026-04-20-feat-function-calling-debug.md](2026-04-20-feat-function-calling-debug.md) |
+| SSE | [2026-04-21-feat-sse-streaming.md](2026-04-21-feat-sse-streaming.md) |
+| 流式输出 | [2026-04-21-feat-sse-streaming.md](2026-04-21-feat-sse-streaming.md) |
 | 调试日志 | [2026-04-20-feat-function-calling-debug.md](2026-04-20-feat-function-calling-debug.md) |
 
 ## 快速链接
