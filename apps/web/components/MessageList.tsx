@@ -2,14 +2,24 @@
 
 import { useRef, useEffect } from 'react'
 import { Message } from '@/types/chat'
+import { ToolCallUIState } from '@/types/stream'
 import MessageItem from './MessageItem'
 
 interface MessageListProps {
   messages: Message[]
   isLoading: boolean
+  streamingMessageId?: string | null
+  isStreaming?: boolean
+  streamingToolCalls?: ToolCallUIState[]
 }
 
-export default function MessageList({ messages, isLoading }: MessageListProps) {
+export default function MessageList({ 
+  messages, 
+  isLoading, 
+  streamingMessageId,
+  isStreaming,
+  streamingToolCalls 
+}: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // 自动滚动到底部
@@ -25,7 +35,12 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
       className="h-full overflow-y-auto space-y-4 pr-2"
     >
       {messages.map((message) => (
-        <MessageItem key={message.id} message={message} />
+        <MessageItem 
+          key={message.id} 
+          message={message}
+          isStreaming={isStreaming && message.id === streamingMessageId}
+          toolCalls={message.id === streamingMessageId ? streamingToolCalls : undefined}
+        />
       ))}
       
       {isLoading && (

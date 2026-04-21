@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { LLMFactory } from '@web3-ai-agent/ai-config'
-import { Tool, Message } from '@web3-ai-agent/ai-config'
+import { Tool, Message, StreamChunk } from '@web3-ai-agent/ai-config'
 import { ChatRequest } from '@/types/chat'
 import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice } from '@web3-ai-agent/web3-tools'
 
@@ -104,22 +104,32 @@ export async function POST(request: NextRequest) {
       })),
     ]
 
+    // 检测是否请求流式输出
+    const accept = request.headers.get('accept')
+    const isStream = accept === 'text/event-stream'
+
     // 第一次调用：让模型决定是否需要工具
     console.log('\n========== 第 1 次 API 调用 ==========')
     console.log('📤 发送给 AI 的消息:')
     console.log(JSON.stringify(chatMessages, null, 2))
     console.log('\n🔧 工具定义:')
     console.log(JSON.stringify(tools, null, 2))
-    
+    console.log(`\n📡 响应模式: ${isStream ? 'SSE 流式' : 'JSON'}`)
+
     const response = await provider.chat(chatMessages, { tools })
-    
+
     console.log('\n📥 AI 的回复:')
     console.log(JSON.stringify(response, null, 2))
     console.log('======================================\n')
 
     // 如果需要调用工具
     if (response.toolCalls && response.toolCalls.length > 0) {
-      const toolCalls = []
+      const toolCalls: Array<{
+        id: string
+        name: string
+        arguments: Record<string, unknown>
+        result: unknown
+      }> = []
 
       // 执行所有工具调用
       for (const toolCall of response.toolCalls) {
@@ -181,9 +191,50 @@ export async function POST(request: NextRequest) {
       console.log('\n========== 第 2 次 API 调用 ==========')
       console.log('📤 带工具结果的消息:')
       console.log(JSON.stringify(messagesWithToolResults, null, 2))
-      
+
+      // 工具调用场景：如果请求流式，也使用流式输出最终回复
+      if (isStream) {
+        const stream = new ReadableStream({
+          async start(controller) {
+            const encoder = new TextEncoder()
+
+            // 发送工具调用信息
+            for (const tc of toolCalls) {
+              const chunk: StreamChunk = {
+                type: 'tool_call',
+                toolCall: {
+                  id: tc.id,
+                  type: 'function',
+                  function: {
+                    name: tc.name,
+                    arguments: JSON.stringify(tc.arguments),
+                  },
+                },
+              }
+              controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(chunk)}\n\n`))
+            }
+
+            // 流式输出最终回复
+            const secondStream = provider.chatStream(messagesWithToolResults)
+            for await (const chunk of secondStream) {
+              controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(chunk)}\n\n`))
+            }
+
+            controller.close()
+          },
+        })
+
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        })
+      }
+
       const secondResponse = await provider.chat(messagesWithToolResults)
-      
+
       console.log('\n📥 最终回复:')
       console.log(secondResponse.content)
       console.log('======================================\n')
@@ -194,17 +245,42 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 不需要工具，直接返回回复
+    // 不需要工具
+    if (isStream) {
+      // SSE 流式响应
+      const stream = new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder()
+
+          const streamResponse = provider.chatStream(chatMessages, { tools })
+          for await (const chunk of streamResponse) {
+            controller.enqueue(encoder.encode(`event: chunk\ndata: ${JSON.stringify(chunk)}\n\n`))
+          }
+
+          controller.close()
+        },
+      })
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      })
+    }
+
+    // JSON 响应（向后兼容）
     return NextResponse.json({
       content: response.content,
     })
   } catch (error) {
     console.error('Chat API Error:', error)
-    
+
     // 区分配置错误和其他错误
     const errorMessage = error instanceof Error ? error.message : '未知错误'
     const isConfigError = errorMessage.includes('未配置') || errorMessage.includes('API Key')
-    
+
     return NextResponse.json(
       {
         error: true,

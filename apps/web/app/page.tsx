@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ChatInput from '@/components/ChatInput'
 import MessageList from '@/components/MessageList'
 import { Message } from '@/types/chat'
+import { useChatStream } from '@/hooks/useChatStream'
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
@@ -15,6 +16,27 @@ export default function Home() {
     },
   ])
   const [isLoading, setIsLoading] = useState(false)
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
+  const [streamingContentState, setStreamingContentState] = useState('')
+
+  const {
+    isStreaming,
+    content: streamingContent,
+    error: streamError,
+    toolCalls: streamingToolCalls,
+    sendMessage,
+  } = useChatStream()
+
+  // 实时更新流式消息内容
+  useEffect(() => {
+    if (streamingMessageId && isStreaming) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === streamingMessageId ? { ...m, content: streamingContent } : m
+        )
+      )
+    }
+  }, [streamingContent, streamingMessageId, isStreaming])
 
   const handleSendMessage = async (content: string) => {
     // 添加用户消息
@@ -27,46 +49,62 @@ export default function Home() {
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
 
-    try {
-      // 调用 API
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('请求失败')
-      }
-
-      const data = await response.json()
-      
-      // 添加助手回复
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+    // 创建流式消息占位符
+    const assistantMessageId = (Date.now() + 1).toString()
+    setStreamingMessageId(assistantMessageId)
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: assistantMessageId,
         role: 'assistant',
-        content: data.content,
+        content: '',
         timestamp: Date.now(),
-        toolCalls: data.toolCalls,
-      }
-      setMessages((prev) => [...prev, assistantMessage])
+      },
+    ])
+
+    try {
+      // 使用 SSE 流式输出
+      const result = await sendMessage(
+        [...messages, userMessage].map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
+      )
+
+      // 流式完成后，使用返回值同步更新最终消息
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMessageId
+            ? {
+                ...m,
+                content: result.content,
+                toolCalls: streamingToolCalls.length > 0 
+                  ? streamingToolCalls.map((tc) => ({
+                      id: tc.id,
+                      name: tc.name,
+                      arguments: tc.arguments,
+                      result: tc.result,
+                    }))
+                  : undefined,
+              }
+            : m
+        )
+      )
     } catch (error) {
       // 添加错误消息
       const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: assistantMessageId,
         role: 'assistant',
-        content: '抱歉，处理您的请求时出现了错误。请稍后重试。',
+        content: streamError || '抱歉，处理您的请求时出现了错误。请稍后重试。',
         timestamp: Date.now(),
         isError: true,
       }
-      setMessages((prev) => [...prev, errorMessage])
+      setMessages((prev) =>
+        prev.map((m) => (m.id === assistantMessageId ? errorMessage : m))
+      )
     } finally {
       setIsLoading(false)
+      setStreamingMessageId(null)
     }
   }
 
@@ -87,7 +125,13 @@ export default function Home() {
 
         {/* Message List */}
         <div className="flex-1 overflow-hidden py-4">
-          <MessageList messages={messages} isLoading={isLoading} />
+          <MessageList 
+            messages={messages} 
+            isLoading={isLoading}
+            streamingMessageId={streamingMessageId}
+            isStreaming={isStreaming}
+            streamingToolCalls={streamingToolCalls}
+          />
         </div>
 
         {/* Input */}

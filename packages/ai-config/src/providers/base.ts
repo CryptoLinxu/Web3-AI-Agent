@@ -1,4 +1,4 @@
-import { Message, ChatOptions, ChatResponse } from '../types'
+import { Message, ChatOptions, ChatResponse, StreamResponse } from '../types'
 
 /**
  * LLM 提供商基础接口
@@ -15,6 +15,14 @@ export interface ILLMProvider {
    * @returns 对话响应
    */
   chat(messages: Message[], options?: ChatOptions): Promise<ChatResponse>
+
+  /**
+   * 执行流式对话
+   * @param messages - 消息列表
+   * @param options - 对话选项
+   * @returns 流式响应
+   */
+  chatStream(messages: Message[], options?: ChatOptions): StreamResponse
 }
 
 /**
@@ -30,6 +38,8 @@ export abstract class BaseProvider implements ILLMProvider {
   abstract readonly name: string
 
   abstract chat(messages: Message[], options?: ChatOptions): Promise<ChatResponse>
+
+  abstract chatStream(messages: Message[], options?: ChatOptions): StreamResponse
 
   /**
    * 验证消息格式

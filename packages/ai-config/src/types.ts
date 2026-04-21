@@ -56,6 +56,17 @@ export interface ChatResponse {
   }
 }
 
+/** 流式输出块 */
+export interface StreamChunk {
+  type: 'content' | 'tool_call' | 'done' | 'error'
+  content?: string
+  toolCall?: ToolCall
+  error?: string
+}
+
+/** 流式响应 */
+export type StreamResponse = AsyncIterable<StreamChunk>
+
 /** 模型配置 */
 export interface ModelConfig {
   provider: ModelProvider
