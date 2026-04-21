@@ -10,18 +10,15 @@
 - [apps/web/app/page.tsx](file://apps/web/app/page.tsx)
 - [apps/web/types/stream.ts](file://apps/web/types/stream.ts)
 - [apps/web/types/chat.ts](file://apps/web/types/chat.ts)
-- [apps/web/package.json](file://apps/web/package.json)
-- [package.json](file://package.json)
-- [apps/web/next.config.js](file://apps/web/next.config.js)
-- [apps/web/tailwind.config.ts](file://apps/web/tailwind.config.ts)
+- [docs/学习笔记.md](file://docs/学习笔记.md)
 - [docs/changelog/2026-04-21-feat-sse-streaming.md](file://docs/changelog/2026-04-21-feat-sse-streaming.md)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 增强了错误处理和可靠性机制
-- 改进了工具调用处理流程
-- 提升了代理兼容性和X-Accel-Buffering支持
+- 新增了详细的SSE实现指南，包含端到端流程图、数据流转换链、节流机制、错误处理等完整技术实现细节
+- 增强了Function Calling的完整实现，包括两次API调用的职责分工
+- 改进了工具调用处理流程和状态管理
 - 新增了完整的try-catch包装和SSE格式错误块
 - 区分了配置错误与运行时错误
 - 改进了客户端重试机制和工具调用缓冲机制
@@ -70,6 +67,7 @@ end
 subgraph "文档 (docs)"
 DOCS[项目文档]
 CHANGELOG[变更日志]
+LEARNING[学习笔记]
 end
 WEB --> WEB_API
 WEB --> WEB_HOOKS
@@ -489,6 +487,96 @@ FinalError --> Cleanup
 5. **验证代理配置**：检查代理服务器的 X-Accel-Buffering 设置
 6. **区分错误类型**：观察HTTP状态码（503 vs 500）以判断错误性质
 
+## 学习笔记中的SSE实现指南
+
+**更新** 学习笔记中包含了详细的SSE实现指南，特别强调了Function Calling的完整实现流程：
+
+### Function Calling 完整流程
+
+**更新** 系统实现了两次API调用的职责分工：
+
+```mermaid
+flowchart TD
+User[用户提问] --> FirstCall[第1次API调用]
+FirstCall --> AIDecision[AI决定工具调用]
+AIDecision --> NeedTools{需要工具?}
+NeedTools --> |是| ExecuteTools[执行工具]
+NeedTools --> |否| GenerateAnswer[生成最终回答]
+ExecuteTools --> ToolResult[工具结果]
+ToolResult --> SecondCall[第2次API调用]
+SecondCall --> GenerateAnswer
+GenerateAnswer --> Return[返回用户]
+```
+
+**图表来源**
+- [docs/学习笔记.md:65-168](file://docs/学习笔记.md#L65-L168)
+
+### SSE流式数据转换链
+
+**更新** 系统实现了完整的SSE数据流转换链：
+
+```mermaid
+sequenceDiagram
+participant Frontend as 前端
+participant Backend as 后端
+participant Provider as AI提供者
+Frontend->>Backend : 发送流式请求
+Backend->>Provider : 第1次API调用
+Provider-->>Backend : 返回toolCalls
+Backend->>Backend : 执行工具调用
+Backend->>Provider : 第2次API调用
+Provider-->>Backend : 返回流式内容
+Backend->>Frontend : SSE事件推送
+Frontend->>Frontend : 解析SSE事件
+Frontend->>Frontend : 更新UI状态
+```
+
+**图表来源**
+- [apps/web/app/api/chat/route.ts:119-246](file://apps/web/app/api/chat/route.ts#L119-L246)
+- [apps/web/hooks/useChatStream.ts:76-116](file://apps/web/hooks/useChatStream.ts#L76-L116)
+
+### 节流机制实现
+
+**更新** 系统实现了智能节流更新机制：
+
+```mermaid
+flowchart LR
+Stream[流式数据] --> Buffer[内容缓冲区]
+Buffer --> Throttle{节流检查}
+Throttle --> |满足条件| Update[更新UI]
+Throttle --> |不满足| Delay[延迟更新]
+Delay --> Throttle
+Update --> Clear[清理缓冲区]
+Clear --> Stream
+```
+
+**图表来源**
+- [apps/web/hooks/useChatStream.ts:46-58](file://apps/web/hooks/useChatStream.ts#L46-L58)
+
+### 错误处理策略
+
+**更新** 系统实现了多层次的错误处理策略：
+
+```mermaid
+flowchart TD
+Error[错误发生] --> CheckType{检查错误类型}
+CheckType --> |配置错误| ConfigError[返回503]
+CheckType --> |运行时错误| RuntimeError[返回500]
+CheckType --> |网络错误| NetworkError[自动重试]
+NetworkError --> RetryCheck{检查重试次数}
+RetryCheck --> |未达上限| Retry[重试请求]
+RetryCheck --> |已达上限| FinalError[最终错误]
+ConfigError --> SSEFormat[SSE格式错误]
+RuntimeError --> SSEFormat
+Retry --> SSEFormat
+FinalError --> SSEFormat
+SSEFormat --> User[用户友好提示]
+```
+
+**图表来源**
+- [apps/web/app/api/chat/route.ts:297-343](file://apps/web/app/api/chat/route.ts#L297-L343)
+- [apps/web/hooks/useChatStream.ts:171-219](file://apps/web/hooks/useChatStream.ts#L171-L219)
+
 ## 结论
 
 **更新** Web3 AI Agent 的 SSE 流式聊天系统经过重大改进，现在是一个功能完整、架构清晰且高度可靠的现代化聊天应用。系统的显著优势包括：
@@ -500,6 +588,7 @@ FinalError --> Cleanup
 5. **增强的可靠性**：完整的try-catch包装、SSE格式错误块、配置错误与运行时错误区分
 6. **代理兼容性**：支持X-Accel-Buffering头，提升Nginx等反向代理的兼容性
 7. **智能重试机制**：自动重试（最多2次），超时时间为30秒
+8. **完整的Function Calling实现**：两次API调用的职责分工，工具调用的完整生命周期管理
 
 该系统为 Web3 前端开发者提供了一个优秀的参考实现，展示了如何将 AI 能力与 Web3 技术有机结合，创造出具有实际价值的应用程序。
 
@@ -510,3 +599,5 @@ FinalError --> Cleanup
 - 优化移动端的流式体验
 - 考虑添加流式输出的视觉指示器（打字机效果、光标动画）
 - 考虑支持 Server-Sent Events 原生 EventSource（简化实现）
+- 进一步优化节流机制和内存管理
+- 增强错误恢复和用户反馈机制
