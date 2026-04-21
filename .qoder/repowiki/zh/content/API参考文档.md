@@ -24,6 +24,7 @@
 - 更新架构总览，反映新的两阶段对话流程
 - 新增客户端集成指南，包含Web应用示例
 - 更新技能间通信协议，增加工具调用数据格式
+- **新增**：聊天API调试功能增强，包括Function Calling过程的详细日志记录和两阶段对话流程的调试信息
 
 ## 目录
 1. [简介](#简介)
@@ -47,6 +48,7 @@
 - 解释版本管理与向后兼容性
 - 提供客户端集成指南与 SDK 使用建议
 - **新增**：两阶段对话流程API和工具API的详细说明
+- **新增**：聊天API调试功能增强，包括Function Calling过程的详细日志记录
 
 ## 项目结构
 技能系统以"主入口 + 分层路由 + 交付流水线 + 治理闭环"的方式组织，核心文件如下：
@@ -130,6 +132,7 @@ CHAT --> TOOLS
 - 交付管线 pipeline：根据任务类型（FEAT/PATCH/REFACTOR）选择执行深度与必经/可跳过技能。
 - 实施前门禁 check-in：强制对交付型任务与准备进入实施的 DEFINE 任务进行对齐，明确问题、边界、方案、完成标准与下一跳。
 - **新增**：Web应用API层，包含聊天API和工具API，支持两阶段对话流程和工具执行接口。
+- **新增**：聊天API调试功能，提供详细的Function Calling过程日志记录。
 
 **章节来源**
 - [skills/x-ray/SKILL.md](file://skills/x-ray/SKILL.md)
@@ -272,7 +275,7 @@ end
 
 ### 聊天API（/api/chat）
 **概述**
-两阶段对话流程的聊天API，支持智能工具调用。第一阶段模型决定是否需要工具，第二阶段基于工具结果生成最终回复。
+两阶段对话流程的聊天API，支持智能工具调用。第一阶段模型决定是否需要工具，第二阶段基于工具结果生成最终回复。**新增**详细的Function Calling过程日志记录功能。
 
 **请求格式**
 ```json
@@ -310,6 +313,12 @@ end
   ]
 }
 ```
+
+**调试日志记录**
+聊天API包含详细的Function Calling过程日志记录，包括：
+- **第一阶段调用日志**：记录发送给AI的消息、工具定义和AI回复
+- **第二阶段调用日志**：记录带工具结果的消息和最终回复
+- **工具调用日志**：记录每个工具的执行结果和错误信息
 
 **错误处理**
 - 配置错误：返回503状态码，提示检查环境变量配置
@@ -468,6 +477,7 @@ TOOLS --> CI
 - 自愈上限：coder 最多 10 轮自愈，避免长时间卡顿与资源浪费。
 - 轻重审计：audit 分轻重，避免小任务过度消耗。
 - **新增**：两阶段对话流程优化：工具调用失败不影响主要对话流程，提供降级处理。
+- **新增**：调试日志优化：详细的Function Calling过程日志记录，便于问题诊断和性能分析。
 
 **章节来源**
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md)
@@ -490,6 +500,11 @@ TOOLS --> CI
   - 配置错误：检查LLM提供商配置和API密钥设置
   - 工具调用失败：检查RPC节点连接和工具参数格式
   - 网络超时：增加重试机制和超时时间
+  - **新增**：Function Calling调试：利用详细的日志记录功能进行问题诊断
+- **新增**：调试日志分析
+  - 第一阶段调用失败：检查工具定义和消息格式
+  - 第二阶段调用失败：检查工具结果格式和消息构建
+  - 工具执行异常：查看工具调用日志中的错误信息
 
 **章节来源**
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md)
@@ -497,7 +512,7 @@ TOOLS --> CI
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
 
 ## 结论
-本参考文档梳理了 Web3 AI Agent 技能系统的入口、命令、分层与流水线规则，明确了各技能的输入输出与衔接关系，并提供了故障排查与性能优化建议。**新增**的两阶段对话流程和工具API为系统增加了强大的Web3数据查询能力，支持智能工具调用和自然语言交互。建议集成方遵循斜杠命令约定与 check-in 强制规则，结合 pipeline 的短链路策略，提升交付效率与质量。
+本参考文档梳理了 Web3 AI Agent 技能系统的入口、命令、分层与流水线规则，明确了各技能的输入输出与衔接关系，并提供了故障排查与性能优化建议。**新增**的两阶段对话流程和工具API为系统增加了强大的Web3数据查询能力，支持智能工具调用和自然语言交互。**新增**的聊天API调试功能增强了系统的可观测性和可维护性，详细的Function Calling过程日志记录为问题诊断和性能优化提供了有力支持。建议集成方遵循斜杠命令约定与 check-in 强制规则，结合 pipeline 的短链路策略，提升交付效率与质量。
 
 ## 附录
 
@@ -523,6 +538,10 @@ TOOLS --> CI
   - ToolCall接口：包含id、name、arguments、result字段
   - 工具执行：支持异步工具调用和结果聚合
   - 错误处理：工具调用失败不影响主要对话流程
+- **新增**：调试日志协议
+  - 日志级别：INFO、DEBUG、ERROR
+  - 日志格式：JSON格式，包含时间戳、调用阶段、消息内容
+  - 调试信息：工具定义、消息转换、调用结果、错误详情
 - 数据传递机制
   - 以"任务卡/上下文/产物"为载体，在相邻技能间传递。
   - pipeline 根据任务类型动态选择必经/可跳过技能，减少冗余。
@@ -544,10 +563,12 @@ TOOLS --> CI
   - V1：基础技能系统
   - V2：引入Web应用API层
   - V3：两阶段对话流程和工具API
+  - **新增**：V4：增强调试功能和日志记录
 - 向后兼容建议
   - 旧流程可逐步迁移到 V3 的 7 类任务与按需进入策略。
   - 保持斜杠命令与主入口不变，内部路由逻辑平滑过渡。
   - **新增**：API版本控制，保持向后兼容性
+  - **新增**：调试日志格式标准化，确保历史版本兼容
 
 **章节来源**
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md)
@@ -562,6 +583,7 @@ TOOLS --> CI
   - 在 coder 卡住时，解析 STUCK 报告并触发人工介入流程。
   - 在 audit 未达 80 分时，按软拒绝回退修复策略处理。
   - **新增**：工具调用集成：支持异步工具执行和结果处理
+  - **新增**：调试日志集成：收集和分析Function Calling过程日志
 - 错误码与异常处理
   - 缺少 check-in：禁止进入 architect/qa/coder，需先完成 check-in。
   - coder 超限：输出 STUCK 报告并终止，请求人工介入。
@@ -569,6 +591,7 @@ TOOLS --> CI
   - RED 异常通过：修正测试，确保 RED 能有效证明"当前未通过"。
   - **新增**：聊天API错误：区分配置错误和运行时错误，提供针对性处理
   - **新增**：工具API错误：地址格式验证、RPC连接检查、工具参数校验
+  - **新增**：调试日志错误：提供详细的Function Calling过程日志，便于问题诊断
 
 **章节来源**
 - [skills/x-ray/COMMANDS.md](file://skills/x-ray/COMMANDS.md)
@@ -596,3 +619,21 @@ TOOLS --> CI
 - [apps/web/components/MessageList.tsx](file://apps/web/components/MessageList.tsx)
 - [apps/web/components/MessageItem.tsx](file://apps/web/components/MessageItem.tsx)
 - [apps/web/components/ChatInput.tsx](file://apps/web/components/ChatInput.tsx)
+
+### 调试功能使用指南
+**Function Calling调试**
+- **启用调试**：聊天API自动记录详细的Function Calling过程日志
+- **日志内容**：
+  - 第1次API调用：发送给AI的消息、工具定义、AI回复
+  - 第2次API调用：带工具结果的消息、最终回复
+- **日志格式**：JSON格式，包含时间戳、调用阶段、消息内容
+- **日志位置**：服务器控制台输出，便于开发和生产环境监控
+
+**调试最佳实践**
+- 开发环境：启用详细日志，便于问题诊断
+- 生产环境：控制日志级别，避免性能影响
+- 性能监控：分析Function Calling耗时，优化工具调用策略
+- 错误追踪：利用日志中的错误信息快速定位问题
+
+**章节来源**
+- [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
