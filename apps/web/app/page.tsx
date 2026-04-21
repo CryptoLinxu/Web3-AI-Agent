@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import ChatInput from '@/components/ChatInput'
 import MessageList from '@/components/MessageList'
 import { Message } from '@/types/chat'
 import { useChatStream } from '@/hooks/useChatStream'
+import { SummaryCompressionMemory } from '@/lib/memory/SummaryCompressionMemory'
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
@@ -15,6 +16,10 @@ export default function Home() {
       timestamp: Date.now(),
     },
   ])
+  
+  // 初始化 MemoryManager
+  const [memoryManager] = useState(() => new SummaryCompressionMemory())
+  
   const [isLoading, setIsLoading] = useState(false)
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
 
@@ -37,13 +42,16 @@ export default function Home() {
   }, [streamingContent, streamingMessageId, isStreaming])
 
   const handleSendMessage = async (content: string) => {
-    // 添加用户消息
+    // 添加用户消息到 MemoryManager
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content,
       timestamp: Date.now(),
     }
+    memoryManager.addMessage(userMessage)
+    
+    // 更新 UI 状态
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
 
@@ -61,31 +69,36 @@ export default function Home() {
     ])
 
     try {
-      // 使用 SSE 流式输出
+      // 使用 SSE 流式输出，从 MemoryManager 获取上下文
+      const contextMessages = memoryManager.getMessages()
+      
       const result = await sendMessage(
-        [...messages, userMessage].map((m) => ({
+        contextMessages.map((m) => ({
           role: m.role,
           content: m.content,
         }))
       )
 
-      // 流式完成后，使用返回值同步更新最终消息（避免闭包问题）
+      // 流式完成后，添加 AI 回复到 MemoryManager
+      const assistantMessage: Message = {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: result.content,
+        timestamp: Date.now(),
+        toolCalls: result.toolCalls.length > 0
+          ? result.toolCalls.map((tc) => ({
+              id: tc.id,
+              name: tc.name,
+              arguments: tc.arguments,
+              result: tc.result,
+            }))
+          : undefined,
+      }
+      memoryManager.addMessage(assistantMessage)
+      
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantMessageId
-            ? {
-                ...m,
-                content: result.content,
-                toolCalls: result.toolCalls.length > 0
-                  ? result.toolCalls.map((tc) => ({
-                      id: tc.id,
-                      name: tc.name,
-                      arguments: tc.arguments,
-                      result: tc.result,
-                    }))
-                  : undefined,
-              }
-            : m
+          m.id === assistantMessageId ? assistantMessage : m
         )
       )
     } catch (error) {
