@@ -134,7 +134,7 @@ participant Client as 客户端
 participant API as 聊天API
 participant Provider as AI提供者
 participant Tools as Web3工具
-Client->>API : POST /api/chat (Accept : text/event-stream)
+Client->>API : POST /api/chat (Accept : text-event-stream)
 API->>Provider : chat() 第一次调用
 Provider-->>API : AI回复 (可能包含toolCalls)
 alt 需要工具调用
@@ -644,10 +644,87 @@ GenerateAnswer --> Return[返回结果]
 ```
 
 **图表来源**
-- [docs/学习笔记.md:447-565](file://docs/learning_notes.md#L447-L565)
+- [docs/学习笔记.md:447-565](file://docs/学习笔记.md#L447-L565)
 
 **章节来源**
 - [docs/学习笔记.md:447-565](file://docs/学习笔记.md#L447-L565)
+
+### SSE完整实现流程详解
+
+**更新** 学习笔记提供了从零理解SSE完整实现流程的详细指南：
+
+#### SSE数据流转换链
+
+**更新** 系统实现了完整的SSE数据流转换链，学习笔记详细描述了整个数据流过程：
+
+```mermaid
+flowchart TD
+AIOutput[AI生成token] --> JSONStringify[JSON.stringify]
+JSONStringify --> SSEFormat[SSE格式化]
+SSEFormat --> TextEncode[TextEncoder.encode]
+TextEncode --> HTTPStream[HTTP字节流]
+HTTPStream --> ClientDecode[客户端解码]
+ClientDecode --> EventSplit[事件分割]
+EventSplit --> JSONParse[JSON.parse]
+JSONParse --> HandleChunk[handleChunk]
+HandleChunk --> ReactUpdate[React状态更新]
+ReactUpdate --> UIRender[UI渲染]
+```
+
+**图表来源**
+- [docs/学习笔记.md:2491-2510](file://docs/学习笔记.md#L2491-L2510)
+
+**章节来源**
+- [docs/学习笔记.md:2491-2510](file://docs/学习笔记.md#L2491-L2510)
+
+#### SSE核心重难点
+
+**更新** 学习笔记深入分析了SSE实现的核心重难点：
+
+```mermaid
+flowchart TD
+CoreChallenges[核心重难点] --> StreamManagement[流的正确管理]
+CoreChallenges --> SSEParsing[SSE事件解析]
+CoreChallenges --> ToolIntegration[工具调用与流式输出结合]
+CoreChallenges --> RequestCancellation[中止请求的清理]
+CoreChallenges --> ErrorRetry[错误处理和重试机制]
+StreamManagement --> DoneCheck[检查done并处理剩余数据]
+SSEParsing --> BufferConcat[使用缓冲区拼接]
+ToolIntegration --> PhaseProcess[分阶段处理]
+RequestCancellation --> ResourceCleanup[完整资源清理]
+ErrorRetry --> RetryLogic[完整重试逻辑]
+```
+
+**图表来源**
+- [docs/学习笔记.md:2930-3084](file://docs/学习笔记.md#L2930-L3084)
+
+**章节来源**
+- [docs/学习笔记.md:2930-3084](file://docs/学习笔记.md#L2930-L3084)
+
+### 两种执行路径详解
+
+**更新** 学习笔记详细解释了SSE实现中的两种执行路径：
+
+```mermaid
+flowchart TD
+BranchCheck[分支检查] --> IsStream{isStream?}
+IsStream --> |true| SSEBranch[SSE分支]
+IsStream --> |false| JSONBranch[JSON分支]
+SSEBranch --> CreateStream[创建ReadableStream]
+CreateStream --> PushToolInfo[推送工具调用信息]
+PushToolInfo --> StreamAIReply[流式推送AI回复]
+StreamAIReply --> CloseStream[关闭流]
+CloseStream --> ReturnSSE[返回SSE响应]
+JSONBranch --> NonStreamCall[非流式调用AI]
+NonStreamCall --> BuildMessages[构建消息]
+BuildMessages --> ReturnJSON[返回JSON响应]
+```
+
+**图表来源**
+- [docs/学习笔记.md:3089-3191](file://docs/学习笔记.md#L3089-L3191)
+
+**章节来源**
+- [docs/学习笔记.md:3089-3191](file://docs/学习笔记.md#L3089-L3191)
 
 ## 结论
 
@@ -670,6 +747,13 @@ GenerateAnswer --> Return[返回结果]
 - 展示了完整的代码证据和流程图，便于开发者理解和实现
 - 包含了最佳实践和常见陷阱的避免方法
 - 提供了从理论到实践的完整学习路径
+
+**SSE实现的独特优势**：
+- **完整的端到端流程**：从请求发起到流式渲染的13步详细实现
+- **深入的数据流分析**：从AI token到UI渲染的完整转换链
+- **性能优化指南**：节流机制、缓冲区管理和资源清理的最佳实践
+- **错误处理策略**：配置错误与运行时错误的智能区分和处理
+- **工具调用集成**：工具执行与流式输出的无缝结合
 
 未来可以考虑的改进方向：
 - 添加流式输出的用户控制选项

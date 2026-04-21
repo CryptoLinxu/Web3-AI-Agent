@@ -1,7 +1,7 @@
 # Web3 AI Agent Skill Map V3
 
 > 最后更新：2026-04-21
-> 当前阶段：project-checklist 体系建立完成 → 项目自我进化能力形成，待 Memory 和测试覆盖
+> 当前阶段：Memory 管理（L3 摘要压缩）完成 → MVP 核心功能基本完成，待测试覆盖
 
 ## 项目状态速览
 
@@ -14,7 +14,7 @@
 | BTC 价格工具 | ✅ 完成 | 支持 Binance/Huobi 双数据源，Audit 98分 |
 | SSE 流式后端 | ✅ 完成 | 双模型流式输出，Audit 93分 |
 | SSE 流式前端 | ✅ 完成 | 前端消费 Hook + 流式渲染，Audit 95分 |
-| 归档沉淀 | ✅ 完成 | changelog + project-checklist + digest |
+| Memory 管理 | ✅ 完成 | L3 摘要压缩，Strategy 模式，Audit 82分 |
 | 待验证 | 🔄 待办 | 功能测试、浏览器验收、Anthropic 验证 |
 | 待补充 | ⏳ 待办 | 测试覆盖、部署文档、CI/CD |
 
@@ -32,6 +32,11 @@
 ### 项目治理
 - ✅ **Changelog 体系**：完整变更记录，AI 上下文追溯
 - ✅ **Project Checklist**：功能清单 + 未来规划 + 优先级建议，项目自我进化
+
+### Memory 管理
+- ✅ **MemoryManager 接口**：Strategy 模式，支持 L2/L3/L4 策略切换
+- ✅ **L3 摘要压缩**：固定条数触发，保留最近 N 条，异步压缩
+- ✅ **配置化管理**：环境变量支持，工厂函数创建实例
 
 ### 工程能力
 - ✅ **Monorepo**：pnpm workspace + turbo 构建
@@ -83,7 +88,13 @@ AI-Agent/
 │       │   ├── api/
 │       │   │   ├── chat/       # 对话 API（使用 ai-config）
 │       │   │   └── tools/      # 工具 API
-│       │   └── page.tsx        # Chat UI
+│       │   └── page.tsx        # Chat UI（集成 MemoryManager）
+│       ├── lib/
+│       │   └── memory/         # Memory 管理模块
+│       │       ├── types.ts    # MemoryManager 接口
+│       │       ├── config.ts   # 配置管理
+│       │       ├── SummaryCompressionMemory.ts  # L3 实现
+│       │       └── index.ts    # 模块导出
 │       └── .env.example        # 多模型配置示例
 ├── packages/
 │   ├── ai-config/              # AI 模型配置包
@@ -104,10 +115,9 @@ AI-Agent/
 ## 待办事项（下一步）
 
 ### 高优先级
-- [ ] **最小会话 Memory**：支持多轮对话上下文保持
-- [ ] **测试覆盖**：为核心功能添加单元测试和集成测试
+- [ ] **测试覆盖**：为核心功能添加单元测试和集成测试（含 Memory 管理）
 - [ ] **Anthropic 验证**：实际测试 Anthropic 工具调用链
-- [ ] **浏览器验收**：测试 SSE 流式显示效果
+- [ ] **浏览器验收**：测试 SSE 流式显示效果和 Memory 压缩效果
 
 ### 中优先级
 - [ ] **部署文档**：补充生产环境部署指南
@@ -129,6 +139,7 @@ AI-Agent/
 
 ## 历史状态
 
+> 2026-04-21：Memory 管理（L3 摘要压缩）完成（Audit 82分）→ MVP 核心功能基本完成，MVP 完成率 95%
 > 2026-04-21：project-checklist 体系建立完成 → 项目自我进化能力形成，后续规划清晰
 > 2026-04-21：SSE 流式输出功能提交（前后端完整实现）→ 用户可实时看到 AI 回复生成过程
 > 2026-04-17：SSE 流式输出前端完成（Audit 95分）→ 全链路流式实现
