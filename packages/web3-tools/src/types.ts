@@ -8,17 +8,17 @@ export interface ToolResult<T = unknown> {
   source: string
 }
 
-export interface ETHPriceData {
+// 统一 Token 价格数据（支持多币种）
+export interface TokenPriceData {
+  symbol: string       // 'ETH', 'BTC', 'SOL', 'MATIC', 'BNB' 等
   price: number
   change24h: number
-  currency: string
+  currency: string     // 默认 'USD'
 }
 
-export interface BTCPriceData {
-  price: number
-  change24h: number
-  currency: string
-}
+// 向后兼容别名
+export type ETHPriceData = TokenPriceData
+export type BTCPriceData = TokenPriceData
 
 export interface WalletBalanceData {
   address: string

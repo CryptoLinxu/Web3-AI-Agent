@@ -2,19 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { LLMFactory } from '@web3-ai-agent/ai-config'
 import { Tool, Message, StreamChunk } from '@web3-ai-agent/ai-config'
 import { ChatRequest } from '@/types/chat'
-import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice } from '@web3-ai-agent/web3-tools'
+import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice, getTokenPrice } from '@web3-ai-agent/web3-tools'
 
 // 工具定义
 const tools: Tool[] = [
   {
     type: 'function',
     function: {
-      name: 'getETHPrice',
-      description: '获取 ETH 当前价格（美元）',
+      name: 'getTokenPrice',
+      description: '获取指定加密货币的当前价格（美元）',
       parameters: {
         type: 'object',
-        properties: {},
-        required: [],
+        properties: {
+          symbol: {
+            type: 'string',
+            enum: ['ETH', 'BTC', 'SOL', 'MATIC', 'BNB'],
+            description: '加密货币符号（如 ETH, BTC, SOL）',
+          },
+        },
+        required: ['symbol'],
       },
     },
   },
@@ -51,7 +57,7 @@ const tools: Tool[] = [
     type: 'function',
     function: {
       name: 'getBTCPrice',
-      description: '获取 BTC 当前价格（美元）',
+      description: '获取 BTC 当前价格（美元）[已废弃，使用 getTokenPrice]',
       parameters: {
         type: 'object',
         properties: {},
@@ -65,16 +71,16 @@ const tools: Tool[] = [
 const SYSTEM_PROMPT = `你是 Web3 AI Agent，一个专门帮助用户查询 Web3 信息的助手。
 
 ## 你的能力
-- 查询 ETH 实时价格
-- 查询 BTC 实时价格
-- 查询以太坊钱包余额
-- 查询当前 Gas 价格
+- 查询多种加密货币价格（ETH, BTC, SOL, MATIC, BNB）
+- 查询以太坊钱包地址的 ETH 余额
+- 查询当前以太坊 Gas 价格
 
 ## 行为准则
 1. 只回答与 Web3 相关的问题
 2. 对于超出能力范围的问题，明确告知用户
 3. 当需要查询数据时，主动调用相应工具
 4. 工具返回的结果要整理成易懂的自然语言
+5. 查询价格时使用 getTokenPrice 工具，传入 symbol 参数
 
 ## 安全边界
 - 不提供交易建议
@@ -138,9 +144,13 @@ export async function POST(request: NextRequest) {
 
         let result
         try {
-          // 直接调用工具函数
+          // 直接调用具函数
           switch (functionName) {
+            case 'getTokenPrice':
+              result = await getTokenPrice(functionArgs.symbol as string)
+              break
             case 'getETHPrice':
+              // 向后兼容
               result = await getETHPrice()
               break
             case 'getWalletBalance':
@@ -150,6 +160,7 @@ export async function POST(request: NextRequest) {
               result = await getGasPrice()
               break
             case 'getBTCPrice':
+              // 向后兼容
               result = await getBTCPrice()
               break
             default:
