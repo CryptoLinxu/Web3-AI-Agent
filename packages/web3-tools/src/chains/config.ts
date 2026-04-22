@@ -60,8 +60,8 @@ export function getChainConfig(chainId: EvmChainId): ChainConfig {
 }
 
 /**
- * 获取链的 RPC URL
- * @param chainId - 链 ID
+ * 获取链的 RPC URL（仅 EVM 链）
+ * @param chainId - EVM 链 ID
  * @param customRpcUrl - 可选的自定义 RPC URL
  * @returns RPC URL
  */
@@ -71,5 +71,10 @@ export function getRpcUrl(chainId: EvmChainId, customRpcUrl?: string): string {
   }
   
   const config = getChainConfig(chainId)
-  return config.rpcUrls[0] // 使用第一个 RPC
+  // 类型窄化：确保是 EVM 链配置
+  if ('rpcUrls' in config) {
+    return config.rpcUrls[0]
+  }
+  
+  throw new Error(`链 ${chainId} 不支持 RPC 查询`)
 }

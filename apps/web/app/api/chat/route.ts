@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { LLMFactory } from '@web3-ai-agent/ai-config'
 import { Tool, Message, StreamChunk } from '@web3-ai-agent/ai-config'
 import { ChatRequest } from '@/types/chat'
-import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice, getTokenPrice, getBalance as getMultiChainBalance, EvmChainId } from '@web3-ai-agent/web3-tools'
+import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice, getTokenPrice, getBalance as getMultiChainBalance, ChainId, EvmChainId } from '@web3-ai-agent/web3-tools'
 
 // 工具定义
 const tools: Tool[] = [
@@ -28,18 +28,18 @@ const tools: Tool[] = [
     type: 'function',
     function: {
       name: 'getBalance',
-      description: '查询指定 EVM 链上钱包地址的余额',
+      description: '查询指定链上钱包地址的余额',
       parameters: {
         type: 'object',
         properties: {
           chain: {
             type: 'string',
-            enum: ['ethereum', 'polygon', 'bsc'],
-            description: '区块链名称（ethereum, polygon, bsc）',
+            enum: ['ethereum', 'polygon', 'bsc', 'bitcoin', 'solana'],
+            description: '区块链名称（ethereum, polygon, bsc, bitcoin, solana）',
           },
           address: {
             type: 'string',
-            description: '钱包地址（0x 开头）',
+            description: '钱包地址',
           },
         },
         required: ['chain', 'address'],
@@ -83,7 +83,9 @@ const SYSTEM_PROMPT = `你是 Web3 AI Agent，一个专门帮助用户查询 Web
 
 ## 你的能力
 - 查询多种加密货币价格（ETH, BTC, SOL, MATIC, BNB）
-- 查询 EVM 链（Ethereum, Polygon, BSC）上钱包地址的余额
+- 查询多条链上钱包地址的余额：
+  - EVM 链：Ethereum, Polygon, BSC
+  - 非 EVM 链：Bitcoin, Solana
 - 查询 EVM 链的当前 Gas 价格
 
 ## 行为准则
@@ -93,7 +95,7 @@ const SYSTEM_PROMPT = `你是 Web3 AI Agent，一个专门帮助用户查询 Web
 4. 工具返回的结果要整理成易懂的自然语言
 5. 查询价格时使用 getTokenPrice 工具，传入 symbol 参数
 6. 查询余额时使用 getBalance 工具，需要指定 chain 和 address
-7. 查询 Gas 时使用 getGasPrice 工具，需要指定 chain
+7. 查询 Gas 时使用 getGasPrice 工具，需要指定 chain（仅 EVM 链）
 
 ## 安全边界
 - 不提供交易建议
@@ -164,7 +166,7 @@ export async function POST(request: NextRequest) {
               break
             case 'getBalance':
               result = await getMultiChainBalance(
-                functionArgs.chain as EvmChainId,
+                functionArgs.chain as ChainId,
                 functionArgs.address as string
               )
               break

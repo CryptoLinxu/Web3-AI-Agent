@@ -23,8 +23,14 @@ export type BTCPriceData = TokenPriceData
 // EVM 兼容链类型
 export type EvmChainId = 'ethereum' | 'polygon' | 'bsc'
 
-// 链配置
-export interface ChainConfig {
+// 非 EVM 链类型
+export type NonEvmChainId = 'bitcoin' | 'solana'
+
+// 统一链 ID 类型
+export type ChainId = EvmChainId | NonEvmChainId
+
+// 链配置（EVM）
+export interface EvmChainConfig {
   id: EvmChainId
   name: string
   nativeToken: string  // 'ETH', 'MATIC', 'BNB'
@@ -33,16 +39,28 @@ export interface ChainConfig {
   explorerUrl: string
 }
 
+// 链配置（非 EVM）
+export interface NonEvmChainConfig {
+  id: NonEvmChainId
+  name: string
+  nativeToken: string  // 'BTC', 'SOL'
+  apiUrls: string[]    // HTTP API URLs
+  explorerUrl: string
+}
+
+// 统一链配置类型
+export type ChainConfig = EvmChainConfig | NonEvmChainConfig
+
 // 统一余额数据
 export interface BalanceData {
-  chain: EvmChainId
+  chain: ChainId
   address: string
   balance: string
-  unit: string  // 'ETH', 'MATIC', 'BNB'
+  unit: string  // 'ETH', 'MATIC', 'BNB', 'BTC', 'SOL'
   decimals: number
 }
 
-// 统一 Gas 数据
+// 统一 Gas 数据（仅 EVM 链支持）
 export interface GasData {
   chain: EvmChainId
   gasPrice: string | null
