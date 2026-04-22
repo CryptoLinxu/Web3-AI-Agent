@@ -3,23 +3,32 @@
 import { useState, useEffect, useCallback } from 'react'
 import ChatInput from '@/components/ChatInput'
 import MessageList from '@/components/MessageList'
+import SettingsPanel from '@/components/SettingsPanel'
 import { Message } from '@/types/chat'
 import { useChatStream } from '@/hooks/useChatStream'
 import { SummaryCompressionMemory } from '@/lib/memory/SummaryCompressionMemory'
+import { SlidingWindowMemory } from '@/lib/memory/SlidingWindowMemory'
+import type { MemoryManager } from '@/lib/memory/types'
+
+type MemoryStrategy = 'l3-compression' | 'l2-sliding-window'
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: '你好！我是 Web3 AI Agent，可以帮你查询 ETH 价格、钱包余额、Gas 价格等信息。请问有什么可以帮你的？',
+      content: '你好！我是 **Web3 AI Agent** 🌐\n\n我可以帮你查询以下信息：\n\n- **价格查询**：ETH、BTC、SOL、MATIC、BNB 实时价格\n- **余额查询**：Ethereum、Polygon、BSC、Bitcoin、Solana 链上余额\n- **Gas 查询**：EVM 链 Gas 费用\n- **Token 查询**：主流 Token 合约地址和元数据\n\n试试问我："ETH 现在多少钱？"',
       timestamp: Date.now(),
     },
   ])
-  
-  // 初始化 MemoryManager
-  const [memoryManager] = useState(() => new SummaryCompressionMemory())
-  
+
+  // Memory 策略管理
+  const [memoryStrategy, setMemoryStrategy] = useState<MemoryStrategy>('l3-compression')
+  const [memoryManager, setMemoryManager] = useState<MemoryManager>(() => new SummaryCompressionMemory())
+
+  // Settings 面板
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
   const [isLoading, setIsLoading] = useState(false)
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
 
@@ -29,6 +38,16 @@ export default function Home() {
     error: streamError,
     sendMessage,
   } = useChatStream()
+
+  // 切换 Memory 策略
+  const handleMemoryStrategyChange = useCallback((strategy: MemoryStrategy) => {
+    setMemoryStrategy(strategy)
+    if (strategy === 'l3-compression') {
+      setMemoryManager(new SummaryCompressionMemory())
+    } else {
+      setMemoryManager(new SlidingWindowMemory())
+    }
+  }, [])
 
   // 实时更新流式消息内容
   useEffect(() => {
@@ -42,7 +61,6 @@ export default function Home() {
   }, [streamingContent, streamingMessageId, isStreaming])
 
   const handleSendMessage = async (content: string) => {
-    // 添加用户消息到 MemoryManager
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -50,12 +68,10 @@ export default function Home() {
       timestamp: Date.now(),
     }
     memoryManager.addMessage(userMessage)
-    
-    // 更新 UI 状态
+
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
 
-    // 创建流式消息占位符
     const assistantMessageId = (Date.now() + 1).toString()
     setStreamingMessageId(assistantMessageId)
     setMessages((prev) => [
@@ -69,9 +85,8 @@ export default function Home() {
     ])
 
     try {
-      // 使用 SSE 流式输出，从 MemoryManager 获取上下文
       const contextMessages = memoryManager.getMessages()
-      
+
       const result = await sendMessage(
         contextMessages.map((m) => ({
           role: m.role,
@@ -79,7 +94,6 @@ export default function Home() {
         }))
       )
 
-      // 流式完成后，添加 AI 回复到 MemoryManager
       const assistantMessage: Message = {
         id: assistantMessageId,
         role: 'assistant',
@@ -95,14 +109,13 @@ export default function Home() {
           : undefined,
       }
       memoryManager.addMessage(assistantMessage)
-      
+
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMessageId ? assistantMessage : m
         )
       )
     } catch (error) {
-      // 添加错误消息
       const errorMessage: Message = {
         id: assistantMessageId,
         role: 'assistant',
@@ -120,24 +133,65 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-4 md:p-8">
-      <div className="w-full max-w-4xl flex flex-col h-[calc(100vh-4rem)]">
+    <main className="flex min-h-screen flex-col relative overflow-hidden">
+      {/* 背景装饰 */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-600/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-600/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary-500/[0.02] rounded-full blur-3xl" />
+      </div>
+
+      {/* 主内容 */}
+      <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col h-screen px-4 md:px-8">
         {/* Header */}
-        <header className="flex items-center justify-between py-4 border-b border-crypto-border">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Web3 AI Agent</h1>
-            <p className="text-sm text-gray-400">MVP 版本 - 支持 ETH 价格、余额、Gas 查询</p>
+        <header className="flex items-center justify-between py-4 border-b border-white/[0.06]">
+          <div className="flex items-center gap-3">
+            {/* Logo */}
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center shadow-lg shadow-primary-500/20">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white tracking-tight">
+                Web3 AI Agent
+              </h1>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                <span className="text-[11px] text-gray-500">5 条链 · 5 种币 · 11 Token</span>
+              </div>
+            </div>
           </div>
+
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            <span className="text-sm text-gray-400">在线</span>
+            {/* Memory 策略指示器 */}
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+              <svg className="w-3 h-3 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              <span className="text-[10px] text-gray-400 font-medium">
+                {memoryStrategy === 'l3-compression' ? 'L3 摘要' : 'L2 窗口'}
+              </span>
+            </div>
+
+            {/* Settings 按钮 */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-gray-400 hover:text-white"
+              title="设置"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
           </div>
         </header>
 
         {/* Message List */}
         <div className="flex-1 overflow-hidden py-4">
-          <MessageList 
-            messages={messages} 
+          <MessageList
+            messages={messages}
             isLoading={isLoading}
             streamingMessageId={streamingMessageId}
             isStreaming={isStreaming}
@@ -145,15 +199,18 @@ export default function Home() {
         </div>
 
         {/* Input */}
-        <div className="py-4 border-t border-crypto-border">
+        <div className="py-4">
           <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
         </div>
-
-        {/* Disclaimer */}
-        <footer className="py-2 text-center text-xs text-gray-500">
-          本工具仅供信息查询，不构成投资建议。请自行验证所有数据。
-        </footer>
       </div>
+
+      {/* Settings Panel */}
+      <SettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        memoryStrategy={memoryStrategy}
+        onMemoryStrategyChange={handleMemoryStrategyChange}
+      />
     </main>
   )
 }
