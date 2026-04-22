@@ -1,0 +1,753 @@
+# Web3 AI Agent 部署文档
+
+> 版本：v1.0  
+> 最后更新：2026-04-22  
+> 适用项目：Web3 AI Agent (Monorepo)
+
+---
+
+## 📋 目录
+
+- [系统要求](#系统要求)
+- [部署方案概览](#部署方案概览)
+- [方案一：Vercel 部署（推荐）](#方案一vercel-部署推荐)
+- [方案二：Docker 部署](#方案二docker-部署)
+- [方案三：传统服务器部署](#方案三传统服务器部署)
+- [环境变量配置](#环境变量配置)
+- [生产环境优化](#生产环境优化)
+- [监控与日志](#监控与日志)
+- [常见问题](#常见问题)
+
+---
+
+## 系统要求
+
+### 最低配置
+- **Node.js**: >= 18.0.0
+- **pnpm**: >= 8.0.0
+- **内存**: 2GB+
+- **磁盘**: 1GB+
+
+### 推荐配置（生产环境）
+- **Node.js**: 20.x LTS
+- **pnpm**: 9.x
+- **内存**: 4GB+
+- **磁盘**: 5GB+
+- **CPU**: 2 核+
+
+---
+
+## 部署方案概览
+
+| 方案 | 适用场景 | 复杂度 | 成本 | 推荐度 |
+|------|---------|--------|------|--------|
+| **Vercel** | 快速上线、个人项目 | ⭐ | 免费额度 | ⭐⭐⭐⭐⭐ |
+| **Docker** | 自定义环境、私有化部署 | ⭐⭐⭐ | 中等 | ⭐⭐⭐⭐ |
+| **传统服务器** | 企业级部署、完全控制 | ⭐⭐⭐⭐ | 高 | ⭐⭐⭐ |
+
+---
+
+## 方案一：Vercel 部署（推荐）
+
+### 优势
+- ✅ 零配置部署
+- ✅ 自动 HTTPS
+- ✅ 全球 CDN
+- ✅ 自动 CI/CD
+- ✅ 免费额度充足
+
+### 步骤
+
+#### 1. 准备工作
+```bash
+# 1. 将代码推送到 GitHub
+git remote add origin https://github.com/YOUR_USERNAME/web3-ai-agent.git
+git push -u origin main
+
+# 2. 注册 Vercel 账号
+# 访问 https://vercel.com，使用 GitHub 账号登录
+```
+
+#### 2. 创建 Vercel 项目
+1. 访问 [Vercel Dashboard](https://vercel.com/dashboard)
+2. 点击 **"Add New..."** → **"Project"**
+3. 选择你的 GitHub 仓库 `web3-ai-agent`
+4. 点击 **Import**
+
+#### 3. 配置构建设置
+```
+Framework Preset: Next.js
+Root Directory: apps/web
+Build Command: cd ../.. && pnpm install && pnpm build --filter=@web3-ai-agent/web
+Output Directory: .next
+```
+
+#### 4. 配置环境变量
+在 Vercel 项目设置中添加以下环境变量：
+
+```bash
+# AI 模型配置
+DEFAULT_MODEL_PROVIDER=openai
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-3.5-turbo
+
+# Web3 配置
+ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+
+# 应用配置
+APP_VERSION=0.2.0
+
+# 代理配置（国内服务器需要）
+HTTPS_PROXY=http://your-proxy-server:port
+```
+
+#### 5. 部署
+点击 **Deploy**，等待构建完成即可访问。
+
+**访问地址**：`https://your-project-name.vercel.app`
+
+#### 6. 自定义域名（可选）
+1. 进入项目设置 → **Domains**
+2. 添加你的域名
+3. 按照提示配置 DNS 记录
+
+---
+
+## 方案二：Docker 部署
+
+### 优势
+- ✅ 环境一致性
+- ✅ 易于迁移
+- ✅ 支持私有化部署
+
+### 步骤
+
+#### 1. 创建 Dockerfile
+
+在项目根目录创建 `Dockerfile`：
+
+```dockerfile
+# 多阶段构建
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+# 依赖安装阶段
+FROM base AS deps
+WORKDIR /app
+
+# 复制 package.json 和 pnpm 配置
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/ai-config/package.json ./packages/ai-config/
+COPY packages/web3-tools/package.json ./packages/web3-tools/
+
+# 安装依赖
+RUN pnpm install --frozen-lockfile
+
+# 构建阶段
+FROM base AS builder
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app/packages/ai-config/node_modules ./packages/ai-config/node_modules
+COPY --from=deps /app/packages/web3-tools/node_modules ./packages/web3-tools/node_modules
+
+COPY . .
+
+# 构建项目
+RUN pnpm build --filter=@web3-ai-agent/web
+
+# 生产运行阶段
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# 创建非 root 用户
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# 复制构建产物
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "apps/web/server.js"]
+```
+
+#### 2. 创建 .dockerignore
+
+```dockerignore
+node_modules
+.next
+.git
+*.md
+.qoder
+docs
+skills
+.DS_Store
+.env*.local
+```
+
+#### 3. 创建 docker-compose.yml
+
+```yaml
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DEFAULT_MODEL_PROVIDER=openai
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=gpt-3.5-turbo
+      - ETHEREUM_RPC_URL=${ETHEREUM_RPC_URL}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+#### 4. 构建和运行
+
+```bash
+# 构建镜像
+docker-compose build
+
+# 启动服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f web
+
+# 停止服务
+docker-compose down
+```
+
+#### 5. 访问服务
+
+```bash
+# 本地访问
+http://localhost:3000
+
+# 服务器访问
+http://your-server-ip:3000
+```
+
+---
+
+## 方案三：传统服务器部署
+
+### 优势
+- ✅ 完全控制
+- ✅ 灵活定制
+- ✅ 适合企业环境
+
+### 步骤
+
+#### 1. 服务器准备
+
+```bash
+# 以 Ubuntu 22.04 为例
+
+# 更新系统
+sudo apt update && sudo apt upgrade -y
+
+# 安装 Node.js 20.x
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# 安装 pnpm
+npm install -g pnpm
+
+# 验证安装
+node -v  # 应该显示 v20.x.x
+pnpm -v  # 应该显示 9.x.x
+```
+
+#### 2. 克隆代码
+
+```bash
+# 克隆项目
+git clone https://github.com/YOUR_USERNAME/web3-ai-agent.git
+cd web3-ai-agent
+
+# 安装依赖
+pnpm install
+
+# 构建项目
+pnpm build
+```
+
+#### 3. 配置环境变量
+
+```bash
+# 进入 web 应用目录
+cd apps/web
+
+# 创建生产环境配置
+cp .env.example .env.production
+
+# 编辑配置
+nano .env.production
+```
+
+填入生产环境变量（参考[环境变量配置](#环境变量配置)章节）。
+
+#### 4. 使用 PM2 管理进程
+
+```bash
+# 全局安装 PM2
+npm install -g pm2
+
+# 创建 PM2 配置文件
+cat > ecosystem.config.js << EOF
+module.exports = {
+  apps: [{
+    name: 'web3-ai-agent',
+    script: 'pnpm',
+    args: 'start',
+    cwd: './apps/web',
+    instances: 'max',  // 使用所有 CPU 核心
+    exec_mode: 'cluster',
+    env_production: {
+      NODE_ENV: 'production',
+      PORT: 3000
+    },
+    max_memory_restart: '1G',
+    error_file: './logs/pm2-error.log',
+    out_file: './logs/pm2-out.log',
+    merge_logs: true,
+    log_date_format: 'YYYY-MM-DD HH:mm:ss'
+  }]
+}
+EOF
+
+# 启动服务
+pm2 start ecosystem.config.js --env production
+
+# 查看状态
+pm2 status
+
+# 查看日志
+pm2 logs web3-ai-agent
+
+# 设置开机自启
+pm2 startup
+pm2 save
+```
+
+#### 5. 配置 Nginx 反向代理
+
+```bash
+# 安装 Nginx
+sudo apt install nginx -y
+
+# 创建配置文件
+sudo nano /etc/nginx/sites-available/web3-ai-agent
+```
+
+添加以下配置：
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;  # 替换为你的域名或 IP
+
+    # 日志配置
+    access_log /var/log/nginx/web3-ai-agent-access.log;
+    error_log /var/log/nginx/web3-ai-agent-error.log;
+
+    # 反向代理
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        
+        # SSE 流式支持
+        proxy_buffering off;
+        proxy_cache off;
+        chunked_transfer_encoding on;
+    }
+
+    # 健康检查端点
+    location /api/health {
+        proxy_pass http://localhost:3000/api/health;
+    }
+}
+```
+
+启用配置并重启 Nginx：
+
+```bash
+# 创建软链接
+sudo ln -s /etc/nginx/sites-available/web3-ai-agent /etc/nginx/sites-enabled/
+
+# 测试配置
+sudo nginx -t
+
+# 重启 Nginx
+sudo systemctl restart nginx
+
+# 设置开机自启
+sudo systemctl enable nginx
+```
+
+#### 6. 配置 HTTPS（Let's Encrypt）
+
+```bash
+# 安装 Certbot
+sudo apt install certbot python3-certbot-nginx -y
+
+# 获取 SSL 证书
+sudo certbot --nginx -d your-domain.com
+
+# 自动续期
+sudo certbot renew --dry-run
+```
+
+---
+
+## 环境变量配置
+
+### 必需环境变量
+
+| 变量名 | 说明 | 示例值 |
+|--------|------|--------|
+| `DEFAULT_MODEL_PROVIDER` | AI 模型提供商 | `openai` 或 `anthropic` |
+| `OPENAI_API_KEY` | OpenAI API Key | `sk-xxx` |
+| `OPENAI_MODEL` | 使用的模型 | `gpt-3.5-turbo` |
+
+### 可选环境变量
+
+| 变量名 | 说明 | 默认值 |
+|--------|------|--------|
+| `OPENAI_BASE_URL` | OpenAI API 代理 | `https://api.openai.com/v1` |
+| `OPENAI_TEMPERATURE` | 温度参数 | `0.7` |
+| `OPENAI_MAX_TOKENS` | 最大 Token 数 | `2000` |
+| `ANTHROPIC_API_KEY` | Anthropic API Key | - |
+| `ANTHROPIC_MODEL` | Anthropic 模型 | `claude-3-sonnet-20240229` |
+| `ETHEREUM_RPC_URL` | Ethereum RPC 节点 | 公共节点 |
+| `HTTPS_PROXY` | HTTP 代理（国内需要） | - |
+| `APP_VERSION` | 应用版本 | `0.2.0` |
+
+### DeepSeek 配置示例（免费）
+
+```bash
+DEFAULT_MODEL_PROVIDER=openai
+OPENAI_API_KEY=sk-your_deepseek_key
+OPENAI_MODEL=deepseek-chat
+OPENAI_BASE_URL=https://api.deepseek.com
+```
+
+### 通义千问配置示例
+
+```bash
+DEFAULT_MODEL_PROVIDER=openai
+OPENAI_API_KEY=sk-your_dashscope_key
+OPENAI_MODEL=qwen-turbo
+OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+```
+
+---
+
+## 生产环境优化
+
+### 1. 性能优化
+
+#### 启用 Next.js 优化
+```javascript
+// next.config.js
+module.exports = {
+  // 启用 standalone 输出（Docker 部署需要）
+  output: 'standalone',
+  
+  // 图片优化
+  images: {
+    domains: ['your-image-domain.com'],
+  },
+  
+  // 压缩
+  compress: true,
+  
+  // 生产环境禁用 React 严格模式
+  reactStrictMode: false,
+}
+```
+
+#### 配置缓存策略
+```nginx
+# Nginx 静态资源缓存
+location /_next/static/ {
+    expires 365d;
+    access_log off;
+    add_header Cache-Control "public, immutable";
+}
+
+location /static/ {
+    expires 30d;
+    access_log off;
+}
+```
+
+### 2. 安全加固
+
+#### 设置安全 Headers
+```nginx
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-XSS-Protection "1; mode=block" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';" always;
+```
+
+#### 限制 API 速率
+```nginx
+# 限制请求速率
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
+
+location /api/ {
+    limit_req zone=api_limit burst=20 nodelay;
+    proxy_pass http://localhost:3000;
+}
+```
+
+#### 保护环境变量
+```bash
+# .env.production 权限设置
+chmod 600 .env.production
+chown www-data:www-data .env.production
+```
+
+### 3. 监控配置
+
+#### 添加健康检查端点
+项目已内置健康检查：`/api/health`
+
+```bash
+# 测试健康检查
+curl http://localhost:3000/api/health
+
+# 预期响应
+{"status":"ok","timestamp":"2026-04-22T12:00:00.000Z","version":"0.2.0"}
+```
+
+#### PM2 监控
+```bash
+# 安装 PM2 Plus（可选）
+pm2 plus
+
+# 监控应用
+pm2 monit
+```
+
+---
+
+## 监控与日志
+
+### 日志管理
+
+#### PM2 日志
+```bash
+# 查看实时日志
+pm2 logs web3-ai-agent
+
+# 查看错误日志
+pm2 logs web3-ai-agent --err
+
+# 日志轮转配置
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:max_size 10M
+pm2 set pm2-logrotate:retain 7
+```
+
+#### Nginx 日志
+```bash
+# 查看访问日志
+tail -f /var/log/nginx/web3-ai-agent-access.log
+
+# 查看错误日志
+tail -f /var/log/nginx/web3-ai-agent-error.log
+
+# 日志分析（安装 goaccess）
+sudo apt install goaccess -y
+goaccess /var/log/nginx/web3-ai-agent-access.log -o /var/www/html/report.html --log-format=COMBINED
+```
+
+### 性能监控
+
+#### 使用 Vercel Analytics（Vercel 部署）
+- 自动启用
+- 访问 Vercel Dashboard → Analytics
+
+#### 使用 UptimeRobot（外部监控）
+1. 注册 [UptimeRobot](https://uptimerobot.com/)
+2. 添加监控目标：`https://your-domain.com/api/health`
+3. 设置检查间隔：5 分钟
+4. 配置告警通知（邮件/短信）
+
+---
+
+## 常见问题
+
+### Q1: 构建失败，提示 "Cannot find module"
+
+**解决方案**：
+```bash
+# 清理缓存
+rm -rf node_modules .next
+rm -rf apps/web/node_modules apps/web/.next
+rm -rf packages/*/node_modules
+
+# 重新安装
+pnpm install
+
+# 重新构建
+pnpm build
+```
+
+### Q2: 部署后无法访问外部 API（Binance、Huobi 等）
+
+**解决方案**：
+```bash
+# 配置代理（国内服务器）
+export HTTPS_PROXY=http://your-proxy-server:port
+
+# 或者在 .env.production 中添加
+HTTPS_PROXY=http://your-proxy-server:port
+```
+
+### Q3: SSE 流式输出不工作
+
+**解决方案**：
+确保 Nginx 配置中包含：
+```nginx
+proxy_buffering off;
+proxy_cache off;
+chunked_transfer_encoding on;
+```
+
+### Q4: 内存不足导致 OOM
+
+**解决方案**：
+```bash
+# 增加 Swap 空间
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# 验证
+free -h
+
+# 永久生效
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+### Q5: 如何更新部署？
+
+**Vercel**：
+```bash
+# 推送到 main 分支自动触发部署
+git push origin main
+```
+
+**Docker**：
+```bash
+# 拉取最新代码
+git pull
+
+# 重新构建和启动
+docker-compose down
+docker-compose build
+docker-compose up -d
+```
+
+**传统服务器**：
+```bash
+# 拉取最新代码
+git pull
+
+# 重新构建
+pnpm install
+pnpm build
+
+# 重启服务
+pm2 restart web3-ai-agent
+```
+
+### Q6: 如何备份数据？
+
+```bash
+# 备份环境变量
+cp apps/web/.env.production /backup/env-backup-$(date +%Y%m%d)
+
+# 备份日志
+tar -czf /backup/logs-$(date +%Y%m%d).tar.gz logs/
+
+# 备份 PM2 配置
+pm2 save
+cp ~/.pm2/dump.pm2 /backup/pm2-backup-$(date +%Y%m%d)
+```
+
+---
+
+## 部署检查清单
+
+### 部署前
+- [ ] 代码已推送到 Git 仓库
+- [ ] 所有测试通过
+- [ ] 环境变量已配置
+- [ ] API Key 已准备
+- [ ] 域名已解析（如需要）
+
+### 部署中
+- [ ] 依赖安装成功
+- [ ] 构建无错误
+- [ ] 服务启动成功
+- [ ] 健康检查通过
+- [ ] 日志正常输出
+
+### 部署后
+- [ ] 前端页面可访问
+- [ ] AI 对话功能正常
+- [ ] Web3 工具调用正常
+- [ ] SSE 流式输出正常
+- [ ] HTTPS 配置成功
+- [ ] 监控已启用
+- [ ] 备份已配置
+
+---
+
+## 下一步
+
+- 📚 阅读 [ARCHITECTURE.md](../ARCHITECTURE.md) 了解项目架构
+- 🔧 查看 [PROJECT-CHECKLIST.md](./checklist/PROJECT-CHECKLIST.md) 了解项目规划
+- 📝 查看 [changelog](./changelog/) 了解变更历史
+
+---
+
+**部署成功！** 🎉
+
+如有问题，请查看项目文档或提交 Issue。
