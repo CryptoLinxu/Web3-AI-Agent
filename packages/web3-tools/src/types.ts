@@ -69,6 +69,16 @@ export interface GasData {
   unit: string  // 'Gwei'
 }
 
+// Token 元数据
+export interface TokenMetadata {
+  chain: EvmChainId
+  symbol: string
+  name: string
+  decimals: number
+  contractAddress: string
+  logoUri?: string
+}
+
 // 工具函数类型
 export type ToolFunction<TArgs = Record<string, unknown>, TResult = unknown> = (
   args: TArgs

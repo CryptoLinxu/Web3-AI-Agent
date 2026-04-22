@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { LLMFactory } from '@web3-ai-agent/ai-config'
 import { Tool, Message, StreamChunk } from '@web3-ai-agent/ai-config'
 import { ChatRequest } from '@/types/chat'
-import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice, getTokenPrice, getBalance as getMultiChainBalance, ChainId, EvmChainId } from '@web3-ai-agent/web3-tools'
+import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice, getTokenPrice, getBalance as getMultiChainBalance, getTokenInfo, ChainId, EvmChainId } from '@web3-ai-agent/web3-tools'
 
 // 工具定义
 const tools: Tool[] = [
@@ -67,6 +67,28 @@ const tools: Tool[] = [
   {
     type: 'function',
     function: {
+      name: 'getTokenInfo',
+      description: '查询 Token 的元数据信息（名称、合约地址、精度等）',
+      parameters: {
+        type: 'object',
+        properties: {
+          chain: {
+            type: 'string',
+            enum: ['ethereum', 'polygon', 'bsc'],
+            description: '区块链名称（仅支持 EVM 链）',
+          },
+          symbol: {
+            type: 'string',
+            description: 'Token 符号（如 USDT）或合约地址',
+          },
+        },
+        required: ['chain', 'symbol'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'getBTCPrice',
       description: '获取 BTC 当前价格（美元）[已废弃，使用 getTokenPrice]',
       parameters: {
@@ -87,6 +109,7 @@ const SYSTEM_PROMPT = `你是 Web3 AI Agent，一个专门帮助用户查询 Web
   - EVM 链：Ethereum, Polygon, BSC
   - 非 EVM 链：Bitcoin, Solana
 - 查询 EVM 链的当前 Gas 价格
+- 查询 Token 元数据信息（名称、合约地址、精度）
 
 ## 行为准则
 1. 只回答与 Web3 相关的问题
@@ -96,6 +119,7 @@ const SYSTEM_PROMPT = `你是 Web3 AI Agent，一个专门帮助用户查询 Web
 5. 查询价格时使用 getTokenPrice 工具，传入 symbol 参数
 6. 查询余额时使用 getBalance 工具，需要指定 chain 和 address
 7. 查询 Gas 时使用 getGasPrice 工具，需要指定 chain（仅 EVM 链）
+8. 查询 Token 信息时使用 getTokenInfo 工具，需要指定 chain 和 symbol
 
 ## 安全边界
 - 不提供交易建议
@@ -172,6 +196,12 @@ export async function POST(request: NextRequest) {
               break
             case 'getGasPrice':
               result = await getGasPrice(functionArgs.chain as EvmChainId)
+              break
+            case 'getTokenInfo':
+              result = await getTokenInfo(
+                functionArgs.chain as ChainId,
+                functionArgs.symbol as string
+              )
               break
             case 'getETHPrice':
               // 向后兼容

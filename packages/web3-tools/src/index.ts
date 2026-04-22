@@ -2,6 +2,8 @@
 
 export * from './types'
 export * from './chains'
+export * from './tokens'
 export * from './price'
 export * from './balance'
 export * from './gas'
+export * from './token'
