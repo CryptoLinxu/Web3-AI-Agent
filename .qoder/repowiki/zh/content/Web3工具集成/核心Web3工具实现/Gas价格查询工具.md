@@ -4,10 +4,12 @@
 **本文引用的文件**
 - [gas.ts](file://packages/web3-tools/src/gas.ts)
 - [types.ts](file://packages/web3-tools/src/types.ts)
-- [route.ts](file://apps/web/app/api/tools/route.ts)
-- [price.ts](file://packages/web3-tools/src/price.ts)
-- [balance.ts](file://packages/web3-tools/src/balance.ts)
+- [evm-adapter.ts](file://packages/web3-tools/src/chains/evm-adapter.ts)
+- [config.ts](file://packages/web3-tools/src/chains/config.ts)
+- [route.ts](file://apps/web/app/api/chat/route.ts)
 - [package.json](file://packages/web3-tools/package.json)
+- [bitcoin.ts](file://packages/web3-tools/src/chains/bitcoin.ts)
+- [solana.ts](file://packages/web3-tools/src/chains/solana.ts)
 - [Web3-AI-Agent-PRD-MVP.md](file://docs/Web3-AI-Agent-PRD-MVP.md)
 - [SKILL.md](file://skills/web3-ai-agent/SKILL.md)
 - [COMMANDS.md](file://skills/web3-ai-agent/COMMANDS.md)
@@ -19,11 +21,11 @@
 
 ## 更新摘要
 **所做更改**
-- 更新了RPC节点配置机制，支持环境变量配置和默认节点回退
-- 改进了Fee Data获取流程，使用ethers库的getFeeData方法
-- 优化了单位转换逻辑，统一使用Gwei单位显示
-- 增强了错误处理和降级策略
-- 完善了API接口设计和响应格式
+- 新增多EVM兼容链支持：以太坊、Polygon、BSC的统一Gas价格查询接口
+- 引入EVM链适配器架构，提供统一的Gas价格获取机制
+- 更新API接口设计，支持链ID参数化选择
+- 完善链配置管理，支持环境变量配置和默认节点回退
+- 增强错误处理和降级策略，提升多链稳定性
 
 ## 目录
 1. [简介](#简介)
@@ -31,15 +33,17 @@
 3. [核心组件](#核心组件)
 4. [架构总览](#架构总览)
 5. [详细组件分析](#详细组件分析)
-6. [依赖关系分析](#依赖关系分析)
-7. [性能考虑](#性能考虑)
-8. [故障排除指南](#故障排除指南)
-9. [结论](#结论)
-10. [附录](#附录)
+6. [多链支持机制](#多链支持机制)
+7. [API接口设计](#api接口设计)
+8. [依赖关系分析](#依赖关系分析)
+9. [性能考虑](#性能考虑)
+10. [故障排除指南](#故障排除指南)
+11. [结论](#结论)
+12. [附录](#附录)
 
 ## 简介
 本文件为Gas价格查询工具的技术实现文档，围绕以下目标展开：
-- 深入说明Gas价格数据获取机制：网络状态检查、RPC调用流程、价格层级分析与实时性保证策略
+- 深入说明多EVM兼容链Gas价格数据获取机制：网络状态检查、RPC调用流程、价格层级分析与实时性保证策略
 - 详细描述工具的API接口设计：请求参数、响应格式、价格单位换算与时间戳处理
 - 提供具体实现思路与最佳实践：网络请求、数据解析、错误处理与降级策略
 - 解释不同Gas价格层级（快速、标准、慢速）的含义与应用场景
@@ -49,7 +53,7 @@
 - 面向开发者提供完整的工具集成指导与故障排除方案
 
 ## 项目结构
-本仓库为Web3-AI-Agent项目，其中包含技能系统与PRD文档。Gas价格查询工具属于MVP阶段的Web3工具之一，与getETHPrice、getWalletBalance共同构成Agent的工具集合。
+本仓库为Web3-AI-Agent项目，其中包含技能系统与PRD文档。Gas价格查询工具属于MVP阶段的Web3工具之一，现已扩展为支持多条EVM兼容链的统一接口。
 
 ```mermaid
 graph TB
@@ -67,11 +71,18 @@ PRD["Web3-AI-Agent-PRD-MVP.md<br/>MVP功能范围与边界"]
 CMDS["COMMANDS.md<br/>斜杠命令约定"]
 SKILL["SKILL.md<br/>web3-ai-agent 总入口"]
 end
+subgraph "多链支持架构"
+EVM["EVM链适配器<br/>统一Gas查询接口"]
+CONFIG["链配置管理<br/>RPC节点配置"]
+TYPES["类型定义<br/>链ID与数据结构"]
+end
 ORG --> PIPE
 PIPE --> ARCH --> QA --> CODER --> DIGEST --> UPDATE
 ORG --> PRD
 ORG --> CMDS
 ORG --> SKILL
+EVM --> CONFIG
+EVM --> TYPES
 ```
 
 **图表来源**
@@ -92,8 +103,8 @@ ORG --> SKILL
 - 工具入口与路由
   - 统一入口：origin负责任务类型识别与下一跳路由
   - 新功能交付：DELIVER-FEAT通过pipeline进入架构、验证与编码流程
-- 工具能力边界
-  - MVP阶段包含getETHPrice、getWalletBalance、getGasPrice或getTokenInfo二选一
+- 多链支持能力边界
+  - MVP阶段包含getETHPrice、getWalletBalance、getGasPrice支持EVM链
   - 数据来源必须可说明，链上数据与价格数据应明确区分
 - 风险控制与免责声明
   - 高风险问题优先返回数据参考，不做操作建议
@@ -105,7 +116,7 @@ ORG --> SKILL
 - [origin/SKILL.md:41-50](file://skills/web3-ai-agent/origin/SKILL.md#L41-L50)
 
 ## 架构总览
-Gas价格查询工具的实现遵循Web3-AI-Agent的技能系统与PRD约束，采用"入口路由—架构设计—验证—编码—总结"的交付流程。
+Gas价格查询工具的实现遵循Web3-AI-Agent的技能系统与PRD约束，采用"入口路由—架构设计—验证—编码—总结"的交付流程，并引入EVM链适配器架构支持多链统一接口。
 
 ```mermaid
 sequenceDiagram
@@ -115,15 +126,15 @@ participant P as "pipeline(FEAT)"
 participant A as "architect<br/>架构说明"
 participant Q as "qa<br/>验证策略"
 participant C as "coder<br/>编码与自愈"
-U->>O : "/origin 想给 Web3 AI Agent 增加 gas price 查询功能"
+U->>O : "/origin 想给 Web3 AI Agent 增加多链Gas查询功能"
 O->>O : 识别任务类型=DELIVER-FEAT
 O->>P : 路由到 pipeline(FEAT)
-P->>A : 产出架构说明接口契约、数据流、异常处理
+P->>A : 产出多链架构说明与接口契约
 A-->>Q : 进入验证阶段
-Q->>Q : 定义测试清单RED模式
+Q->>Q : 定义多链测试清单RED模式
 Q-->>C : 进入编码阶段
-C->>C : 实施代码与最多10轮自愈
-C-->>U : 可验证通过的实现
+C->>C : 实现EVM链适配器与统一接口
+C-->>U : 支持以太坊、Polygon、BSC的Gas查询
 ```
 
 **图表来源**
@@ -168,17 +179,16 @@ Fallback --> Return
 
 ### API接口设计
 - 请求参数
+  - chain：目标链ID（'ethereum' | 'polygon' | 'bsc'）
   - rpcUrl：可选的RPC节点地址，支持自定义节点配置
-  - chainId：目标链标识（如以太坊主网、Sepolia等）
-  - level：Gas层级（快速/标准/慢速），用于选择优先费区间
-  - blockTag：区块标签（latest/pending/number），用于查询特定区块的参考价格
 - 响应格式
+  - chain：链ID标识
   - gasPrice：基础Gas价格（Wei）
   - maxFeePerGas：最大费用（Wei），适用于EIP-1559
   - maxPriorityFeePerGas：最大优先费用（Wei），适用于EIP-1559
   - unit：价格单位（Gwei）
   - timestamp：数据采集时间戳（毫秒）
-  - source：数据来源（RPC节点名称或标识）
+  - source：数据来源（链名称）
 - 单位换算
   - Wei → Gwei：除以1e9
   - Gwei → ETH：除以1e9
@@ -189,6 +199,7 @@ Fallback --> Return
 ```mermaid
 erDiagram
 GAS_RESPONSE {
+string chain
 string gasPrice
 string maxFeePerGas
 string maxPriorityFeePerGas
@@ -198,7 +209,7 @@ string source
 }
 ```
 
-**更新** 响应格式现在包含unit字段，统一显示Gwei单位
+**更新** 响应格式现在包含chain字段，明确标识Gas价格所属链
 
 ### 错误处理与降级策略
 - 网络超时
@@ -250,24 +261,90 @@ Warn --> End(["结束"])
   - 限制同时活跃的RPC请求数，避免拥塞
   - 使用队列与背压策略，平滑突发流量
 
-### 代码实现要点（实现思路）
-- 网络请求
-  - 使用HTTP/HTTPS客户端，配置超时与重试
-  - 支持WebSocket订阅最新区块头，用于实时更新
-- 数据解析
-  - 解析JSON-RPC响应，提取gasPrice、maxFeePerGas、maxPriorityFeePerGas
-  - 对缺失字段进行默认值处理与日志记录
-- 错误处理
-  - 捕获网络异常、解析异常与业务异常
-  - 统一错误码与消息格式，便于上层处理
-- 降级策略
-  - 优先返回缓存数据，同时异步刷新
-  - 对关键字段缺失时，返回部分数据并标注"数据不完整"
+## 多链支持机制
 
-**更新** 当前实现使用ethers库的JsonRpcProvider和getFeeData方法，提供更可靠的Fee Data获取
+### EVM链适配器架构
+新的EVM链适配器提供了统一的Gas价格查询接口，支持以太坊、Polygon、BSC三大主流EVM链。
+
+```mermaid
+classDiagram
+class EvmChainAdapter {
+-config : ChainConfig
+-provider : JsonRpcProvider
++constructor(chainId : EvmChainId, customRpcUrl? : string)
++getGasPrice() : Promise~ToolResult~
++getBalance(address : string) : Promise~ToolResult~
++validateAddress(address : string) : boolean
+}
+class ChainConfig {
++id : EvmChainId
++name : string
++nativeToken : string
++chainId : number
++rpcUrls : string[]
++explorerUrl : string
+}
+class GasData {
++chain : EvmChainId
++gasPrice : string | null
++maxFeePerGas : string | null
++maxPriorityFeePerGas : string | null
++unit : string
+}
+EvmChainAdapter --> ChainConfig : uses
+EvmChainAdapter --> GasData : returns
+```
+
+**图表来源**
+- [evm-adapter.ts:11-112](file://packages/web3-tools/src/chains/evm-adapter.ts#L11-L112)
+- [config.ts:22-47](file://packages/web3-tools/src/chains/config.ts#L22-L47)
+- [types.ts:63-70](file://packages/web3-tools/src/types.ts#L63-L70)
+
+### 链配置管理
+链配置系统支持环境变量配置和默认节点回退，确保多链服务的高可用性。
+
+**更新** 新增了链配置管理模块，支持以太坊、Polygon、BSC的统一配置
 
 **章节来源**
-- [Web3-AI-Agent-PRD-MVP.md:159-171](file://docs/Web3-AI-Agent-PRD-MVP.md#L159-L171)
+- [config.ts:54-80](file://packages/web3-tools/src/chains/config.ts#L54-L80)
+- [evm-adapter.ts:15-19](file://packages/web3-tools/src/chains/evm-adapter.ts#L15-L19)
+
+## API接口设计
+
+### 统一Gas查询接口
+新的API接口设计支持多链参数化选择，提供统一的Gas价格查询体验。
+
+```mermaid
+sequenceDiagram
+participant Client as "客户端"
+participant API as "getGasPrice接口"
+participant Adapter as "EvmChainAdapter"
+participant Config as "链配置"
+participant RPC as "RPC节点"
+Client->>API : 调用 getGasPrice(chain, rpcUrl?)
+API->>Adapter : 创建适配器实例
+Adapter->>Config : 获取链配置
+Config-->>Adapter : 返回配置信息
+Adapter->>RPC : 发起RPC调用
+RPC-->>Adapter : 返回Fee Data
+Adapter-->>API : 格式化Gas数据
+API-->>Client : 返回统一响应格式
+```
+
+**图表来源**
+- [gas.ts:9-15](file://packages/web3-tools/src/gas.ts#L9-L15)
+- [evm-adapter.ts:68-97](file://packages/web3-tools/src/chains/evm-adapter.ts#L68-L97)
+
+### 支持的链列表
+- 以太坊（Ethereum）：主网链ID 1，原生代币ETH
+- Polygon：链ID 137，原生代币MATIC  
+- BSC（BNB Smart Chain）：链ID 56，原生代币BNB
+
+**更新** 新增了完整的多链支持列表和对应的链配置
+
+**章节来源**
+- [types.ts:24-30](file://packages/web3-tools/src/types.ts#L24-L30)
+- [config.ts:22-47](file://packages/web3-tools/src/chains/config.ts#L22-L47)
 
 ## 依赖关系分析
 Gas价格查询工具在技能系统中的依赖关系如下：
@@ -282,6 +359,12 @@ ARCH --> QA["qa<br/>验证策略"]
 QA --> CODER["coder<br/>编码与自愈"]
 CODER --> DIGEST["digest<br/>总结归档"]
 ORG --> SKILL["web3-ai-agent<br/>总入口"]
+subgraph "多链支持依赖"
+EVM_ADAPTER["EvmChainAdapter"] --> TYPES["types.ts"]
+EVM_ADAPTER --> CONFIG["config.ts"]
+EVM_ADAPTER --> ETHERS["ethers库"]
+CONFIG --> TYPES
+END
 ```
 
 **图表来源**
@@ -325,13 +408,13 @@ ORG --> SKILL["web3-ai-agent<br/>总入口"]
   - 检查缓存TTL与刷新策略
   - 优化去抖与合并策略，避免过度延迟
 
-**更新** 当前实现支持环境变量配置ETHEREUM_RPC_URL，可自定义RPC节点
+**更新** 当前实现支持环境变量配置ETHEREUM_RPC_URL、POLYGON_RPC_URL、BSC_RPC_URL，可自定义各链RPC节点
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:159-171](file://docs/Web3-AI-Agent-PRD-MVP.md#L159-L171)
 
 ## 结论
-Gas价格查询工具作为Web3-AI-Agent MVP的重要组成部分，需在严格的风险控制与数据来源可追溯前提下，提供稳定、可解释、可降级的Gas价格服务。通过合理的网络状态检查、RPC调用流程、价格层级分析与实时性保证策略，结合缓存、批量与并发优化，以及完善的异常处理与用户提示机制，可满足用户对链上Gas信息的即时查询需求，并为后续多链支持与更复杂的交易辅助能力奠定基础。
+Gas价格查询工具作为Web3-AI-Agent MVP的重要组成部分，现已成功扩展为支持多条EVM兼容链的统一接口。通过引入EVM链适配器架构、链配置管理系统和统一的API设计，工具能够在以太坊、Polygon、BSC三大主流链上提供稳定、可解释、可降级的Gas价格服务。严格的网络状态检查、RPC调用流程、价格层级分析与实时性保证策略，结合缓存、批量与并发优化，以及完善的异常处理与用户提示机制，可满足用户对多链Gas信息的即时查询需求，并为后续更多链的支持与更复杂的交易辅助能力奠定坚实基础。
 
 ## 附录
 - 集成指导
@@ -345,6 +428,8 @@ Gas价格查询工具作为Web3-AI-Agent MVP的重要组成部分，需在严格
 - 代码示例
   - [gas.ts](file://packages/web3-tools/src/gas.ts)
   - [types.ts](file://packages/web3-tools/src/types.ts)
-  - [route.ts](file://apps/web/app/api/tools/route.ts)
+  - [evm-adapter.ts](file://packages/web3-tools/src/chains/evm-adapter.ts)
+  - [config.ts](file://packages/web3-tools/src/chains/config.ts)
+  - [route.ts](file://apps/web/app/api/chat/route.ts)
 
-**更新** 新增了RPC节点配置和Fee Data获取的实现细节，提供了更完整的代码示例路径
+**更新** 新增了多链支持的完整代码示例路径，包括EVM链适配器和链配置管理
