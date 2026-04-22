@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { LLMFactory } from '@web3-ai-agent/ai-config'
 import { Tool, Message, StreamChunk } from '@web3-ai-agent/ai-config'
 import { ChatRequest } from '@/types/chat'
-import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice, getTokenPrice } from '@web3-ai-agent/web3-tools'
+import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice, getTokenPrice, getBalance as getMultiChainBalance, EvmChainId } from '@web3-ai-agent/web3-tools'
 
 // 工具定义
 const tools: Tool[] = [
@@ -27,17 +27,22 @@ const tools: Tool[] = [
   {
     type: 'function',
     function: {
-      name: 'getWalletBalance',
-      description: '查询以太坊钱包地址的 ETH 余额',
+      name: 'getBalance',
+      description: '查询指定 EVM 链上钱包地址的余额',
       parameters: {
         type: 'object',
         properties: {
+          chain: {
+            type: 'string',
+            enum: ['ethereum', 'polygon', 'bsc'],
+            description: '区块链名称（ethereum, polygon, bsc）',
+          },
           address: {
             type: 'string',
-            description: '以太坊钱包地址（0x 开头）',
+            description: '钱包地址（0x 开头）',
           },
         },
-        required: ['address'],
+        required: ['chain', 'address'],
       },
     },
   },
@@ -45,11 +50,17 @@ const tools: Tool[] = [
     type: 'function',
     function: {
       name: 'getGasPrice',
-      description: '获取当前以太坊 Gas 价格',
+      description: '获取指定 EVM 链的当前 Gas 价格',
       parameters: {
         type: 'object',
-        properties: {},
-        required: [],
+        properties: {
+          chain: {
+            type: 'string',
+            enum: ['ethereum', 'polygon', 'bsc'],
+            description: '区块链名称（ethereum, polygon, bsc）',
+          },
+        },
+        required: ['chain'],
       },
     },
   },
@@ -72,8 +83,8 @@ const SYSTEM_PROMPT = `你是 Web3 AI Agent，一个专门帮助用户查询 Web
 
 ## 你的能力
 - 查询多种加密货币价格（ETH, BTC, SOL, MATIC, BNB）
-- 查询以太坊钱包地址的 ETH 余额
-- 查询当前以太坊 Gas 价格
+- 查询 EVM 链（Ethereum, Polygon, BSC）上钱包地址的余额
+- 查询 EVM 链的当前 Gas 价格
 
 ## 行为准则
 1. 只回答与 Web3 相关的问题
@@ -81,6 +92,8 @@ const SYSTEM_PROMPT = `你是 Web3 AI Agent，一个专门帮助用户查询 Web
 3. 当需要查询数据时，主动调用相应工具
 4. 工具返回的结果要整理成易懂的自然语言
 5. 查询价格时使用 getTokenPrice 工具，传入 symbol 参数
+6. 查询余额时使用 getBalance 工具，需要指定 chain 和 address
+7. 查询 Gas 时使用 getGasPrice 工具，需要指定 chain
 
 ## 安全边界
 - 不提供交易建议
@@ -144,20 +157,27 @@ export async function POST(request: NextRequest) {
 
         let result
         try {
-          // 直接调用具函数
+          // 直接调用工具函数
           switch (functionName) {
             case 'getTokenPrice':
               result = await getTokenPrice(functionArgs.symbol as string)
+              break
+            case 'getBalance':
+              result = await getMultiChainBalance(
+                functionArgs.chain as EvmChainId,
+                functionArgs.address as string
+              )
+              break
+            case 'getGasPrice':
+              result = await getGasPrice(functionArgs.chain as EvmChainId)
               break
             case 'getETHPrice':
               // 向后兼容
               result = await getETHPrice()
               break
             case 'getWalletBalance':
-              result = await getWalletBalance(functionArgs.address)
-              break
-            case 'getGasPrice':
-              result = await getGasPrice()
+              // 向后兼容
+              result = await getWalletBalance(functionArgs.address as string)
               break
             case 'getBTCPrice':
               // 向后兼容

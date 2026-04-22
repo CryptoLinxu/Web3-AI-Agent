@@ -20,17 +20,35 @@ export interface TokenPriceData {
 export type ETHPriceData = TokenPriceData
 export type BTCPriceData = TokenPriceData
 
-export interface WalletBalanceData {
-  address: string
-  balance: string
-  unit: string
+// EVM 兼容链类型
+export type EvmChainId = 'ethereum' | 'polygon' | 'bsc'
+
+// 链配置
+export interface ChainConfig {
+  id: EvmChainId
+  name: string
+  nativeToken: string  // 'ETH', 'MATIC', 'BNB'
+  chainId: number      // 1, 137, 56
+  rpcUrls: string[]
+  explorerUrl: string
 }
 
-export interface GasPriceData {
+// 统一余额数据
+export interface BalanceData {
+  chain: EvmChainId
+  address: string
+  balance: string
+  unit: string  // 'ETH', 'MATIC', 'BNB'
+  decimals: number
+}
+
+// 统一 Gas 数据
+export interface GasData {
+  chain: EvmChainId
   gasPrice: string | null
   maxFeePerGas: string | null
   maxPriorityFeePerGas: string | null
-  unit: string
+  unit: string  // 'Gwei'
 }
 
 // 工具函数类型

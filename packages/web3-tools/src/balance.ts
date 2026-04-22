@@ -1,52 +1,27 @@
-import { ethers } from 'ethers'
-import { ToolResult, WalletBalanceData } from './types'
-
-// 默认使用公共 RPC 节点或环境变量配置
-const DEFAULT_RPC_URL = process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com'
+import { ToolResult, BalanceData, EvmChainId } from './types'
+import { EvmChainAdapter } from './chains'
 
 /**
- * 获取以太坊钱包 ETH 余额
- * @param address - 以太坊地址
+ * 获取 EVM 兼容链上钱包余额
+ * @param chain - 链 ID（'ethereum', 'polygon', 'bsc'）
+ * @param address - 钱包地址
  * @param rpcUrl - 可选的 RPC 节点地址
+ */
+export async function getBalance(
+  chain: EvmChainId,
+  address: string,
+  rpcUrl?: string
+): Promise<ToolResult<BalanceData>> {
+  const adapter = new EvmChainAdapter(chain, rpcUrl)
+  return adapter.getBalance(address)
+}
+
+/**
+ * @deprecated 使用 getBalance('ethereum', address) 替代
  */
 export async function getWalletBalance(
   address: string,
   rpcUrl?: string
-): Promise<ToolResult<WalletBalanceData>> {
-  try {
-    // 验证地址格式
-    if (!ethers.isAddress(address)) {
-      return {
-        success: false,
-        error: '无效的以太坊地址格式',
-        timestamp: new Date().toISOString(),
-        source: 'Ethereum RPC',
-      }
-    }
-
-    // 创建 provider
-    const provider = new ethers.JsonRpcProvider(rpcUrl || DEFAULT_RPC_URL)
-
-    // 查询余额
-    const balance = await provider.getBalance(address)
-    const balanceInEth = ethers.formatEther(balance)
-
-    return {
-      success: true,
-      data: {
-        address,
-        balance: balanceInEth,
-        unit: 'ETH',
-      },
-      timestamp: new Date().toISOString(),
-      source: 'Ethereum RPC',
-    }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : '获取余额失败',
-      timestamp: new Date().toISOString(),
-      source: 'Ethereum RPC',
-    }
-  }
+): Promise<ToolResult<BalanceData>> {
+  return getBalance('ethereum', address, rpcUrl)
 }
