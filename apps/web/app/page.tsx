@@ -68,9 +68,18 @@ export default function Home() {
       setWalletContext(address)
       loadConversationHistory(address)
     } else if (!isConnected) {
-      // 断开连接时清空对话 ID 和钱包上下文
+      // 断开连接时清空 UI，保留 Supabase 数据
       setConversationId(null)
       clearWalletContext()
+      memoryManager.clear()  // 清空内存
+      setMessages([  // 显示欢迎消息
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: '你好！我是 **Web3 AI Agent** 🌐\n\n我可以帮你查询以下信息：\n\n- **价格查询**：ETH、BTC、SOL、MATIC、BNB 实时价格\n- **余额查询**：Ethereum、Polygon、BSC、Bitcoin、Solana 链上余额\n- **Gas 查询**：EVM 链 Gas 费用\n- **Token 查询**：主流 Token 合约地址和元数据\n\n试试问我：“ETH 现在多少钱？”',
+          timestamp: Date.now(),
+        },
+      ])
     }
   }, [isConnected, address])
 

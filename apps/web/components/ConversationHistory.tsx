@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import * as conversationService from '@/lib/supabase/conversations'
 import type { ConversationSummary } from '@/lib/supabase/conversations'
+import { ConfirmDialog } from './ConfirmDialog'
 
 interface ConversationHistoryProps {
   activeConversationId: string | null
@@ -20,6 +21,8 @@ export default function ConversationHistory({
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(true)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   // 加载对话列表
   useEffect(() => {
@@ -79,20 +82,32 @@ export default function ConversationHistory({
     }
   }
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
+  const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('确定要删除这个对话吗？')) return
+    setPendingDeleteId(id)
+    setShowDeleteDialog(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!pendingDeleteId || !address) return
 
     try {
-      // 传入 walletAddress 用于验证
-      await conversationService.deleteConversation(id, address!)
-      setConversations((prev) => prev.filter((c) => c.id !== id))
-      if (activeConversationId === id) {
+      await conversationService.deleteConversation(pendingDeleteId, address)
+      setConversations((prev) => prev.filter((c) => c.id !== pendingDeleteId))
+      if (activeConversationId === pendingDeleteId) {
         onNewConversation()
       }
     } catch (error) {
       console.error('Failed to delete conversation:', error)
+    } finally {
+      setPendingDeleteId(null)
+      setShowDeleteDialog(false)
     }
+  }
+
+  const handleDeleteCancel = () => {
+    setPendingDeleteId(null)
+    setShowDeleteDialog(false)
   }
 
   // 格式化相对时间
@@ -216,6 +231,17 @@ export default function ConversationHistory({
           onClick={() => setIsOpen(false)}
         />
       )}
+
+      {/* 删除确认弹窗 */}
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        title="删除对话"
+        message="确定要删除这个对话吗？此操作不可撤销。"
+        confirmText="删除"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </>
   )
 }
