@@ -1,7 +1,7 @@
 # Web3 AI Agent Skill Map V3
 
-> 最后更新：2026-04-21
-> 当前阶段：Memory 管理（L2+L3 双策略）完成 → MVP 核心功能完成，待测试覆盖
+> 最后更新：2026-04-23
+> 当前阶段：钱包登录 + Supabase 对话持久化 + RLS 安全加固完成 → MVP 核心功能完整
 
 ## 项目状态速览
 
@@ -9,12 +9,16 @@
 |------|------|------|
 | 项目初始化 | ✅ 完成 | Monorepo + Next.js + Web3 工具 |
 | 模型切换功能 | ✅ 完成 | 支持 OpenAI/Anthropic，Audit 99分 |
-| Chat UI | ✅ 可用 | 基础对话 + 工具调用 |
+| Chat UI | ✅ 完成 | 基础对话 + 工具调用 + 流式输出 |
 | 工具代码重构 | ✅ 完成 | 代码迁移至 packages/web3-tools，Audit 95分 |
 | BTC 价格工具 | ✅ 完成 | 支持 Binance/Huobi 双数据源，Audit 98分 |
 | SSE 流式后端 | ✅ 完成 | 双模型流式输出，Audit 93分 |
 | SSE 流式前端 | ✅ 完成 | 前端消费 Hook + 流式渲染，Audit 95分 |
 | Memory 管理 | ✅ 完成 | L2 滑动窗口 + L3 摘要压缩，Strategy 模式，QA 全通过 |
+| **钱包登录** | ✅ 完成 | RainbowKit + Wagmi v2，支持 MetaMask/WalletConnect |
+| **对话持久化** | ✅ 完成 | Supabase PostgreSQL，自动保存/加载 |
+| **对话历史 UI** | ✅ 完成 | 侧边栏展示、切换、删除、新建 |
+| **安全加固** | ✅ 完成 | RLS 策略 + 钱包地址隔离，Audit 88分 |
 | 待验证 | 🔄 待办 | 功能测试、浏览器验收、Anthropic 验证 |
 | 待补充 | ⏳ 待办 | 测试覆盖、部署文档、CI/CD |
 
@@ -28,19 +32,28 @@
 - ✅ **工具调用**：3 个核心 Web3 工具已接入
 - ✅ **SSE 流式后端**：双模型流式输出，支持 content/tool_call/done/error 事件
 - ✅ **SSE 流式前端**：useChatStream Hook + 流式渲染，50ms 节流，30s 超时
+- ✅ **钱包登录**：RainbowKit + Wagmi v2，支持 MetaMask/WalletConnect/EIP-6963
+- ✅ **对话持久化**：Supabase PostgreSQL，自动保存/加载对话历史
+- ✅ **对话历史管理**：侧边栏展示、切换、删除、新建对话
 
 ### 项目治理
 - ✅ **Changelog 体系**：完整变更记录，AI 上下文追溯
 - ✅ **Project Checklist**：功能清单 + 未来规划 + 优先级建议，项目自我进化
 
-### Memory 管理
+### 安全与数据
+- ✅ **Supabase 集成**：PostgreSQL 云端存储，实时同步
+- ✅ **RLS 策略**：应用层钱包地址隔离，防止跨钱包数据访问
+- ✅ **钱包上下文验证**：所有查询前强制验证 walletAddress
+- ✅ **删除操作保护**：验证对话所有权，防止误删
+- ✅ **密钥管理**：移除 .env.example 中的硬编码密钥
+- ⚠️ **生产 RLS**：当前为应用层防护，生产需升级 Supabase Auth + JWT
 - ✅ **MemoryManager 接口**：Strategy 模式，支持 L2/L3/L4 策略切换
 - ✅ **L2 滑动窗口**：只保留最近 N 条，无 LLM 调用，实现简单（57 行）
 - ✅ **L3 摘要压缩**：固定条数触发，保留最近 N 条，异步压缩（109 行）
 - ✅ **配置化管理**：环境变量支持，工厂函数创建实例
 - ⚠️ **前端集成**：当前仅使用 L3，L2 待后续添加切换 UI
 
-### 工程能力
+### Memory 管理
 - ✅ **Monorepo**：pnpm workspace + turbo 构建
 - ✅ **类型安全**：TypeScript 全项目覆盖
 - ✅ **配置管理**：环境变量驱动模型切换
@@ -57,6 +70,9 @@
 - ✅ [docs/changelog/](/docs/changelog/README.md) - 变更历史记录
 - ✅ [docs/checklist/](/docs/checklist/PROJECT-CHECKLIST.md) - 项目清单与规划
 - ✅ [Skill Map](/skills/x-ray/MAP-V3.md) - 技能地图
+- ✅ [supabase/init.sql](/supabase/init.sql) - 数据库初始化脚本
+
+### 工程能力
 
 ## 使用方式
 
@@ -66,7 +82,11 @@ pnpm install
 
 # 2. 配置环境变量
 cp apps/web/.env.example apps/web/.env.local
-# 编辑 .env.local 填入 OPENAI_API_KEY
+# 编辑 .env.local 填入：
+# - NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+# - NEXT_PUBLIC_SUPABASE_URL
+# - NEXT_PUBLIC_SUPABASE_ANON_KEY
+# - OPENAI_API_KEY 或 ANTHROPIC_API_KEY
 
 # 3. 启动开发服务器
 pnpm dev
@@ -75,9 +95,18 @@ pnpm dev
 
 代码中使用：
 ```typescript
+// Web3 工具调用
+import { getBalance, getTokenPrice } from 'web3-tools'
+const balance = await getBalance('ethereum', '0x...')
+
+// AI 对话
 import { LLMFactory } from '@web3-ai-agent/ai-config'
 const provider = LLMFactory.getProvider()
 const response = await provider.chat(messages, { tools })
+
+// 对话持久化
+import * as conversationService from '@/lib/supabase/conversations'
+await conversationService.saveMessage(convId, message)
 ```
 
 ## 项目结构
@@ -356,3 +385,35 @@ origin -> qa / audit / browser-verify / resolve-doc-conflicts / digest / update-
 4. `PATCH` 默认不走 `pm / prd`。
 5. `REFACTOR` 默认不走 `pm`。
 6. `FEAT` 默认必须有 `prd + req`。
+
+## 下一步建议
+
+### 🎯 推荐入口（按优先级）
+
+1. **浏览器验收** (`/browser-verify`)
+   - 验证钱包登录、对话历史、新建对话功能
+   - 检查 UI/UX 是否符合预期
+   - 测试多钱包切换场景
+
+2. **项目清单更新** (`/project-checklist`)
+   - 更新 PROJECT-CHECKLIST.md
+   - 记录新增能力：钱包登录、对话持久化、RLS 安全
+   - 规划下一阶段功能
+
+3. **阶段沉淀** (`/digest`)
+   - 记录钱包集成经验
+   - 总结 Supabase 集成模式
+   - 沉淀 RLS 安全最佳实践
+
+4. **测试覆盖** (`/pipeline feat`)
+   - 编写对话持久化单元测试
+   - 添加钱包登录 E2E 测试
+   - 验证 Memory 策略切换
+
+### ⚠️ 生产前必须完成
+
+- [ ] 升级 RLS 到 Supabase Auth + JWT
+- [ ] 添加错误边界和加载状态
+- [ ] 优化首屏加载性能（钱包 SDK 按需加载）
+- [ ] 编写部署文档
+- [ ] 配置 CI/CD 流程
