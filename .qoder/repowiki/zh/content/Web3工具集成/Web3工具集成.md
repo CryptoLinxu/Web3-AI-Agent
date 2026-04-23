@@ -33,12 +33,13 @@
 
 ## 更新摘要
 **变更内容**
-- 新增Token查询工具章节，支持EVM链Token元数据查询
-- 更新多链架构支持说明，从单链功能重构为支持5条链（Ethereum、Polygon、BSC、Bitcoin、Solana）
-- 引入统一的链配置管理系统和链适配器模式
+- 新增多链架构支持，从单链功能重构为支持5条链（Ethereum、Polygon、BSC、Bitcoin、Solana）
 - 新增多币种价格查询工具，支持ETH、BTC、SOL、MATIC、BNB
 - 新增多链钱包余额查询工具，支持EVM、Bitcoin、Solana链
 - 新增Gas价格查询工具，支持EVM链网络状态检查和降级策略
+- 新增Token查询工具，支持EVM链Token元数据查询
+- 新增统一的链配置管理系统和链适配器模式
+- 更新API端点以支持多链和多代币功能增强
 
 ## 目录
 1. [简介](#简介)
@@ -46,11 +47,12 @@
 3. [核心组件](#核心组件)
 4. [架构总览](#架构总览)
 5. [详细组件分析](#详细组件分析)
-6. [依赖分析](#依赖分析)
-7. [性能考虑](#性能考虑)
-8. [故障排查指南](#故障排查指南)
-9. [结论](#结论)
-10. [附录](#附录)
+6. [API接口文档](#api接口文档)
+7. [依赖分析](#依赖分析)
+8. [性能考虑](#性能考虑)
+9. [故障排查指南](#故障排查指南)
+10. [结论](#结论)
+11. [附录](#附录)
 
 ## 简介
 本文件面向Web3开发者，系统化阐述AI-Agent项目的Web3工具集成方案。项目已从概念设计升级为完整实现，包含多币种价格查询、钱包余额查询、Gas价格查询、Token查询等核心工具，以及完整的工具抽象层设计。围绕"工具抽象层、工具调用接口、数据格式化与错误处理策略"，结合MVP阶段的四大核心工具进行设计与实现指导；并提供扩展机制、API接口文档、性能优化与故障恢复建议，帮助团队在可控风险边界内构建可演进的Web3数据服务能力。
@@ -152,9 +154,9 @@ end
 ```
 
 **图表来源**
-- [apps/web/app/api/tools/route.ts:1-50](file://apps/web/app/api/tools/route.ts#L1-L50)
+- [apps/web/app/api/tools/route.ts:1-58](file://apps/web/app/api/tools/route.ts#L1-L58)
 - [apps/web/app/api/chat/route.ts:1-219](file://apps/web/app/api/chat/route.ts#L1-L219)
-- [packages/web3-tools/src/index.ts:1-9](file://packages/web3-tools/src/index.ts#L1-L9)
+- [packages/web3-tools/src/index.ts:1-10](file://packages/web3-tools/src/index.ts#L1-L10)
 
 ## 详细组件分析
 
@@ -397,6 +399,60 @@ ErrNotFound --> Done
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:143-156](file://docs/Web3-AI-Agent-PRD-MVP.md#L143-L156)
 
+## API接口文档
+
+### 工具API端点
+- 端点：POST /api/tools
+- 功能：统一的Web3工具调用接口，支持多链和多代币功能
+
+#### 支持的工具列表
+
+**getTokenPrice - 多币种价格查询**
+- 请求体：`{ "name": "getTokenPrice", "arguments": { "symbol": "ETH" } }`
+- 支持币种：ETH、BTC、SOL、MATIC、BNB
+- 成功响应：包含symbol、price、change24h、currency字段
+- 失败响应：包含error字段
+
+**getBalance - 多链余额查询**
+- 请求体：`{ "name": "getBalance", "arguments": { "chain": "ethereum", "address": "0x..." } }`
+- 支持链：ethereum、polygon、bsc、bitcoin、solana
+- 成功响应：包含chain、address、balance、unit、decimals字段
+- 失败响应：包含error字段
+
+**getGasPrice - Gas价格查询**
+- 请求体：`{ "name": "getGasPrice", "arguments": { "chain": "ethereum" } }`
+- 支持链：ethereum、polygon、bsc
+- 成功响应：包含gasPrice、maxFeePerGas、maxPriorityFeePerGas、unit字段
+- 失败响应：包含error字段
+
+**getTokenInfo - Token元数据查询**
+- 请求体：`{ "name": "getTokenInfo", "arguments": { "chain": "ethereum", "symbolOrAddress": "USDT" } }`
+- 支持链：ethereum、polygon、bsc
+- 成功响应：包含chain、symbol、name、decimals、contractAddress、logoUri字段
+- 失败响应：包含error字段
+
+#### 向后兼容工具
+系统保留以下向后兼容的工具调用方式：
+
+**getETHPrice** - ETH价格查询
+- 请求体：`{ "name": "getETHPrice" }`
+
+**getBTCPrice** - BTC价格查询
+- 请求体：`{ "name": "getBTCPrice" }`
+
+**getWalletBalance** - 以太坊钱包余额查询
+- 请求体：`{ "name": "getWalletBalance", "arguments": { "address": "0x..." } }`
+
+**章节来源**
+- [apps/web/app/api/tools/route.ts:1-58](file://apps/web/app/api/tools/route.ts#L1-L58)
+
+### 聊天API端点
+- 端点：POST /api/chat
+- 功能：AI Agent聊天接口，支持工具调用和多链数据查询
+
+**章节来源**
+- [apps/web/app/api/chat/route.ts:77-219](file://apps/web/app/api/chat/route.ts#L77-L219)
+
 ## 依赖分析
 - 技能系统与工具层的耦合关系
   - 技能系统负责任务路由与流程编排，工具层提供数据能力
@@ -495,55 +551,6 @@ END
 
 ## 附录
 
-### API接口文档
-- 多币种价格查询
-  - 方法：POST
-  - 路径：/api/tools
-  - 请求体：{ "name": "getTokenPrice", "arguments": { "symbol": "ETH" } }
-  - 成功响应：包含symbol、price、change24h、currency字段
-  - 失败响应：包含error字段
-- 钱包余额查询
-  - 方法：POST
-  - 路径：/api/tools
-  - 请求体：{ "name": "getBalance", "arguments": { "chain": "ethereum", "address": "0x..." } }
-  - 成功响应：包含chain、address、balance、unit、decimals字段
-  - 失败响应：包含error字段
-- Gas价格查询
-  - 方法：POST
-  - 路径：/api/tools
-  - 请求体：{ "name": "getGasPrice", "arguments": { "chain": "ethereum" } }
-  - 成功响应：包含gasPrice、maxFeePerGas、maxPriorityFeePerGas、unit字段
-  - 失败响应：包含error字段
-- Token查询
-  - 方法：POST
-  - 路径：/api/tools
-  - 请求体：{ "name": "getTokenInfo", "arguments": { "chain": "ethereum", "symbol": "USDT" } }
-  - 成功响应：包含chain、symbol、name、decimals、contractAddress、logoUri字段
-  - 失败响应：包含error字段
-
-**更新** 新增多链钱包余额查询API接口，支持EVM链、比特币、Solana的统一查询接口。新增Token查询API接口，支持EVM链Token元数据查询。
-
-**章节来源**
-- [apps/web/app/api/tools/route.ts:9-50](file://apps/web/app/api/tools/route.ts#L9-L50)
-
-### 工具调用示例
-- 前端调用流程
-  - 用户输入问题
-  - Agent判断是否需要调用工具
-  - 调用对应Web3工具API
-  - 获取工具结果并回填给模型
-  - 生成最终回复并返回给前端
-- 直接触发方式
-  - 直接导入@web3-ai-agent/web3-tools包
-  - 调用getTokenPrice、getBalance、getGasPrice、getTokenInfo函数
-  - 处理返回的ToolResult对象
-
-**更新** 新增多链钱包余额查询工具的直接调用方式，支持统一的工具调用接口。新增Token查询工具的直接调用方式。
-
-**章节来源**
-- [apps/web/app/api/chat/route.ts:77-219](file://apps/web/app/api/chat/route.ts#L77-L219)
-- [apps/web/app/page.tsx:42-105](file://apps/web/app/page.tsx#L42-L105)
-
 ### 类型定义
 - ToolResult：工具调用结果的标准格式
 - TokenPriceData：统一的多币种价格数据结构
@@ -599,3 +606,21 @@ END
 
 **章节来源**
 - [packages/web3-tools/src/tokens/registry.ts:14-102](file://packages/web3-tools/src/tokens/registry.ts#L14-L102)
+
+### 工具调用示例
+- 前端调用流程
+  - 用户输入问题
+  - Agent判断是否需要调用工具
+  - 调用对应Web3工具API
+  - 获取工具结果并回填给模型
+  - 生成最终回复并返回给前端
+- 直接触发方式
+  - 直接导入@web3-ai-agent/web3-tools包
+  - 调用getTokenPrice、getBalance、getGasPrice、getTokenInfo函数
+  - 处理返回的ToolResult对象
+
+**更新** 新增多链钱包余额查询工具的直接调用方式，支持统一的工具调用接口。新增Token查询工具的直接调用方式。
+
+**章节来源**
+- [apps/web/app/api/chat/route.ts:77-219](file://apps/web/app/api/chat/route.ts#L77-L219)
+- [apps/web/app/page.tsx:42-105](file://apps/web/app/page.tsx#L42-L105)

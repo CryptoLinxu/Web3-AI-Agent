@@ -1,6 +1,10 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { headers } from 'next/headers'
+import { cookieToInitialState } from 'wagmi'
 import './globals.css'
+import { getConfig } from './config'
+import { Providers } from './providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -9,14 +13,22 @@ export const metadata: Metadata = {
   description: '理解用户意图、调用 Web3 工具、返回可信结果的 AI Agent',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // 从 cookie 中提取 wagmi 状态，实现跨页面刷新的连接持久化
+  const initialState = cookieToInitialState(
+    getConfig(),
+    (await headers()).get('cookie')
+  )
+
   return (
     <html lang="zh-CN">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <Providers initialState={initialState}>{children}</Providers>
+      </body>
     </html>
   )
 }

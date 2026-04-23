@@ -1,23 +1,34 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useAccount } from 'wagmi'
 import ChatInput from '@/components/ChatInput'
 import MessageList from '@/components/MessageList'
 import SettingsPanel from '@/components/SettingsPanel'
+import WalletConnectButton from '@/components/WalletConnectButton'
+import ConversationHistory from '@/components/ConversationHistory'
 import { Message } from '@/types/chat'
 import { useChatStream } from '@/hooks/useChatStream'
 import { SummaryCompressionMemory } from '@/lib/memory/SummaryCompressionMemory'
 import { SlidingWindowMemory } from '@/lib/memory/SlidingWindowMemory'
 import type { MemoryManager } from '@/lib/memory/types'
+import * as conversationService from '@/lib/supabase/conversations'
 
 type MemoryStrategy = 'l3-compression' | 'l2-sliding-window'
 
 export default function Home() {
+  // 钱包状态
+  const { address, isConnected } = useAccount()
+  
+  // Supabase 同步状态
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: '你好！我是 **Web3 AI Agent** 🌐\n\n我可以帮你查询以下信息：\n\n- **价格查询**：ETH、BTC、SOL、MATIC、BNB 实时价格\n- **余额查询**：Ethereum、Polygon、BSC、Bitcoin、Solana 链上余额\n- **Gas 查询**：EVM 链 Gas 费用\n- **Token 查询**：主流 Token 合约地址和元数据\n\n试试问我："ETH 现在多少钱？"',
+      content: '你好！我是 **Web3 AI Agent** 🌐\n\n我可以帮你查询以下信息：\n\n- **价格查询**：ETH、BTC、SOL、MATIC、BNB 实时价格\n- **余额查询**：Ethereum、Polygon、BSC、Bitcoin、Solana 链上余额\n- **Gas 查询**：EVM 链 Gas 费用\n- **Token 查询**：主流 Token 合约地址和元数据\n\n试试问我：“ETH 现在多少钱？”',
       timestamp: Date.now(),
     },
   ])
@@ -49,6 +60,109 @@ export default function Home() {
     }
   }, [])
 
+  // 钱包连接时加载历史
+  useEffect(() => {
+    if (isConnected && address) {
+      loadConversationHistory(address)
+    } else if (!isConnected) {
+      // 断开连接时清空对话 ID
+      setConversationId(null)
+    }
+  }, [isConnected, address])
+
+  // 加载对话历史
+  const loadConversationHistory = async (walletAddress: string) => {
+    try {
+      setIsSyncing(true)
+      const convId = await conversationService.getOrCreateConversation(walletAddress)
+      setConversationId(convId)
+
+      // 加载历史消息
+      const historyMessages = await conversationService.loadMessages(convId)
+      
+      if (historyMessages.length > 0) {
+        // 有历史消息，加载到 MemoryManager
+        memoryManager.clear()
+        historyMessages.forEach(msg => memoryManager.addMessage(msg))
+        setMessages(historyMessages)
+      } else {
+        // 无历史消息，保持欢迎消息
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'assistant',
+            content: '你好！我是 **Web3 AI Agent** 🌐\n\n我可以帮你查询以下信息：\n\n- **价格查询**：ETH、BTC、SOL、MATIC、BNB 实时价格\n- **余额查询**：Ethereum、Polygon、BSC、Bitcoin、Solana 链上余额\n- **Gas 查询**：EVM 链 Gas 费用\n- **Token 查询**：主流 Token 合约地址和元数据\n\n试试问我：“ETH 现在多少钱？”',
+            timestamp: Date.now(),
+          },
+        ])
+      }
+    } catch (error) {
+      console.error('Failed to load conversation history:', error)
+      // 失败时保持当前状态
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  // 保存消息到 Supabase（防抖）
+  const saveMessagesToCloud = useCallback(async (msgs: Message[]) => {
+    if (!conversationId || !isConnected) return
+
+    try {
+      await conversationService.saveMessages(conversationId, msgs)
+    } catch (error) {
+      console.error('Failed to save messages to cloud:', error)
+      // TODO: 降级到 localStorage
+    }
+  }, [conversationId, isConnected])
+
+  // 新建对话
+  const handleNewConversation = async () => {
+    if (!isConnected || !address) return
+  
+    try {
+      setIsSyncing(true)
+      // 创建真正的新对话（不是获取已有的）
+      const newConvId = await conversationService.createNewConversation(address)
+      setConversationId(newConvId)
+        
+      // 清空当前消息和内存
+      memoryManager.clear()
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: '你好！我是 **Web3 AI Agent** 🌐\n\n我可以帮你查询以下信息：\n\n- **价格查询**：ETH、BTC、SOL、MATIC、BNB 实时价格\n- **余额查询**：Ethereum、Polygon、BSC、Bitcoin、Solana 链上余额\n- **Gas 查询**：EVM 链 Gas 费用\n- **Token 查询**：主流 Token 合约地址和元数据\n\n试试问我：“ETH 现在多少钱？”',
+          timestamp: Date.now(),
+        },
+      ])
+        
+      // 通知侧边栏添加新对话（不重新加载整个列表）
+      window.dispatchEvent(new CustomEvent('conversation-created', {
+        detail: {
+          id: newConvId,
+          title: '新对话',
+          updated_at: new Date().toISOString(),
+          message_count: 0,
+        }
+      }))
+    } catch (error) {
+      console.error('Failed to create new conversation:', error)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  // 选择对话
+  const handleSelectConversation = (id: string, loadedMessages: Message[]) => {
+    setConversationId(id)
+    if (loadedMessages.length > 0) {
+      memoryManager.clear()
+      loadedMessages.forEach(msg => memoryManager.addMessage(msg))
+      setMessages(loadedMessages)
+    }
+  }
+
   // 实时更新流式消息内容
   useEffect(() => {
     if (streamingMessageId && isStreaming) {
@@ -71,6 +185,23 @@ export default function Home() {
 
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
+
+    // 如果是对话的第一条消息，自动生成标题
+    const isFirstMessage = messages.length <= 1 || 
+      (messages.length === 2 && messages[0]?.id === 'welcome')
+    
+    if (isFirstMessage && conversationId && isConnected) {
+      try {
+        const title = conversationService.generateConversationTitle(content)
+        await conversationService.updateConversationTitle(conversationId, title)
+        // 通知侧边栏更新标题
+        window.dispatchEvent(new CustomEvent('conversation-title-updated', {
+          detail: { id: conversationId, title }
+        }))
+      } catch (error) {
+        console.error('Failed to update conversation title:', error)
+      }
+    }
 
     const assistantMessageId = (Date.now() + 1).toString()
     setStreamingMessageId(assistantMessageId)
@@ -115,6 +246,10 @@ export default function Home() {
           m.id === assistantMessageId ? assistantMessage : m
         )
       )
+
+      // 后台异步保存到 Supabase（不阻塞 UI）
+      const allMessages = memoryManager.getMessages()
+      saveMessagesToCloud(allMessages)
     } catch (error) {
       const errorMessage: Message = {
         id: assistantMessageId,
@@ -133,7 +268,7 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col relative overflow-hidden">
+    <main className="flex min-h-screen relative overflow-hidden">
       {/* 背景装饰 */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-600/5 rounded-full blur-3xl" />
@@ -141,8 +276,15 @@ export default function Home() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary-500/[0.02] rounded-full blur-3xl" />
       </div>
 
+      {/* 侧边栏 */}
+      <ConversationHistory
+        activeConversationId={conversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+      />
+
       {/* 主内容 */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col h-screen px-4 md:px-8">
+      <div className="relative z-10 flex-1 flex flex-col h-screen px-4 md:px-8">
         {/* Header */}
         <header className="flex items-center justify-between py-4 border-b border-white/[0.06]">
           <div className="flex items-center gap-3">
@@ -173,6 +315,9 @@ export default function Home() {
                 {memoryStrategy === 'l3-compression' ? 'L3 摘要' : 'L2 窗口'}
               </span>
             </div>
+
+            {/* 钱包连接按钮 */}
+            <WalletConnectButton />
 
             {/* Settings 按钮 */}
             <button
