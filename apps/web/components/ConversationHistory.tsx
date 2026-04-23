@@ -23,6 +23,7 @@ export default function ConversationHistory({
   const [isOpen, setIsOpen] = useState(true)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // 加载对话列表
   useEffect(() => {
@@ -92,6 +93,7 @@ export default function ConversationHistory({
     if (!pendingDeleteId || !address) return
 
     try {
+      setIsDeleting(true)
       await conversationService.deleteConversation(pendingDeleteId, address)
       setConversations((prev) => prev.filter((c) => c.id !== pendingDeleteId))
       if (activeConversationId === pendingDeleteId) {
@@ -100,6 +102,7 @@ export default function ConversationHistory({
     } catch (error) {
       console.error('Failed to delete conversation:', error)
     } finally {
+      setIsDeleting(false)
       setPendingDeleteId(null)
       setShowDeleteDialog(false)
     }
@@ -239,6 +242,7 @@ export default function ConversationHistory({
         message="确定要删除这个对话吗？此操作不可撤销。"
         confirmText="删除"
         variant="danger"
+        isLoading={isDeleting}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
       />
