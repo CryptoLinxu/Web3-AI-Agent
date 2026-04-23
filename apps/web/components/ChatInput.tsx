@@ -25,7 +25,7 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
 
   return (
     <div className="relative">
-      <div className="flex items-end gap-3 bg-[rgba(var(--bg-secondary),0.5)] border border-[rgba(var(--border-color))] rounded-2xl p-2 focus-within:border-[rgba(var(--accent-color),0.3)] focus-within:bg-[rgba(var(--bg-secondary),0.8)] transition-all duration-200 shadow-lg shadow-black/10">
+      <div className="flex items-end gap-3 bg-[rgb(var(--input-bg))] border border-[rgb(var(--border-color))] rounded-2xl p-2 focus-within:border-primary-500 focus-within:bg-[rgb(var(--input-bg))] transition-all duration-200 shadow-sm">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -38,7 +38,7 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
         <button
           onClick={handleSend}
           disabled={!input.trim() || isLoading}
-          className="flex-shrink-0 p-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-400 hover:to-primary-500 disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed text-white transition-all duration-200 shadow-lg shadow-primary-500/20 disabled:shadow-none"
+          className="flex-shrink-0 p-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-400 hover:to-primary-500 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed text-white transition-all duration-200 shadow-lg shadow-primary-500/20 disabled:shadow-none"
         >
           {isLoading ? (
             <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -65,8 +65,8 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
         </button>
       </div>
       <div className="flex items-center justify-between mt-2 px-2">
-        <p className="text-[10px] text-gray-600">Enter 发送 · Shift+Enter 换行</p>
-        <p className="text-[10px] text-gray-600">数据仅供参考，不构成投资建议</p>
+        <p className="text-[10px] text-[rgb(var(--text-muted))]">Enter 发送 · Shift+Enter 换行</p>
+        <p className="text-[10px] text-[rgb(var(--text-muted))]">数据仅供参考，不构成投资建议</p>
       </div>
     </div>
   )

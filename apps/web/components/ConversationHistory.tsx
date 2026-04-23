@@ -147,19 +147,19 @@ export default function ConversationHistory({
       <aside
         className={`${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } fixed lg:static left-0 top-0 h-full w-72 bg-[rgb(var(--bg-primary))] border-r border-[rgba(var(--border-color))] z-40 transition-transform duration-300 flex flex-col`}
+        } fixed lg:static left-0 top-0 h-screen w-72 bg-[rgb(var(--sidebar-bg))] border-r border-[rgb(var(--border-color))] z-40 transition-transform duration-300 flex flex-col`}
       >
         {/* 头部 */}
-        <div className="p-4 border-b border-[rgba(var(--border-color))]">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-white">对话历史</h2>
+        <div className="p-4 border-b border-[rgb(var(--border-color))]">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[rgb(var(--text-primary))]">对话历史</h2>
             <button
               onClick={onNewConversation}
-              className="p-1.5 rounded-lg bg-primary-600/20 text-primary-400 hover:bg-primary-600/30 transition-colors"
+              className="p-1.5 rounded-lg bg-primary-600/20 text-primary-600 hover:bg-primary-600/30 transition-colors"
               title="新对话"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
               </svg>
             </button>
           </div>
@@ -186,13 +186,13 @@ export default function ConversationHistory({
                 onClick={() => handleSelect(conv.id)}
                 className={`group relative p-3 rounded-lg cursor-pointer transition-colors ${
                   activeConversationId === conv.id
-                    ? 'bg-primary-600/20 border border-primary-600/30'
-                    : 'hover:bg-[rgba(var(--bg-tertiary))] border border-transparent'
+                    ? 'bg-[rgb(var(--user-message-bg))] border-l-2 border-l-primary-500'
+                    : 'hover:bg-[rgb(var(--bg-tertiary))] border border-transparent'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[rgb(var(--text-primary))] truncate">
+                    <p className="text-sm font-medium text-[rgb(var(--text-primary))] truncate">
                       {conv.title || '新对话'}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
@@ -206,7 +206,7 @@ export default function ConversationHistory({
                   </div>
                   <button
                     onClick={(e) => handleDelete(conv.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/20 text-[rgb(var(--text-muted))] hover:text-red-400 transition-all"
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/20 text-[rgb(var(--text-muted))] hover:text-red-500 transition-all"
                     title="删除"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -220,7 +220,7 @@ export default function ConversationHistory({
         </div>
 
         {/* 底部 */}
-        <div className="p-3 border-t border-[rgba(var(--border-color))]">
+        <div className="p-3 border-t border-[rgb(var(--border-color))]">
           <p className="text-xs text-[rgb(var(--text-muted))] opacity-60 text-center">
             共 {conversations.length} 个对话
           </p>

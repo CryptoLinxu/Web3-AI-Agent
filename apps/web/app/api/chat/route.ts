@@ -100,8 +100,8 @@ const tools: Tool[] = [
   },
 ]
 
-// 系统 Prompt
-const SYSTEM_PROMPT = `你是 Web3 AI Agent，一个专门帮助用户查询 Web3 信息的助手。
+// 系统 Prompt（基础版）
+const SYSTEM_PROMPT_BASE = `你是 Web3 AI Agent，一个专门帮助用户查询 Web3 信息的助手。
 
 ## 你的能力
 - 查询多种加密货币价格（ETH, BTC, SOL, MATIC, BNB）
@@ -132,17 +132,35 @@ const SYSTEM_PROMPT = `你是 Web3 AI Agent，一个专门帮助用户查询 Web
 - 重要数据突出显示
 - 必要时提供数据来源说明`
 
+// 动态生成 system prompt（带钱包上下文）
+function createSystemPrompt(walletAddress?: string): string {
+  if (!walletAddress) {
+    return SYSTEM_PROMPT_BASE
+  }
+
+  // 注入钱包上下文
+  return `${SYSTEM_PROMPT_BASE}
+
+## 当前用户信息
+- 用户已连接钱包，地址为：${walletAddress}
+- 当用户查询“我的余额”或“我的钱包”时，使用此地址
+- 如果用户未指定地址，默认使用此地址查询余额`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: ChatRequest = await request.json()
-    const { messages } = body
+    const { messages, walletAddress } = body
 
     // 获取 LLM 提供商
     const provider = LLMFactory.getProvider()
 
+    // 动态生成 system prompt（带钱包上下文）
+    const systemPrompt = createSystemPrompt(walletAddress)
+
     // 转换消息格式
     const chatMessages: Message[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       ...messages.map((m) => ({
         role: m.role as Message['role'],
         content: m.content,

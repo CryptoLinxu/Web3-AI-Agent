@@ -14,7 +14,7 @@ export function ThemeSwitcher() {
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-300">
+      <label className="block text-sm font-bold text-[rgb(var(--text-secondary))]">
         主题模式
       </label>
       <div className="grid grid-cols-3 gap-2">
@@ -24,8 +24,8 @@ export function ThemeSwitcher() {
             onClick={() => setTheme(value)}
             className={`flex flex-col items-center gap-1 p-3 rounded-lg border transition-all ${
               theme === value
-                ? 'border-purple-500 bg-purple-500/10 text-purple-400'
-                : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600 hover:bg-gray-800'
+                ? 'border-primary-500 bg-primary-50 text-primary-600'
+                : 'border-[rgb(var(--border-color))] bg-[rgb(var(--bg-secondary))] text-[rgb(var(--text-muted))] hover:border-[rgb(var(--text-muted))] hover:bg-[rgb(var(--bg-tertiary))]'
             }`}
           >
             <span className="text-lg">{icon}</span>
@@ -33,7 +33,7 @@ export function ThemeSwitcher() {
           </button>
         ))}
       </div>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-[rgb(var(--text-muted))] opacity-60">
         当前：{resolvedTheme === 'dark' ? '深色模式' : '浅色模式'}
       </p>
     </div>

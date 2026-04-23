@@ -58,17 +58,17 @@ export function ConfirmDialog({
 
       {/* 弹窗内容 */}
       <div
-        className="relative z-10 w-full max-w-md mx-4 bg-gray-900 border border-purple-500/20 rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200"
+        className="relative z-10 w-full max-w-md mx-4 bg-[rgb(var(--bg-primary))] border border-[rgb(var(--border-color))] rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 标题 */}
         <div className="px-6 pt-6 pb-4">
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
+          <h3 className="text-lg font-semibold text-[rgb(var(--text-primary))]">{title}</h3>
         </div>
 
         {/* 消息 */}
         <div className="px-6 pb-6">
-          <p className="text-gray-400 text-sm leading-relaxed">{message}</p>
+          <p className="text-[rgb(var(--text-secondary))] text-sm leading-relaxed">{message}</p>
         </div>
 
         {/* 按钮 */}
@@ -76,7 +76,7 @@ export function ConfirmDialog({
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-lg bg-[rgb(var(--bg-tertiary))] text-[rgb(var(--text-secondary))] hover:bg-[rgb(var(--bg-secondary))] transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {cancelText}
           </button>

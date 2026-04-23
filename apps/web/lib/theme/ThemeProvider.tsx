@@ -19,6 +19,14 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null
     const initialTheme = savedTheme || 'dark'
     setThemeState(initialTheme)
+    
+    // 初始化时同步 dark class
+    const resolved = resolveTheme(initialTheme)
+    if (resolved === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
   }, [])
 
   // 解析主题（system 模式跟随系统）
@@ -50,6 +58,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     
     // 更新 HTML 属性
     document.documentElement.setAttribute('data-theme', resolved)
+    
+    // 同步添加/移除 dark class（Tailwind darkMode: 'class' 需要）
+    if (resolved === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
     
     // 存储到 localStorage
     localStorage.setItem(THEME_STORAGE_KEY, theme)

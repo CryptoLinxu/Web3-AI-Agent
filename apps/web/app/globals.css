@@ -16,21 +16,35 @@
   --text-secondary: 156, 163, 175;
   --text-muted: 107, 114, 128;
   --accent-color: 124, 58, 237;
+  --sidebar-bg: 17, 24, 39;
+  --header-bg: 6, 8, 20;
+  --user-message-bg: 45, 40, 85;
+  --ai-message-bg: 17, 24, 39;
+  --input-bg: 17, 24, 39;
+  --user-avatar-from: 75, 85, 99;
+  --user-avatar-to: 55, 65, 81;
 }
 
 /* 浅色主题 */
 [data-theme='light'] {
   --foreground-rgb: 17, 24, 39;
-  --background-start-rgb: 249, 250, 251;
-  --background-end-rgb: 243, 244, 246;
+  --background-start-rgb: 255, 255, 255;
+  --background-end-rgb: 255, 255, 255;
   --bg-primary: 255, 255, 255;
   --bg-secondary: 249, 250, 251;
   --bg-tertiary: 243, 244, 246;
-  --border-color: 0, 0, 0, 0.08;
+  --border-color: 229, 231, 235;
   --text-primary: 17, 24, 39;
   --text-secondary: 75, 85, 99;
-  --text-muted: 107, 114, 128;
+  --text-muted: 156, 163, 175;
   --accent-color: 124, 58, 237;
+  --sidebar-bg: 249, 250, 251;
+  --header-bg: 255, 255, 255;
+  --user-message-bg: 239, 236, 255;
+  --ai-message-bg: 255, 255, 255;
+  --input-bg: 255, 255, 255;
+  --user-avatar-from: 200, 200, 200;
+  --user-avatar-to: 180, 180, 180;
 }
 
 body {

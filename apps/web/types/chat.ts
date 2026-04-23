@@ -19,6 +19,7 @@ export interface ChatRequest {
     role: 'user' | 'assistant' | 'system'
     content: string
   }>
+  walletAddress?: string // 当前登录的钱包地址（可选）
 }
 
 export interface ChatResponse {

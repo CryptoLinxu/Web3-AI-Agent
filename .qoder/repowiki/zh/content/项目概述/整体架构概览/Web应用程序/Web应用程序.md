@@ -3,6 +3,7 @@
 <cite>
 **本文档引用的文件**
 - [apps/web/app/layout.tsx](file://apps/web/app/layout.tsx)
+- [apps/web/app/providers.tsx](file://apps/web/app/providers.tsx)
 - [apps/web/app/page.tsx](file://apps/web/app/page.tsx)
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
@@ -11,6 +12,13 @@
 - [apps/web/components/MessageItem.tsx](file://apps/web/components/MessageItem.tsx)
 - [apps/web/components/MarkdownRenderer.tsx](file://apps/web/components/MarkdownRenderer.tsx)
 - [apps/web/components/SettingsPanel.tsx](file://apps/web/components/SettingsPanel.tsx)
+- [apps/web/components/ThemeSwitcher.tsx](file://apps/web/components/ThemeSwitcher.tsx)
+- [apps/web/components/ConfirmDialog.tsx](file://apps/web/components/ConfirmDialog.tsx)
+- [apps/web/components/WalletConnectButton.tsx](file://apps/web/components/WalletConnectButton.tsx)
+- [apps/web/components/ConversationHistory.tsx](file://apps/web/components/ConversationHistory.tsx)
+- [apps/web/lib/theme/ThemeProvider.tsx](file://apps/web/lib/theme/ThemeProvider.tsx)
+- [apps/web/lib/theme/ThemeContext.tsx](file://apps/web/lib/theme/ThemeContext.tsx)
+- [apps/web/lib/theme/types.ts](file://apps/web/lib/theme/types.ts)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
 - [apps/web/lib/memory/SummaryCompressionMemory.ts](file://apps/web/lib/memory/SummaryCompressionMemory.ts)
 - [apps/web/lib/memory/SlidingWindowMemory.ts](file://apps/web/lib/memory/SlidingWindowMemory.ts)
@@ -30,11 +38,11 @@
 
 ## 更新摘要
 **变更内容**
-- 新增Markdown渲染功能，提供完整的Markdown语法支持
-- 新增设置面板组件，支持内存策略管理
-- UI美化改进，采用Web3企业风格设计
-- 增强内存管理系统，支持L3摘要压缩和L2滑动窗口策略
-- 流式输出光标动画和工具调用卡片动画
+- 新增主题系统，支持浅色、深色和跟随系统三种主题模式
+- 新增确认对话框组件，提供统一的用户确认交互体验
+- 完善设置面板，集成主题切换功能
+- 增强UI组件体系，提升用户交互体验
+- 优化主题提供者架构，实现响应式主题切换
 
 ## 目录
 1. [简介](#简介)
@@ -42,12 +50,14 @@
 3. [核心组件](#核心组件)
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
-6. [内存管理策略](#内存管理策略)
-7. [UI设计与样式](#ui设计与样式)
-8. [依赖关系分析](#依赖关系分析)
-9. [性能考虑](#性能考虑)
-10. [故障排除指南](#故障排除指南)
-11. [结论](#结论)
+6. [主题系统](#主题系统)
+7. [确认对话框组件](#确认对话框组件)
+8. [内存管理策略](#内存管理策略)
+9. [UI设计与样式](#ui设计与样式)
+10. [依赖关系分析](#依赖关系分析)
+11. [性能考虑](#性能考虑)
+12. [故障排除指南](#故障排除指南)
+13. [结论](#结论)
 
 ## 简介
 
@@ -61,6 +71,8 @@
 - **新增**：完整的Markdown语法渲染支持
 - **新增**：内存策略管理设置面板
 - **新增**：Web3企业风格的现代化UI设计
+- **新增**：完整的主题系统支持
+- **新增**：统一的确认对话框组件
 
 应用采用现代化的技术栈，包括 Next.js 14、TypeScript、Tailwind CSS 和 Ethers.js，构建了一个响应式的 Web3 信息查询平台，具备企业级的设计风格和用户体验。
 
@@ -139,7 +151,7 @@ RootLayout --> LayoutProps : 接受
 ```
 
 **图表来源**
-- [apps/web/app/layout.tsx:1-23](file://apps/web/app/layout.tsx#L1-L23)
+- [apps/web/app/layout.tsx:1-38](file://apps/web/app/layout.tsx#L1-L38)
 
 ### 主页面组件
 
@@ -171,12 +183,12 @@ Home --> MemoryManager : 使用
 ```
 
 **图表来源**
-- [apps/web/app/page.tsx:1-217](file://apps/web/app/page.tsx#L1-L217)
+- [apps/web/app/page.tsx:1-375](file://apps/web/app/page.tsx#L1-L375)
 - [apps/web/types/chat.ts:1-28](file://apps/web/types/chat.ts#L1-L28)
 
 **章节来源**
-- [apps/web/app/layout.tsx:1-23](file://apps/web/app/layout.tsx#L1-L23)
-- [apps/web/app/page.tsx:1-217](file://apps/web/app/page.tsx#L1-L217)
+- [apps/web/app/layout.tsx:1-38](file://apps/web/app/layout.tsx#L1-L38)
+- [apps/web/app/page.tsx:1-375](file://apps/web/app/page.tsx#L1-L375)
 - [apps/web/types/chat.ts:1-28](file://apps/web/types/chat.ts#L1-L28)
 
 ## 架构概览
@@ -192,6 +204,8 @@ Components[React组件]
 SettingsPanel[设置面板]
 MarkdownRenderer[Markdown渲染器]
 MemoryManager[内存管理器]
+ThemeSystem[主题系统]
+ConfirmDialog[确认对话框]
 end
 subgraph "API层"
 ChatAPI[聊天API]
@@ -212,10 +226,15 @@ ChatUI --> Components
 ChatUI --> SettingsPanel
 ChatUI --> MarkdownRenderer
 ChatUI --> MemoryManager
+ChatUI --> ThemeSystem
+ChatUI --> ConfirmDialog
 Components --> ChatAPI
 SettingsPanel --> MemoryManager
+SettingsPanel --> ThemeSystem
 MarkdownRenderer --> ChatAPI
 MemoryManager --> ChatAPI
+ThemeSystem --> Providers
+ConfirmDialog --> ChatUI
 ChatAPI --> LLMFactory
 ChatAPI --> ToolsAPI
 ToolsAPI --> Tools
@@ -237,7 +256,9 @@ sequenceDiagram
 participant User as 用户
 participant UI as 聊天界面
 participant Settings as 设置面板
+participant Theme as 主题系统
 participant Memory as 内存管理器
+participant Dialog as 确认对话框
 participant ChatAPI as 聊天API
 participant LLM as LLM工厂
 participant ToolsAPI as 工具API
@@ -256,11 +277,13 @@ LLM-->>ChatAPI : 最终回复
 ChatAPI-->>UI : 返回响应
 UI->>Memory : 添加AI消息
 UI->>Settings : 更新内存策略
+UI->>Theme : 应用主题切换
+UI->>Dialog : 显示确认对话框
 UI-->>User : 显示结果
 ```
 
 **图表来源**
-- [apps/web/app/page.tsx:63-133](file://apps/web/app/page.tsx#L63-L133)
+- [apps/web/app/page.tsx:190-281](file://apps/web/app/page.tsx#L190-L281)
 - [apps/web/app/api/chat/route.ts:156-319](file://apps/web/app/api/chat/route.ts#L156-L319)
 
 ## 详细组件分析
@@ -366,7 +389,7 @@ MarkdownRenderer --> MarkdownRendererProps : 接受
 
 ### 设置面板组件
 
-**新增** 设置面板组件提供了内存策略管理和用户偏好设置：
+**新增** 设置面板组件提供了内存策略管理和用户偏好设置，现已集成主题切换功能：
 
 ```mermaid
 classDiagram
@@ -384,10 +407,70 @@ class SettingsPanelProps {
 +onMemoryStrategyChange(strategy) void
 }
 SettingsPanel --> SettingsPanelProps : 接受
+SettingsPanel --> ThemeSwitcher : 包含
 ```
 
 **图表来源**
-- [apps/web/components/SettingsPanel.tsx:1-192](file://apps/web/components/SettingsPanel.tsx#L1-L192)
+- [apps/web/components/SettingsPanel.tsx:1-196](file://apps/web/components/SettingsPanel.tsx#L1-L196)
+
+### 主题切换器组件
+
+**新增** 主题切换器组件提供了直观的主题模式选择界面：
+
+```mermaid
+classDiagram
+class ThemeSwitcher {
++ThemeMode theme
++setTheme(theme) void
++resolvedTheme ResolvedTheme
++render() JSX.Element
+}
+class ThemeSwitcherProps {
++theme ThemeMode
++setTheme(theme) void
++resolvedTheme ResolvedTheme
+}
+ThemeSwitcher --> ThemeSwitcherProps : 接受
+ThemeSwitcher --> ThemeContext : 使用
+```
+
+**图表来源**
+- [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
+
+### 确认对话框组件
+
+**新增** 确认对话框组件提供了统一的用户确认交互体验：
+
+```mermaid
+classDiagram
+class ConfirmDialog {
++boolean isOpen
++string title
++string message
++string confirmText
++string cancelText
++variant Variant
++boolean isLoading
++onConfirm() void
++onCancel() void
++render() JSX.Element
+}
+class ConfirmDialogProps {
++boolean isOpen
++string title
++string message
++string confirmText
++string cancelText
++variant Variant
++boolean isLoading
++onConfirm() void
++onCancel() void
+}
+ConfirmDialog --> ConfirmDialogProps : 接受
+```
+
+**图表来源**
+- [apps/web/components/ConfirmDialog.tsx:1-101](file://apps/web/components/ConfirmDialog.tsx#L1-L101)
 
 ### 聊天API处理器
 
@@ -418,8 +501,172 @@ FinalReply --> End
 - [apps/web/components/MessageList.tsx:1-44](file://apps/web/components/MessageList.tsx#L1-L44)
 - [apps/web/components/MessageItem.tsx:1-152](file://apps/web/components/MessageItem.tsx#L1-L152)
 - [apps/web/components/MarkdownRenderer.tsx:1-119](file://apps/web/components/MarkdownRenderer.tsx#L1-L119)
-- [apps/web/components/SettingsPanel.tsx:1-192](file://apps/web/components/SettingsPanel.tsx#L1-L192)
+- [apps/web/components/SettingsPanel.tsx:1-196](file://apps/web/components/SettingsPanel.tsx#L1-L196)
+- [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
+- [apps/web/components/ConfirmDialog.tsx:1-101](file://apps/web/components/ConfirmDialog.tsx#L1-L101)
 - [apps/web/app/api/chat/route.ts:1-406](file://apps/web/app/api/chat/route.ts#L1-L406)
+
+## 主题系统
+
+### 主题提供者架构
+
+应用程序实现了完整的主题系统，支持多种主题模式的动态切换：
+
+```mermaid
+classDiagram
+class ThemeProvider {
++ThemeMode theme
++ResolvedTheme resolvedTheme
++useState() state
++localStorage storage
++resolveTheme(mode) ResolvedTheme
++setTheme(newTheme) void
++render() JSX.Element
+}
+class ThemeContext {
++ThemeMode theme
++setTheme(theme) void
++ResolvedTheme resolvedTheme
+}
+class ThemeSwitcher {
++ThemeMode theme
++setTheme(theme) void
++ResolvedTheme resolvedTheme
++themes array
++render() JSX.Element
+}
+class ThemeTypes {
+<<interface>>
++ThemeMode type
++ResolvedTheme type
+}
+ThemeProvider --> ThemeContext : 创建
+ThemeProvider --> ThemeTypes : 使用
+ThemeSwitcher --> ThemeContext : 订阅
+ThemeSwitcher --> ThemeTypes : 使用
+```
+
+**图表来源**
+- [apps/web/lib/theme/ThemeProvider.tsx:1-67](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L67)
+- [apps/web/lib/theme/ThemeContext.tsx:1-21](file://apps/web/lib/theme/ThemeContext.tsx#L1-L21)
+- [apps/web/lib/theme/types.ts:1-10](file://apps/web/lib/theme/types.ts#L1-L10)
+- [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
+
+### 主题模式支持
+
+应用程序支持三种主题模式，每种模式都有其特定的使用场景：
+
+| 模式类型 | 描述 | 特点 | 适用场景 |
+|---------|------|------|----------|
+| light | 浅色主题 | 明亮的界面，适合白天使用 | 日常办公、明亮环境 |
+| dark | 深色主题 | 深色背景，减少眼部疲劳 | 夜晚使用、长时间工作 |
+| system | 跟随系统 | 自动检测系统主题设置 | 多设备同步、用户偏好 |
+
+### 主题持久化存储
+
+主题设置通过 localStorage 实现持久化存储，确保用户偏好的一致性：
+
+```mermaid
+sequenceDiagram
+participant User as 用户
+participant ThemeSwitcher as 主题切换器
+participant ThemeProvider as 主题提供者
+participant LocalStorage as 本地存储
+participant DOM as 文档对象
+User->>ThemeSwitcher : 选择主题模式
+ThemeSwitcher->>ThemeProvider : setTheme(mode)
+ThemeProvider->>LocalStorage : 保存主题设置
+LocalStorage-->>ThemeProvider : 确认保存
+ThemeProvider->>DOM : 更新data-theme属性
+DOM-->>User : 应用新主题
+```
+
+**图表来源**
+- [apps/web/lib/theme/ThemeProvider.tsx:17-22](file://apps/web/lib/theme/ThemeProvider.tsx#L17-L22)
+- [apps/web/lib/theme/ThemeProvider.tsx:47-56](file://apps/web/lib/theme/ThemeProvider.tsx#L47-L56)
+
+**章节来源**
+- [apps/web/lib/theme/ThemeProvider.tsx:1-67](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L67)
+- [apps/web/lib/theme/ThemeContext.tsx:1-21](file://apps/web/lib/theme/ThemeContext.tsx#L1-L21)
+- [apps/web/lib/theme/types.ts:1-10](file://apps/web/lib/theme/types.ts#L1-L10)
+- [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
+
+## 确认对话框组件
+
+### 组件架构设计
+
+确认对话框组件提供了统一的用户确认交互界面，支持多种变体和状态：
+
+```mermaid
+classDiagram
+class ConfirmDialog {
++boolean isOpen
++string title
++string message
++string confirmText
++string cancelText
++Variant variant
++boolean isLoading
++onConfirm() void
++onCancel() void
++handleEscape(e) void
++render() JSX.Element
+}
+class ConfirmDialogProps {
++boolean isOpen
++string title
++string message
++string confirmText
++string cancelText
++Variant variant
++boolean isLoading
++onConfirm() void
++onCancel() void
+}
+class VariantStyles {
++danger styles
++warning styles
++info styles
+}
+ConfirmDialog --> ConfirmDialogProps : 接受
+ConfirmDialog --> VariantStyles : 应用样式
+```
+
+**图表来源**
+- [apps/web/components/ConfirmDialog.tsx:1-101](file://apps/web/components/ConfirmDialog.tsx#L1-L101)
+
+### 对话框变体系统
+
+组件支持三种预设的对话框变体，每种变体都有特定的视觉风格和用途：
+
+| 变体类型 | 颜色方案 | 用途 | 触发条件 |
+|---------|----------|------|----------|
+| danger | 红色系 | 危险操作确认（删除、清除） | 数据删除、账户注销 |
+| warning | 黄色系 | 警告性操作确认 | 设置更改、重要提醒 |
+| info | 紫色系 | 信息提示和确认 | 功能说明、更新提示 |
+
+### 交互行为设计
+
+确认对话框实现了完整的用户交互体验，包括键盘导航和状态反馈：
+
+```mermaid
+stateDiagram-v2
+[*] --> Closed : 组件初始化
+Closed --> Opened : isOpen = true
+Opened --> Processing : 点击确认
+Processing --> Closed : 处理完成
+Opened --> Closed : 点击取消
+Opened --> Closed : 按ESC键
+Processing --> Error : 处理失败
+Error --> Processing : 重试
+```
+
+**图表来源**
+- [apps/web/components/ConfirmDialog.tsx:28-40](file://apps/web/components/ConfirmDialog.tsx#L28-L40)
+- [apps/web/components/ConfirmDialog.tsx:75-96](file://apps/web/components/ConfirmDialog.tsx#L75-L96)
+
+**章节来源**
+- [apps/web/components/ConfirmDialog.tsx:1-101](file://apps/web/components/ConfirmDialog.tsx#L1-L101)
 
 ## 内存管理策略
 
@@ -523,11 +770,14 @@ Tailwind[tailwind.config.ts]
 Components[组件样式]
 Animations[动画效果]
 Effects[视觉效果]
+Theme[主题系统]
 end
 subgraph "颜色系统"
 Primary[primary: 科技蓝]
 Web3[web3: 区块链品牌色]
 Dark[dark: 深色主题]
+Light[light: 浅色主题]
+System[system: 系统主题]
 end
 subgraph "动画系统"
 Glow[glow-pulse]
@@ -539,9 +789,12 @@ Globals --> Tailwind
 Tailwind --> Components
 Tailwind --> Animations
 Tailwind --> Effects
+Tailwind --> Theme
 Components --> Primary
 Components --> Web3
 Components --> Dark
+Components --> Light
+Components --> System
 Animations --> Glow
 Animations --> SlideIn
 Effects --> Cursor
@@ -551,6 +804,29 @@ Effects --> Selection
 **图表来源**
 - [apps/web/app/globals.css:1-118](file://apps/web/app/globals.css#L1-L118)
 - [apps/web/tailwind.config.ts:1-54](file://apps/web/tailwind.config.ts#L1-L54)
+
+### 主题系统集成
+
+主题系统与现有UI组件完美集成，实现了响应式的主题切换：
+
+```mermaid
+sequenceDiagram
+participant User as 用户
+participant ThemeSwitcher as 主题切换器
+participant ThemeProvider as 主题提供者
+participant RainbowKit as 钱包组件库
+participant UI as 用户界面
+User->>ThemeSwitcher : 选择主题模式
+ThemeSwitcher->>ThemeProvider : setTheme(mode)
+ThemeProvider->>ThemeProvider : 解析主题模式
+ThemeProvider->>RainbowKit : 更新钱包组件主题
+RainbowKit-->>UI : 应用新主题样式
+UI-->>User : 显示更新后的界面
+```
+
+**图表来源**
+- [apps/web/app/providers.tsx:45-68](file://apps/web/app/providers.tsx#L45-L68)
+- [apps/web/lib/theme/ThemeProvider.tsx:47-56](file://apps/web/lib/theme/ThemeProvider.tsx#L47-L56)
 
 ### Markdown渲染样式
 
@@ -567,6 +843,7 @@ Markdown渲染器提供了完整的语法支持和美观的样式：
 - [apps/web/app/globals.css:1-118](file://apps/web/app/globals.css#L1-L118)
 - [apps/web/tailwind.config.ts:1-54](file://apps/web/tailwind.config.ts#L1-L54)
 - [apps/web/components/MarkdownRenderer.tsx:1-119](file://apps/web/components/MarkdownRenderer.tsx#L1-L119)
+- [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
 
 ## 依赖关系分析
 
@@ -583,6 +860,9 @@ Ethers[Ethers ^6.11.0]
 AI[AI SDK ^3.0.0]
 Markdown[react-markdown ^9.0.0]
 Remark[remark-gfm ^4.0.0]
+RainbowKit[RainbowKit ^1.3.0]
+TanStackQuery[@tanstack/react-query ^5.0.0]
+Wagmi[wagmi ^1.4.0]
 end
 subgraph "工作区包"
 AIConfig[@web3-ai-agent/ai-config]
@@ -601,6 +881,9 @@ Next --> AIConfig
 Next --> Web3Tools
 Next --> Markdown
 Next --> Remark
+Next --> RainbowKit
+Next --> TanStackQuery
+Next --> Wagmi
 ```
 
 **图表来源**
@@ -648,6 +931,7 @@ Packages --> Build
 2. **区块链数据缓存**: 通过 RPC 提供商的内置缓存减少网络请求
 3. **组件渲染优化**: 使用 React 的 memoization 和状态管理避免不必要的重渲染
 4. **内存管理优化**: 支持两种内存策略，平衡性能和上下文质量
+5. **主题持久化**: 使用 localStorage 减少主题切换的计算开销
 
 ### 网络优化
 
@@ -705,10 +989,30 @@ Packages --> Build
 - 调整压缩阈值和保留消息数
 - 监控内存使用情况并定期清理
 
+#### 5. 主题系统问题
+
+**症状**: 主题切换无效或显示异常
+**原因**: localStorage 权限问题或主题提供者配置错误
+**解决方案**:
+- 检查浏览器的 localStorage 权限
+- 验证 ThemeProvider 的正确嵌套
+- 确认主题模式的兼容性
+
+#### 6. 确认对话框问题
+
+**症状**: 对话框无法关闭或点击无效
+**原因**: 事件处理冲突或状态管理问题
+**解决方案**:
+- 检查对话框的 isOpen 状态
+- 验证事件监听器的正确绑定
+- 确认阻止事件冒泡的实现
+
 **章节来源**
 - [apps/web/app/api/chat/route.ts:360-404](file://apps/web/app/api/chat/route.ts#L360-L404)
 - [apps/web/app/api/tools/route.ts:124-133](file://apps/web/app/api/tools/route.ts#L124-L133)
 - [apps/web/lib/memory/SummaryCompressionMemory.ts:48-74](file://apps/web/lib/memory/SummaryCompressionMemory.ts#L48-L74)
+- [apps/web/lib/theme/ThemeProvider.tsx:17-22](file://apps/web/lib/theme/ThemeProvider.tsx#L17-L22)
+- [apps/web/components/ConfirmDialog.tsx:28-40](file://apps/web/components/ConfirmDialog.tsx#L28-L40)
 
 ## 结论
 
@@ -721,6 +1025,8 @@ Packages --> Build
 - **可扩展性**: 基于 Monorepo 的包管理架构
 - **内存管理**: 支持两种策略的智能内存管理
 - **UI设计**: 采用Web3企业风格的现代化界面
+- **主题系统**: 完整的多主题支持和响应式切换
+- **交互体验**: 统一的确认对话框组件
 
 ### 功能特色
 - **智能工具调用**: AI 模型能够自动选择和执行合适的工具
@@ -729,8 +1035,10 @@ Packages --> Build
 - **内存策略管理**: 用户可自定义的内存管理策略
 - **流式输出**: SSE流式响应提供更好的用户体验
 - **响应式设计**: 适配各种设备和屏幕尺寸
+- **主题定制**: 支持浅色、深色和跟随系统的主题切换
+- **确认交互**: 统一的确认对话框提供更好的用户体验
 
 ### 发展前景
 该应用程序为 Web3 开发者提供了一个强大的信息查询平台，未来可以扩展更多 Web3 工具和服务，进一步提升用户体验和功能性。通过持续的优化和功能扩展，这个项目有望成为 Web3 生态系统中的重要工具。
 
-**更新** 本次更新重点增强了Markdown渲染功能、设置了内存策略管理面板，并对整体UI进行了Web3企业风格的美化改进，显著提升了用户体验和专业度。
+**更新** 本次更新重点集成了完整的主题系统，包括主题提供者、主题切换器和响应式主题切换；新增了确认对话框组件，提供了统一的用户确认交互体验；完善了UI组件体系，显著提升了用户交互体验和界面的专业度。

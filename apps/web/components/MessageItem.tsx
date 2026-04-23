@@ -54,10 +54,10 @@ export default function MessageItem({ message, isStreaming, toolCalls: streaming
       <div className={`max-w-[80%] ${isUser ? '' : ''}`}>
         {/* 消息头部 */}
         <div className={`flex items-center gap-2 mb-1.5 ${isUser ? 'justify-end' : ''}`}>
-          <span className={`text-xs font-medium ${isUser ? 'text-primary-400' : 'text-gray-400'}`}>
+          <span className={`text-xs font-medium ${isUser ? 'text-primary-600' : 'text-[rgb(var(--text-secondary))]'}`}>
             {isUser ? '你' : 'Web3 AI'}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-[rgb(var(--text-muted))]">
             {formatTime(message.timestamp)}
           </span>
         </div>
@@ -66,10 +66,10 @@ export default function MessageItem({ message, isStreaming, toolCalls: streaming
         <div
           className={`rounded-2xl px-4 py-3 ${
             isUser
-              ? 'bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-br-md shadow-lg shadow-primary-600/20'
+              ? 'bg-[rgb(var(--user-message-bg))] text-[rgb(var(--text-primary))] rounded-br-md'
               : isError
-              ? 'bg-red-900/30 border border-red-800/50 text-red-100 rounded-bl-md'
-              : 'bg-white/[0.04] border border-white/[0.06] text-gray-100 rounded-bl-md backdrop-blur-sm'
+              ? 'bg-red-50 border border-red-200 text-red-700 rounded-bl-md'
+              : 'bg-[rgb(var(--ai-message-bg))] border border-[rgb(var(--border-color))] text-[rgb(var(--text-primary))] rounded-bl-md'
           }`}
         >
           {/* 消息内容 */}
@@ -96,33 +96,33 @@ export default function MessageItem({ message, isStreaming, toolCalls: streaming
                     key={toolCall.id}
                     className={`rounded-xl p-3 text-xs border ${
                       isRunning
-                        ? 'bg-primary-500/5 border-primary-500/20'
-                        : 'bg-white/[0.02] border-white/[0.06]'
+                        ? 'bg-primary-50 border-primary-200'
+                        : 'bg-[rgb(var(--bg-secondary))] border-[rgb(var(--border-color))]'
                     }`}
                   >
-                    <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center gap-2">
                       {isRunning ? (
-                        <div className="w-4 h-4 rounded-full border-2 border-primary-400 border-t-transparent animate-spin" />
+                        <div className="w-4 h-4 rounded-full border-2 border-primary-600 border-t-transparent animate-spin" />
                       ) : (
                         <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
-                          <svg className="w-2.5 h-2.5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-2.5 h-2.5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
                         </div>
                       )}
-                      <span className="font-semibold text-primary-400">
+                      <span className="font-semibold text-primary-600">
                         {getToolDisplayName(toolCall.name)}
                       </span>
-                      <span className="text-gray-500 font-mono text-[10px]">#{toolCall.name}</span>
+                      <span className="text-[rgb(var(--text-muted))] font-mono text-[10px]">#{toolCall.name}</span>
                       {isRunning && (
-                        <span className="ml-auto text-primary-400/70 animate-pulse">执行中...</span>
+                        <span className="ml-auto text-primary-600 animate-pulse">执行中...</span>
                       )}
                       {isDone && (
-                        <span className="ml-auto text-green-400/70">完成</span>
+                        <span className="ml-auto text-green-600">完成</span>
                       )}
                     </div>
                     {toolCall.result !== undefined && (
-                      <div className="mt-1.5 pl-6 text-gray-400 font-mono text-[11px] leading-relaxed overflow-x-auto">
+                      <div className="mt-1.5 pl-6 text-[rgb(var(--text-muted))] font-mono text-[11px] leading-relaxed overflow-x-auto">
                         {typeof toolCall.result === 'string'
                           ? toolCall.result
                           : JSON.stringify(toolCall.result, null, 2)}
@@ -139,8 +139,8 @@ export default function MessageItem({ message, isStreaming, toolCalls: streaming
       {/* User Avatar */}
       {isUser && (
         <div className="flex-shrink-0 ml-3 mt-1">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center">
-            <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[rgb(var(--user-avatar-from))] to-[rgb(var(--user-avatar-to))] flex items-center justify-center">
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
