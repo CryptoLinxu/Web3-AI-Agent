@@ -5,6 +5,7 @@ import { cookieToInitialState } from 'wagmi'
 import './globals.css'
 import { getConfig } from './config'
 import { Providers } from './providers'
+import { ThemeProvider } from '@/lib/theme/ThemeProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -27,7 +28,9 @@ export default async function RootLayout({
   return (
     <html lang="zh-CN">
       <body className={inter.className}>
-        <Providers initialState={initialState}>{children}</Providers>
+        <ThemeProvider>
+          <Providers initialState={initialState}>{children}</Providers>
+        </ThemeProvider>
       </body>
     </html>
   )

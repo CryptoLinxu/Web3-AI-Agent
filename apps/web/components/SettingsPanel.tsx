@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { ThemeSwitcher } from './ThemeSwitcher'
 
 type MemoryStrategy = 'l3-compression' | 'l2-sliding-window'
 
@@ -74,6 +75,9 @@ export default function SettingsPanel({
 
         {/* Settings Content */}
         <div className="p-6 space-y-8 overflow-y-auto h-[calc(100%-80px)]">
+          {/* 主题切换 */}
+          <ThemeSwitcher />
+
           {/* Memory 策略选择 */}
           <section>
             <div className="flex items-center gap-2 mb-4">
