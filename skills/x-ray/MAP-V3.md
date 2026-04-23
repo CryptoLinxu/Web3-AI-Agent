@@ -1,7 +1,8 @@
 # Web3 AI Agent Skill Map V3
 
 > 最后更新：2026-04-23
-> 当前阶段：钱包登录 + Supabase 对话持久化 + RLS 安全加固完成 → MVP 核心功能完整
+> 当前版本：v0.4.0
+> 当前阶段：UI 增强与全局主题系统 + 钱包上下文注入完成 → 用户体验全面提升
 
 ## 项目状态速览
 
@@ -19,6 +20,10 @@
 | **对话持久化** | ✅ 完成 | Supabase PostgreSQL，自动保存/加载 |
 | **对话历史 UI** | ✅ 完成 | 侧边栏展示、切换、删除、新建 |
 | **安全加固** | ✅ 完成 | RLS 策略 + 钱包地址隔离，Audit 88分 |
+| **删除弹窗** | ✅ 完成 | ConfirmDialog 自定义组件 + Loading 状态 |
+| **断开清空** | ✅ 完成 | 客户端 UI 清空 + Supabase 数据保留 |
+| **全局主题系统** | ✅ 完成 | Light/Dark/System 三模式，CSS 变量架构，Audit 94分 |
+| **钱包上下文注入** | ✅ 完成 | AI 自动感知钱包地址，system prompt 动态生成 |
 | 待验证 | 🔄 待办 | 功能测试、浏览器验收、Anthropic 验证 |
 | 待补充 | ⏳ 待办 | 测试覆盖、部署文档、CI/CD |
 
@@ -27,18 +32,22 @@
 ### 核心功能
 - ✅ **Chat UI**：基础聊天界面，消息列表，工具结果展示
 - ✅ **多模型支持**：OpenAI + Anthropic 双模型切换
-- ✅ **Web3 工具**：ETH/BTC 价格、钱包余额、Gas 价格查询
+- ✅ **Web3 工具**：ETH/BTC/SOL/MATIC/BNB 价格、多链余额、Gas 价格、Token 信息查询
 - ✅ **Agent Loop**：意图识别 → 工具调用 → 结果回填 → 回复生成
-- ✅ **工具调用**：3 个核心 Web3 工具已接入
+- ✅ **工具调用**：4 组核心 Web3 工具已接入（5 链/5 币种/11 Token）
 - ✅ **SSE 流式后端**：双模型流式输出，支持 content/tool_call/done/error 事件
 - ✅ **SSE 流式前端**：useChatStream Hook + 流式渲染，50ms 节流，30s 超时
 - ✅ **钱包登录**：RainbowKit + Wagmi v2，支持 MetaMask/WalletConnect/EIP-6963
 - ✅ **对话持久化**：Supabase PostgreSQL，自动保存/加载对话历史
 - ✅ **对话历史管理**：侧边栏展示、切换、删除、新建对话
+- ✅ **删除弹窗**：ConfirmDialog 自定义组件，紫色主题 + Loading 状态
+- ✅ **断开清空**：钱包断开时清空 UI，保留 Supabase 数据，重连自动恢复
+- ✅ **钱包上下文注入**：AI 自动感知钱包地址，查询"我的余额"时无需手动输入
 
 ### 项目治理
 - ✅ **Changelog 体系**：完整变更记录，AI 上下文追溯
 - ✅ **Project Checklist**：功能清单 + 未来规划 + 优先级建议，项目自我进化
+- ✅ **Skill Map**：技能地图实时更新，下一步入口清晰
 
 ### 安全与数据
 - ✅ **Supabase 集成**：PostgreSQL 云端存储，实时同步
@@ -53,7 +62,23 @@
 - ✅ **配置化管理**：环境变量支持，工厂函数创建实例
 - ⚠️ **前端集成**：当前仅使用 L3，L2 待后续添加切换 UI
 
-### Memory 管理
+### UI/UX 增强
+- ✅ **全局主题系统**：Light/Dark/System 三模式切换
+  - CSS 变量架构（globals.css）
+  - ThemeProvider + ThemeContext + useTheme
+  - localStorage 持久化 + 系统主题监听
+  - 全局组件主题适配（page, ChatInput, ConversationHistory, SettingsPanel）
+  - RainbowKit 钱包按钮主题动态切换
+  - Audit 评分：94/100
+- ✅ **删除弹窗美化**：ConfirmDialog 自定义组件
+  - 紫色主题、圆角、毛玻璃背景
+  - ESC 键关闭 + 点击遮罩关闭
+  - Loading 状态（旋转图标 + 禁用按钮）
+  - 支持 variant（danger/warning/info）
+- ✅ **断开连接优化**：客户端 UI 清空 + 欢迎消息
+- ⚠️ **SSR 主题闪烁**：刷新页面短暂看到默认主题（~100ms，P3 优化项）
+
+### 工程能力
 - ✅ **Monorepo**：pnpm workspace + turbo 构建
 - ✅ **类型安全**：TypeScript 全项目覆盖
 - ✅ **配置管理**：环境变量驱动模型切换
@@ -61,6 +86,8 @@
 - ✅ **工具模块化**：Web3 工具集中管理，直接导入调用
 - ✅ **流式接口**：`chatStream()` 方法 + SSE/JSON 双模式响应
 - ✅ **前端 SSE 消费**：ReadableStream + 事件解析 + 节流更新
+- ✅ **链抽象层**：ChainConfig + ChainAdapter 接口，EVM 链统一处理
+- ✅ **主题系统架构**：lib/theme/ 完整架构（types, Context, Provider）
 
 ### 文档体系
 - ✅ [README.md](/README.md) - 项目总览
@@ -73,8 +100,15 @@
 - ✅ [supabase/init.sql](/supabase/init.sql) - 数据库初始化脚本
 
 ### 工程能力
-
-## 使用方式
+- ✅ **Monorepo**：pnpm workspace + turbo 构建
+- ✅ **类型安全**：TypeScript 全项目覆盖
+- ✅ **配置管理**：环境变量驱动模型切换
+- ✅ **统一接口**：`ILLMProvider` 适配器模式
+- ✅ **工具模块化**：Web3 工具集中管理，直接导入调用
+- ✅ **流式接口**：`chatStream()` 方法 + SSE/JSON 双模式响应
+- ✅ **前端 SSE 消费**：ReadableStream + 事件解析 + 节流更新
+- ✅ **链抽象层**：ChainConfig + ChainAdapter 接口，EVM 链统一处理
+- ✅ **主题系统架构**：lib/theme/ 完整架构（types, Context, Provider）
 
 ```bash
 # 1. 安装依赖
@@ -99,14 +133,22 @@ pnpm dev
 import { getBalance, getTokenPrice } from 'web3-tools'
 const balance = await getBalance('ethereum', '0x...')
 
-// AI 对话
+// AI 对话（带钱包上下文）
 import { LLMFactory } from '@web3-ai-agent/ai-config'
 const provider = LLMFactory.getProvider()
-const response = await provider.chat(messages, { tools })
+const response = await provider.chat(messages, { 
+  tools,
+  walletAddress: '0x...' // 可选，AI 会自动感知
+})
 
 // 对话持久化
 import * as conversationService from '@/lib/supabase/conversations'
 await conversationService.saveMessage(convId, message)
+
+// 主题切换
+import { useTheme } from '@/lib/theme/ThemeContext'
+const { theme, setTheme, resolvedTheme } = useTheme()
+setTheme('light') // 'light' | 'dark' | 'system'
 ```
 
 ## 项目结构
@@ -146,31 +188,34 @@ AI-Agent/
 ## 待办事项（下一步）
 
 ### 高优先级
-- [ ] **测试覆盖**：为核心功能添加单元测试和集成测试（含 Memory 管理）
+- [ ] **测试覆盖**：为核心功能添加单元测试和集成测试（含 Memory 管理、Supabase 数据层）
 - [ ] **Anthropic 验证**：实际测试 Anthropic 工具调用链
-- [ ] **浏览器验收**：测试 SSE 流式显示效果和 Memory 压缩效果
+- [ ] **浏览器验收**：测试主题切换、钱包上下文、删除弹窗、断开清空
 
 ### 中优先级
+- [ ] **生产 RLS 升级**：Supabase Auth + JWT（生产部署前必须）
 - [ ] **部署文档**：补充生产环境部署指南
 - [ ] **API 文档**：补充详细 API 接口文档
-- [ ] **持久化存储**：添加数据库保存对话历史
+- [ ] **消除 SSR 主题闪烁**：layout.tsx 添加同步脚本（20 分钟）
 
 ### 低优先级
+- [ ] **钱包地址格式验证**：route.ts 添加正则验证（10 分钟）
+- [ ] **CSS 变量命名冲突**：添加项目前缀 --w3a-*（15 分钟）
 - [ ] **CI/CD**：自动化测试和部署流程
 - [ ] **监控告警**：运行时监控和错误告警
-- [ ] **更多模型**：支持本地模型、Azure OpenAI 等
 
 ## 下一步建议入口
 
 - `/origin` - 新任务入口
-- `/browser-verify` - 浏览器验收测试（验证 SSE 流式效果）
+- `/browser-verify` - 浏览器验收测试（验证主题切换、钱包上下文、删除弹窗）
 - `/explore` - 探索项目现状
-- `/pipeline feat` - 开发新功能（如 Memory、持久化存储）
-- `/pipeline patch` - 修复测试中发现的问题
+- `/pipeline feat` - 开发新功能（如自定义主题色、多语言支持、对话搜索）
+- `/pipeline patch` - 修复 SSR 主题闪烁、添加钱包地址验证
 
 ## 历史状态
 
-> 2026-04-21：Memory 管理 L2 滑动窗口策略完成（QA 10/10 通过）→ L2+L3 双策略并存，Strategy 模式验证成功
+> 2026-04-23：UI 增强与全局主题系统 + 钱包上下文注入完成（v0.4.0，Audit 94分）→ 删除弹窗/断开清空/浅色主题/walletAddress 注入，用户体验全面提升
+> 2026-04-23：Memory 管理 L2 滑动窗口策略完成（QA 10/10 通过）→ L2+L3 双策略并存，Strategy 模式验证成功
 > 2026-04-21：Memory 管理（L3 摘要压缩）完成（Audit 82分）→ MVP 核心功能基本完成，MVP 完成率 95%
 > 2026-04-21：project-checklist 体系建立完成 → 项目自我进化能力形成，后续规划清晰
 > 2026-04-21：SSE 流式输出功能提交（前后端完整实现）→ 用户可实时看到 AI 回复生成过程
@@ -391,19 +436,18 @@ origin -> qa / audit / browser-verify / resolve-doc-conflicts / digest / update-
 ### 🎯 推荐入口（按优先级）
 
 1. **浏览器验收** (`/browser-verify`)
-   - 验证钱包登录、对话历史、新建对话功能
-   - 检查 UI/UX 是否符合预期
+   - 验证主题切换（Light/Dark/System）
+   - 验证钱包上下文注入（查询"我的余额"）
+   - 验证删除弹窗和断开清空
    - 测试多钱包切换场景
 
-2. **项目清单更新** (`/project-checklist`)
-   - 更新 PROJECT-CHECKLIST.md
-   - 记录新增能力：钱包登录、对话持久化、RLS 安全
-   - 规划下一阶段功能
+2. **消除 SSR 主题闪烁** (`/pipeline patch`)
+   - layout.tsx 的 <head> 添加同步脚本
+   - 预计 20 分钟
 
-3. **阶段沉淀** (`/digest`)
-   - 记录钱包集成经验
-   - 总结 Supabase 集成模式
-   - 沉淀 RLS 安全最佳实践
+3. **添加钱包地址格式验证** (`/pipeline patch`)
+   - route.ts 添加正则验证 `/^0x[a-fA-F0-9]{40}$/`
+   - 预计 10 分钟
 
 4. **测试覆盖** (`/pipeline feat`)
    - 编写对话持久化单元测试
