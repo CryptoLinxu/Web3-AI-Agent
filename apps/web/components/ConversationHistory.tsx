@@ -84,7 +84,8 @@ export default function ConversationHistory({
     if (!confirm('确定要删除这个对话吗？')) return
 
     try {
-      await conversationService.deleteConversation(id)
+      // 传入 walletAddress 用于验证
+      await conversationService.deleteConversation(id, address!)
       setConversations((prev) => prev.filter((c) => c.id !== id))
       if (activeConversationId === id) {
         onNewConversation()

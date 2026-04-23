@@ -1,4 +1,4 @@
-import { supabase } from './client'
+import { supabase, getWalletContext } from './client'
 import type { Message } from '@/types/chat'
 
 export interface ConversationSummary {
@@ -9,11 +9,27 @@ export interface ConversationSummary {
 }
 
 /**
+ * 验证当前钱包上下文
+ * 所有查询前必须调用此函数
+ */
+function verifyWalletContext(walletAddress: string): void {
+  const context = getWalletContext()
+  if (!context) {
+    throw new Error('Wallet context not set. Call setWalletContext() before querying.')
+  }
+  if (context !== walletAddress) {
+    throw new Error(`Wallet mismatch: expected ${context}, got ${walletAddress}`)
+  }
+}
+
+/**
  * 获取或创建当前钱包的最新对话
  */
 export async function getOrCreateConversation(
   walletAddress: string
 ): Promise<string> {
+  verifyWalletContext(walletAddress)
+  
   // 尝试获取最新的对话
   const { data: existingConv } = await supabase
     .from('conversations')
@@ -51,6 +67,8 @@ export async function createNewConversation(
   walletAddress: string,
   title?: string
 ): Promise<string> {
+  verifyWalletContext(walletAddress)
+  
   const { data: newConv, error } = await supabase
     .from('conversations')
     .insert({
@@ -119,6 +137,9 @@ export async function saveMessages(
 export async function loadMessages(
   conversationId: string
 ): Promise<Message[]> {
+  // 注意：此函数不直接验证 walletAddress
+  // 调用方应确保 conversationId 属于当前钱包
+  
   const { data, error } = await supabase
     .from('messages')
     .select('*')
@@ -148,6 +169,8 @@ export async function loadMessages(
 export async function getConversations(
   walletAddress: string
 ): Promise<ConversationSummary[]> {
+  verifyWalletContext(walletAddress)
+  
   // 获取对话列表
   const { data: conversations, error: convError } = await supabase
     .from('conversations')
@@ -201,8 +224,26 @@ export async function updateConversationTitle(
  * 删除对话及其所有消息
  */
 export async function deleteConversation(
-  conversationId: string
+  conversationId: string,
+  walletAddress: string // 新增：必须提供钱包地址用于验证
 ): Promise<void> {
+  verifyWalletContext(walletAddress)
+  
+  // 验证对话属于当前钱包
+  const { data: conv, error: fetchError } = await supabase
+    .from('conversations')
+    .select('wallet_address')
+    .eq('id', conversationId)
+    .single()
+  
+  if (fetchError || !conv) {
+    throw new Error('Conversation not found')
+  }
+  
+  if ((conv as any).wallet_address !== walletAddress) {
+    throw new Error('Unauthorized: conversation does not belong to this wallet')
+  }
+  
   // 先删除消息
   await supabase.from('messages').delete().eq('conversation_id', conversationId)
 

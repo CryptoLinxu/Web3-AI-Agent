@@ -13,6 +13,7 @@ import { SummaryCompressionMemory } from '@/lib/memory/SummaryCompressionMemory'
 import { SlidingWindowMemory } from '@/lib/memory/SlidingWindowMemory'
 import type { MemoryManager } from '@/lib/memory/types'
 import * as conversationService from '@/lib/supabase/conversations'
+import { setWalletContext, clearWalletContext } from '@/lib/supabase/client'
 
 type MemoryStrategy = 'l3-compression' | 'l2-sliding-window'
 
@@ -63,10 +64,13 @@ export default function Home() {
   // 钱包连接时加载历史
   useEffect(() => {
     if (isConnected && address) {
+      // 设置钱包上下文（用于 Supabase RLS）
+      setWalletContext(address)
       loadConversationHistory(address)
     } else if (!isConnected) {
-      // 断开连接时清空对话 ID
+      // 断开连接时清空对话 ID 和钱包上下文
       setConversationId(null)
+      clearWalletContext()
     }
   }, [isConnected, address])
 
