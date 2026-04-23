@@ -6,22 +6,54 @@ import type { ThemeMode, ResolvedTheme } from './types'
 
 const THEME_STORAGE_KEY = 'web3-agent-theme'
 
+/**
+ * 获取主题初始化脚本（注入到 <head> 避免闪烁）
+ */
+export function getThemeInitScript(): string {
+  return `
+    (function(){
+      var theme = localStorage.getItem('${THEME_STORAGE_KEY}') || 'dark';
+      if (theme === 'system') {
+        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      var resolved = theme;
+      document.documentElement.setAttribute('data-theme', resolved);
+      if (resolved === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  `
+}
+
 interface ThemeProviderProps {
   children: React.ReactNode
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<ThemeMode>('dark')
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('dark')
+  // 从 localStorage 读取保存的主题，如果没有则默认 dark
+  const savedTheme = (typeof window !== 'undefined' 
+    ? localStorage.getItem(THEME_STORAGE_KEY) 
+    : null) as ThemeMode | null
+  const initialTheme = savedTheme || 'dark'
+  
+  const [theme, setThemeState] = useState<ThemeMode>(initialTheme)
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(
+    initialTheme === 'system' 
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : initialTheme
+  )
 
-  // 初始化主题
+  // 初始化主题 - 同步执行，避免闪烁
   useEffect(() => {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null
     const initialTheme = savedTheme || 'dark'
     setThemeState(initialTheme)
     
-    // 初始化时同步 dark class
     const resolved = resolveTheme(initialTheme)
+    setResolvedTheme(resolved)
+    document.documentElement.setAttribute('data-theme', resolved)
     if (resolved === 'dark') {
       document.documentElement.classList.add('dark')
     } else {
@@ -55,17 +87,12 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   useEffect(() => {
     const resolved = resolveTheme(theme)
     setResolvedTheme(resolved)
-    
-    // 更新 HTML 属性
     document.documentElement.setAttribute('data-theme', resolved)
-    
-    // 同步添加/移除 dark class（Tailwind darkMode: 'class' 需要）
     if (resolved === 'dark') {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
     }
-    
     // 存储到 localStorage
     localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme, resolveTheme])

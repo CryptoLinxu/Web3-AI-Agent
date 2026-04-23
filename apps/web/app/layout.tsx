@@ -27,6 +27,27 @@ export default async function RootLayout({
 
   return (
     <html lang="zh-CN">
+      <head>
+        {/* 内联脚本：在 React 执行前设置主题，避免闪烁 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(){
+                var theme = localStorage.getItem('web3-agent-theme') || 'dark';
+                if (theme === 'system') {
+                  theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', theme);
+                if (theme === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className={inter.className}>
         <ThemeProvider>
           <Providers initialState={initialState}>{children}</Providers>
