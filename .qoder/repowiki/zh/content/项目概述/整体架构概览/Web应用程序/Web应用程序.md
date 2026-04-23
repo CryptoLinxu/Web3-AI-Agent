@@ -26,6 +26,7 @@
 - [apps/web/lib/memory/types.ts](file://apps/web/lib/memory/types.ts)
 - [apps/web/lib/memory/index.ts](file://apps/web/lib/memory/index.ts)
 - [apps/web/types/chat.ts](file://apps/web/types/chat.ts)
+- [apps/web/lib/supabase/client.ts](file://apps/web/lib/supabase/client.ts)
 - [apps/web/app/globals.css](file://apps/web/app/globals.css)
 - [apps/web/tailwind.config.ts](file://apps/web/tailwind.config.ts)
 - [apps/web/package.json](file://apps/web/package.json)
@@ -38,11 +39,13 @@
 
 ## 更新摘要
 **变更内容**
-- 新增主题系统，支持浅色、深色和跟随系统三种主题模式
-- 新增确认对话框组件，提供统一的用户确认交互体验
+- 新增完整的UI增强系统，包括ConfirmDialog组件和ThemeSwitcher组件
+- 实现全局主题系统（lib/theme架构），支持浅色、深色和跟随系统三种主题模式
+- 新增钱包上下文注入功能，实现AI对用户钱包地址的感知
 - 完善设置面板，集成主题切换功能
 - 增强UI组件体系，提升用户交互体验
 - 优化主题提供者架构，实现响应式主题切换
+- 改进连接状态管理，断开连接时清空UI但保留云端数据
 
 ## 目录
 1. [简介](#简介)
@@ -52,12 +55,13 @@
 5. [详细组件分析](#详细组件分析)
 6. [主题系统](#主题系统)
 7. [确认对话框组件](#确认对话框组件)
-8. [内存管理策略](#内存管理策略)
-9. [UI设计与样式](#ui设计与样式)
-10. [依赖关系分析](#依赖关系分析)
-11. [性能考虑](#性能考虑)
-12. [故障排除指南](#故障排除指南)
-13. [结论](#结论)
+8. [钱包上下文注入](#钱包上下文注入)
+9. [内存管理策略](#内存管理策略)
+10. [UI设计与样式](#ui设计与样式)
+11. [依赖关系分析](#依赖关系分析)
+12. [性能考虑](#性能考虑)
+13. [故障排除指南](#故障排除指南)
+14. [结论](#结论)
 
 ## 简介
 
@@ -73,6 +77,7 @@
 - **新增**：Web3企业风格的现代化UI设计
 - **新增**：完整的主题系统支持
 - **新增**：统一的确认对话框组件
+- **新增**：钱包上下文注入功能，实现AI对用户钱包地址的感知
 
 应用采用现代化的技术栈，包括 Next.js 14、TypeScript、Tailwind CSS 和 Ethers.js，构建了一个响应式的 Web3 信息查询平台，具备企业级的设计风格和用户体验。
 
@@ -183,13 +188,13 @@ Home --> MemoryManager : 使用
 ```
 
 **图表来源**
-- [apps/web/app/page.tsx:1-375](file://apps/web/app/page.tsx#L1-L375)
-- [apps/web/types/chat.ts:1-28](file://apps/web/types/chat.ts#L1-L28)
+- [apps/web/app/page.tsx:1-376](file://apps/web/app/page.tsx#L1-L376)
+- [apps/web/types/chat.ts:1-29](file://apps/web/types/chat.ts#L1-L29)
 
 **章节来源**
 - [apps/web/app/layout.tsx:1-38](file://apps/web/app/layout.tsx#L1-L38)
-- [apps/web/app/page.tsx:1-375](file://apps/web/app/page.tsx#L1-L375)
-- [apps/web/types/chat.ts:1-28](file://apps/web/types/chat.ts#L1-L28)
+- [apps/web/app/page.tsx:1-376](file://apps/web/app/page.tsx#L1-L376)
+- [apps/web/types/chat.ts:1-29](file://apps/web/types/chat.ts#L1-L29)
 
 ## 架构概览
 
@@ -206,21 +211,23 @@ MarkdownRenderer[Markdown渲染器]
 MemoryManager[内存管理器]
 ThemeSystem[主题系统]
 ConfirmDialog[确认对话框]
-end
+WalletContext[钱包上下文]
+RainbowKit[钱包连接]
+</subgraph>
 subgraph "API层"
 ChatAPI[聊天API]
 ToolsAPI[工具API]
 HealthAPI[健康检查API]
-end
+</subgraph>
 subgraph "AI层"
 LLMFactory[LLM工厂]
 Tools[Web3工具]
 MemoryStrategies[内存策略]
-end
+</subgraph>
 subgraph "区块链层"
 EthereumRPC[Ethereum RPC]
 BlockChain[以太坊网络]
-end
+</subgraph>
 Browser --> ChatUI
 ChatUI --> Components
 ChatUI --> SettingsPanel
@@ -228,6 +235,8 @@ ChatUI --> MarkdownRenderer
 ChatUI --> MemoryManager
 ChatUI --> ThemeSystem
 ChatUI --> ConfirmDialog
+ChatUI --> WalletContext
+ChatUI --> RainbowKit
 Components --> ChatAPI
 SettingsPanel --> MemoryManager
 SettingsPanel --> ThemeSystem
@@ -235,6 +244,8 @@ MarkdownRenderer --> ChatAPI
 MemoryManager --> ChatAPI
 ThemeSystem --> Providers
 ConfirmDialog --> ChatUI
+WalletContext --> ChatAPI
+RainbowKit --> WalletContext
 ChatAPI --> LLMFactory
 ChatAPI --> ToolsAPI
 ToolsAPI --> Tools
@@ -246,7 +257,7 @@ MemoryStrategies --> MemoryManager
 ```
 
 **图表来源**
-- [apps/web/app/api/chat/route.ts:1-406](file://apps/web/app/api/chat/route.ts#L1-L406)
+- [apps/web/app/api/chat/route.ts:1-424](file://apps/web/app/api/chat/route.ts#L1-L424)
 - [apps/web/app/api/tools/route.ts:1-135](file://apps/web/app/api/tools/route.ts#L1-L135)
 
 ### 数据流序列图
@@ -259,14 +270,16 @@ participant Settings as 设置面板
 participant Theme as 主题系统
 participant Memory as 内存管理器
 participant Dialog as 确认对话框
+participant Wallet as 钱包上下文
 participant ChatAPI as 聊天API
 participant LLM as LLM工厂
 participant ToolsAPI as 工具API
 participant RPC as Ethereum RPC
 User->>UI : 输入消息
+UI->>Wallet : 注入钱包地址
 UI->>Memory : 添加用户消息
-UI->>ChatAPI : POST /api/chat
-ChatAPI->>LLM : chat(messages, tools)
+UI->>ChatAPI : POST /api/chat (含walletAddress)
+ChatAPI->>LLM : chat(messages, tools, systemPrompt)
 LLM-->>ChatAPI : AI回复 + 工具调用
 ChatAPI->>ToolsAPI : POST /api/tools
 ToolsAPI->>RPC : 查询区块链数据
@@ -283,8 +296,8 @@ UI-->>User : 显示结果
 ```
 
 **图表来源**
-- [apps/web/app/page.tsx:190-281](file://apps/web/app/page.tsx#L190-L281)
-- [apps/web/app/api/chat/route.ts:156-319](file://apps/web/app/api/chat/route.ts#L156-L319)
+- [apps/web/app/page.tsx:190-282](file://apps/web/app/page.tsx#L190-L282)
+- [apps/web/app/api/chat/route.ts:150-319](file://apps/web/app/api/chat/route.ts#L150-L319)
 
 ## 详细组件分析
 
@@ -364,7 +377,7 @@ MessageItem --> Message : 渲染
 
 **图表来源**
 - [apps/web/components/MessageItem.tsx:1-152](file://apps/web/components/MessageItem.tsx#L1-L152)
-- [apps/web/types/chat.ts:1-28](file://apps/web/types/chat.ts#L1-L28)
+- [apps/web/types/chat.ts:1-29](file://apps/web/types/chat.ts#L1-L29)
 
 ### Markdown渲染器组件
 
@@ -411,7 +424,7 @@ SettingsPanel --> ThemeSwitcher : 包含
 ```
 
 **图表来源**
-- [apps/web/components/SettingsPanel.tsx:1-196](file://apps/web/components/SettingsPanel.tsx#L1-L196)
+- [apps/web/components/SettingsPanel.tsx:1-231](file://apps/web/components/SettingsPanel.tsx#L1-L231)
 
 ### 主题切换器组件
 
@@ -453,6 +466,7 @@ class ConfirmDialog {
 +boolean isLoading
 +onConfirm() void
 +onCancel() void
++handleEscape(e) void
 +render() JSX.Element
 }
 class ConfirmDialogProps {
@@ -480,7 +494,8 @@ ConfirmDialog --> ConfirmDialogProps : 接受
 flowchart TD
 Start([接收聊天请求]) --> ParseBody["解析请求体"]
 ParseBody --> GetProvider["获取LLM提供商"]
-GetProvider --> ConvertMessages["转换消息格式"]
+GetProvider --> CreatePrompt["动态创建System Prompt"]
+CreatePrompt --> ConvertMessages["转换消息格式"]
 ConvertMessages --> FirstCall["第一次LLM调用"]
 FirstCall --> NeedTools{"需要工具调用?"}
 NeedTools --> |否| ReturnReply["返回AI回复"]
@@ -494,17 +509,17 @@ FinalReply --> End
 ```
 
 **图表来源**
-- [apps/web/app/api/chat/route.ts:156-319](file://apps/web/app/api/chat/route.ts#L156-L319)
+- [apps/web/app/api/chat/route.ts:150-319](file://apps/web/app/api/chat/route.ts#L150-L319)
 
 **章节来源**
 - [apps/web/components/ChatInput.tsx:1-74](file://apps/web/components/ChatInput.tsx#L1-L74)
 - [apps/web/components/MessageList.tsx:1-44](file://apps/web/components/MessageList.tsx#L1-L44)
 - [apps/web/components/MessageItem.tsx:1-152](file://apps/web/components/MessageItem.tsx#L1-L152)
 - [apps/web/components/MarkdownRenderer.tsx:1-119](file://apps/web/components/MarkdownRenderer.tsx#L1-L119)
-- [apps/web/components/SettingsPanel.tsx:1-196](file://apps/web/components/SettingsPanel.tsx#L1-L196)
+- [apps/web/components/SettingsPanel.tsx:1-231](file://apps/web/components/SettingsPanel.tsx#L1-L231)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
 - [apps/web/components/ConfirmDialog.tsx:1-101](file://apps/web/components/ConfirmDialog.tsx#L1-L101)
-- [apps/web/app/api/chat/route.ts:1-406](file://apps/web/app/api/chat/route.ts#L1-L406)
+- [apps/web/app/api/chat/route.ts:1-424](file://apps/web/app/api/chat/route.ts#L1-L424)
 
 ## 主题系统
 
@@ -547,7 +562,7 @@ ThemeSwitcher --> ThemeTypes : 使用
 ```
 
 **图表来源**
-- [apps/web/lib/theme/ThemeProvider.tsx:1-67](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L67)
+- [apps/web/lib/theme/ThemeProvider.tsx:1-83](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L83)
 - [apps/web/lib/theme/ThemeContext.tsx:1-21](file://apps/web/lib/theme/ThemeContext.tsx#L1-L21)
 - [apps/web/lib/theme/types.ts:1-10](file://apps/web/lib/theme/types.ts#L1-L10)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
@@ -586,7 +601,7 @@ DOM-->>User : 应用新主题
 - [apps/web/lib/theme/ThemeProvider.tsx:47-56](file://apps/web/lib/theme/ThemeProvider.tsx#L47-L56)
 
 **章节来源**
-- [apps/web/lib/theme/ThemeProvider.tsx:1-67](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L67)
+- [apps/web/lib/theme/ThemeProvider.tsx:1-83](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L83)
 - [apps/web/lib/theme/ThemeContext.tsx:1-21](file://apps/web/lib/theme/ThemeContext.tsx#L1-L21)
 - [apps/web/lib/theme/types.ts:1-10](file://apps/web/lib/theme/types.ts#L1-L10)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
@@ -667,6 +682,78 @@ Error --> Processing : 重试
 
 **章节来源**
 - [apps/web/components/ConfirmDialog.tsx:1-101](file://apps/web/components/ConfirmDialog.tsx#L1-L101)
+
+## 钱包上下文注入
+
+### 上下文注入流程
+
+应用程序实现了钱包上下文注入功能，使AI能够感知当前用户的钱包地址：
+
+```mermaid
+sequenceDiagram
+participant User as 用户
+participant Wallet as 钱包连接
+participant Page as 主页面
+participant Hook as useChatStream
+participant API as 聊天API
+participant LLM as LLM工厂
+User->>Wallet : 连接钱包
+Wallet-->>Page : 提供address
+Page->>Hook : 调用sendMessage(messages, address)
+Hook->>API : POST /api/chat (含walletAddress)
+API->>API : createSystemPrompt(walletAddress)
+API->>LLM : chat(messages, tools, systemPrompt)
+LLM-->>API : AI回复包含钱包上下文
+API-->>Hook : 返回响应
+Hook-->>Page : 更新UI
+```
+
+**图表来源**
+- [apps/web/app/page.tsx:65-74](file://apps/web/app/page.tsx#L65-L74)
+- [apps/web/hooks/useChatStream.ts:167-200](file://apps/web/hooks/useChatStream.ts#L167-L200)
+- [apps/web/app/api/chat/route.ts:135-159](file://apps/web/app/api/chat/route.ts#L135-L159)
+
+### 系统Prompt动态生成
+
+API层实现了动态系统Prompt生成，根据是否存在钱包地址调整AI的行为：
+
+```mermaid
+flowchart TD
+Start([接收聊天请求]) --> CheckWallet{"是否有walletAddress?"}
+CheckWallet --> |否| BasePrompt["使用基础SYSTEM_PROMPT_BASE"]
+CheckWallet --> |是| InjectContext["注入钱包上下文"]
+InjectContext --> CombinePrompt["组合基础Prompt + 钱包信息"]
+BasePrompt --> ReturnPrompt["返回System Prompt"]
+CombinePrompt --> ReturnPrompt
+```
+
+**图表来源**
+- [apps/web/app/api/chat/route.ts:135-148](file://apps/web/app/api/chat/route.ts#L135-L148)
+
+### 连接状态管理
+
+应用程序改进了连接状态管理，断开连接时清空UI但保留云端数据：
+
+```mermaid
+stateDiagram-v2
+[*] --> Disconnected : 初始状态
+Disconnected --> Connecting : 用户点击连接
+Connecting --> Connected : 连接成功
+Connected --> LoadingHistory : 加载对话历史
+LoadingHistory --> Connected : 加载完成
+Connected --> Disconnecting : 用户断开连接
+Disconnecting --> ClearUI : 清空UI状态
+ClearUI --> Disconnected : 返回初始状态
+```
+
+**图表来源**
+- [apps/web/app/page.tsx:64-84](file://apps/web/app/page.tsx#L64-L84)
+
+**章节来源**
+- [apps/web/app/page.tsx:65-74](file://apps/web/app/page.tsx#L65-L74)
+- [apps/web/hooks/useChatStream.ts:167-200](file://apps/web/hooks/useChatStream.ts#L167-L200)
+- [apps/web/app/api/chat/route.ts:135-159](file://apps/web/app/api/chat/route.ts#L135-L159)
+- [apps/web/lib/supabase/client.ts:34-53](file://apps/web/lib/supabase/client.ts#L34-L53)
 
 ## 内存管理策略
 
@@ -771,20 +858,20 @@ Components[组件样式]
 Animations[动画效果]
 Effects[视觉效果]
 Theme[主题系统]
-end
+</subgraph>
 subgraph "颜色系统"
 Primary[primary: 科技蓝]
 Web3[web3: 区块链品牌色]
 Dark[dark: 深色主题]
 Light[light: 浅色主题]
 System[system: 系统主题]
-end
+</subgraph>
 subgraph "动画系统"
 Glow[glow-pulse]
 SlideIn[slide-in]
 Cursor[pulse-cursor]
 Selection[selection]
-end
+</subgraph>
 Globals --> Tailwind
 Tailwind --> Components
 Tailwind --> Animations
@@ -863,17 +950,17 @@ Remark[remark-gfm ^4.0.0]
 RainbowKit[RainbowKit ^1.3.0]
 TanStackQuery[@tanstack/react-query ^5.0.0]
 Wagmi[wagmi ^1.4.0]
-end
+</subgraph>
 subgraph "工作区包"
 AIConfig[@web3-ai-agent/ai-config]
 Web3Tools[@web3-ai-agent/web3-tools]
-end
+</subgraph>
 subgraph "开发依赖"
 TypeScript[TypeScript ^5]
 Tailwind[Tailwind CSS ^3.4.1]
 PostCSS[PostCSS ^8.4.35]
 ESLint[ESLint ^8]
-end
+</subgraph>
 Next --> React
 Next --> AI
 Next --> Ethers
@@ -900,11 +987,11 @@ Build[build任务]
 Dev[dev任务]
 Lint[lint任务]
 TypeCheck[type-check任务]
-end
+</subgraph>
 subgraph "工作空间"
 Apps[apps/*]
 Packages[packages/*]
-end
+</subgraph>
 Build --> Dev
 Dev --> Lint
 Lint --> TypeCheck
@@ -932,6 +1019,7 @@ Packages --> Build
 3. **组件渲染优化**: 使用 React 的 memoization 和状态管理避免不必要的重渲染
 4. **内存管理优化**: 支持两种内存策略，平衡性能和上下文质量
 5. **主题持久化**: 使用 localStorage 减少主题切换的计算开销
+6. **钱包上下文缓存**: 使用内存变量存储当前钱包地址，避免重复验证
 
 ### 网络优化
 
@@ -939,6 +1027,7 @@ Packages --> Build
 - **流式输出**: 使用SSE实现流式响应，提供更好的用户体验
 - **错误恢复**: 实现了健壮的错误处理和重试机制
 - **资源压缩**: 使用 Tailwind CSS 和 PostCSS 优化样式文件大小
+- **连接持久化**: 通过cookie实现跨页面刷新的连接持久化
 
 ### 移动端适配
 
@@ -1007,12 +1096,22 @@ Packages --> Build
 - 验证事件监听器的正确绑定
 - 确认阻止事件冒泡的实现
 
+#### 7. 钱包上下文问题
+
+**症状**: AI无法识别用户钱包地址或余额查询失败
+**原因**: 钱包地址格式验证失败或上下文未正确注入
+**解决方案**:
+- 检查钱包连接状态和地址格式
+- 验证 setWalletContext 的调用时机
+- 确认 sendMessage 是否正确传递 walletAddress
+
 **章节来源**
 - [apps/web/app/api/chat/route.ts:360-404](file://apps/web/app/api/chat/route.ts#L360-L404)
 - [apps/web/app/api/tools/route.ts:124-133](file://apps/web/app/api/tools/route.ts#L124-L133)
 - [apps/web/lib/memory/SummaryCompressionMemory.ts:48-74](file://apps/web/lib/memory/SummaryCompressionMemory.ts#L48-L74)
 - [apps/web/lib/theme/ThemeProvider.tsx:17-22](file://apps/web/lib/theme/ThemeProvider.tsx#L17-L22)
 - [apps/web/components/ConfirmDialog.tsx:28-40](file://apps/web/components/ConfirmDialog.tsx#L28-L40)
+- [apps/web/lib/supabase/client.ts:34-53](file://apps/web/lib/supabase/client.ts#L34-L53)
 
 ## 结论
 
@@ -1027,6 +1126,7 @@ Packages --> Build
 - **UI设计**: 采用Web3企业风格的现代化界面
 - **主题系统**: 完整的多主题支持和响应式切换
 - **交互体验**: 统一的确认对话框组件
+- **钱包集成**: 完整的钱包上下文注入功能
 
 ### 功能特色
 - **智能工具调用**: AI 模型能够自动选择和执行合适的工具
@@ -1037,8 +1137,10 @@ Packages --> Build
 - **响应式设计**: 适配各种设备和屏幕尺寸
 - **主题定制**: 支持浅色、深色和跟随系统的主题切换
 - **确认交互**: 统一的确认对话框提供更好的用户体验
+- **钱包感知**: AI能够感知用户钱包地址，简化余额查询流程
+- **连接管理**: 断开连接时优雅清空UI但保留云端数据
 
 ### 发展前景
 该应用程序为 Web3 开发者提供了一个强大的信息查询平台，未来可以扩展更多 Web3 工具和服务，进一步提升用户体验和功能性。通过持续的优化和功能扩展，这个项目有望成为 Web3 生态系统中的重要工具。
 
-**更新** 本次更新重点集成了完整的主题系统，包括主题提供者、主题切换器和响应式主题切换；新增了确认对话框组件，提供了统一的用户确认交互体验；完善了UI组件体系，显著提升了用户交互体验和界面的专业度。
+**更新** 本次更新重点集成了完整的主题系统，包括主题提供者、主题切换器和响应式主题切换；新增了确认对话框组件，提供了统一的用户确认交互体验；完善了UI组件体系，显著提升了用户交互体验和界面的专业度；实现了钱包上下文注入功能，使AI能够感知用户钱包地址，简化了余额查询等操作。

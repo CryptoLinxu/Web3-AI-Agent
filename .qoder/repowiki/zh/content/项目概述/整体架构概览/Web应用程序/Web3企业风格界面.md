@@ -10,6 +10,7 @@
 - [apps/web/components/MessageItem.tsx](file://apps/web/components/MessageItem.tsx)
 - [apps/web/components/MarkdownRenderer.tsx](file://apps/web/components/MarkdownRenderer.tsx)
 - [apps/web/components/SettingsPanel.tsx](file://apps/web/components/SettingsPanel.tsx)
+- [apps/web/components/ConversationHistory.tsx](file://apps/web/components/ConversationHistory.tsx)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
 - [apps/web/lib/memory/index.ts](file://apps/web/lib/memory/index.ts)
 - [apps/web/lib/memory/types.ts](file://apps/web/lib/memory/types.ts)
@@ -18,9 +19,19 @@
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/tailwind.config.ts](file://apps/web/tailwind.config.ts)
 - [apps/web/app/globals.css](file://apps/web/app/globals.css)
+- [apps/web/lib/theme/ThemeContext.tsx](file://apps/web/lib/theme/ThemeContext.tsx)
+- [apps/web/lib/theme/ThemeProvider.tsx](file://apps/web/lib/theme/ThemeProvider.tsx)
+- [apps/web/lib/theme/types.ts](file://apps/web/lib/theme/types.ts)
 - [packages/ai-config/package.json](file://packages/ai-config/package.json)
 - [packages/web3-tools/package.json](file://packages/web3-tools/package.json)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 更新了UI组件现代化部分，重点反映MessageItem、ChatInput、ConversationHistory等组件的样式更新
+- 新增了CSS变量系统统一管理的主题设计说明
+- 增加了主题切换机制和响应式设计的详细说明
+- 补充了现代化UI设计元素的技术实现细节
 
 ## 目录
 1. [项目简介](#项目简介)
@@ -38,11 +49,12 @@
 Web3 AI Agent 是一个基于Next.js构建的企业级Web3智能助手界面，专注于为用户提供去中心化金融相关的实时信息服务。该系统集成了AI大语言模型和Web3工具，能够查询多种加密货币价格、链上余额、Gas费用和Token信息。
 
 ### 主要特性
-- **Web3企业风格设计**：采用深色主题和科技蓝配色方案
+- **Web3企业风格设计**：采用深色主题和科技蓝配色方案，统一使用CSS变量系统
 - **实时流式响应**：支持SSE流式传输，提供流畅的交互体验
 - **多链支持**：覆盖以太坊、Polygon、BSC、比特币、Solana等主流区块链
 - **智能记忆管理**：支持摘要压缩和滑动窗口两种记忆策略
 - **工具调用集成**：内置多种Web3工具，自动执行链上数据查询
+- **现代化UI组件**：MessageItem、ChatInput、ConversationHistory等组件全面现代化升级
 
 ## 项目结构
 
@@ -64,11 +76,19 @@ subgraph "技能系统"
 Skills[技能模块]
 XRay[X-Ray技能]
 end
+subgraph "主题系统"
+ThemeContext[主题上下文]
+ThemeProvider[主题提供者]
+ThemeTypes[主题类型]
+end
 WebApp --> Components
 WebApp --> Hooks
 WebApp --> Types
 WebApp --> AIConfig
 WebApp --> Web3Tools
+WebApp --> ThemeContext
+ThemeContext --> ThemeProvider
+ThemeProvider --> ThemeTypes
 AIConfig --> Skills
 Web3Tools --> Skills
 ```
@@ -147,6 +167,7 @@ MessageItem --> MarkdownRenderer[Markdown渲染器]
 ChatInput --> useChatStream[聊天流Hook]
 useChatStream --> APIRoute[API路由]
 SettingsPanel --> MemoryManager[记忆管理器]
+SettingsPanel --> ThemeProvider[主题提供者]
 ```
 
 **图表来源**
@@ -315,6 +336,32 @@ Hook-->>Client : 完成加载状态
 | getGasPrice | 获取Gas费用 | Ethereum, Polygon, BSC |
 | getTokenInfo | 查询Token元数据 | Ethereum, Polygon, BSC |
 
+### 主题系统与CSS变量
+
+系统采用现代化的CSS变量系统，实现了统一的主题管理：
+
+```mermaid
+graph TD
+ThemeSystem[主题系统] --> CSSVariables[CSS变量系统]
+ThemeSystem --> ThemeProvider[主题提供者]
+ThemeSystem --> ThemeContext[主题上下文]
+CSSVariables --> DarkTheme[深色主题变量]
+CSSVariables --> LightTheme[浅色主题变量]
+DarkTheme --> BackgroundColors[背景色变量]
+DarkTheme --> TextColors[文本色变量]
+DarkTheme --> BorderColors[边框色变量]
+LightTheme --> BackgroundColors
+LightTheme --> TextColors
+LightTheme --> BorderColors
+ThemeProvider --> LocalStorage[本地存储]
+ThemeProvider --> SystemDetection[系统检测]
+```
+
+**图表来源**
+- [apps/web/app/globals.css:5-48](file://apps/web/app/globals.css#L5-L48)
+- [apps/web/lib/theme/ThemeProvider.tsx:13-82](file://apps/web/lib/theme/ThemeProvider.tsx#L13-L82)
+- [apps/web/lib/theme/ThemeContext.tsx:6-20](file://apps/web/lib/theme/ThemeContext.tsx#L6-L20)
+
 **章节来源**
 - [apps/web/app/api/chat/route.ts:8-101](file://apps/web/app/api/chat/route.ts#L8-L101)
 - [apps/web/hooks/useChatStream.ts:167-252](file://apps/web/hooks/useChatStream.ts#L167-L252)
@@ -345,6 +392,11 @@ TypeScript[TypeScript 5]
 ESLint[ESLint]
 PostCSS[PostCSS]
 end
+subgraph "主题系统"
+ThemeContext[主题上下文]
+ThemeProvider[主题提供者]
+ThemeTypes[主题类型]
+end
 NextJS --> React
 NextJS --> TailwindCSS
 NextJS --> AI
@@ -356,6 +408,9 @@ NextJS --> Proxy
 NextJS --> TypeScript
 NextJS --> ESLint
 NextJS --> PostCSS
+NextJS --> ThemeContext
+ThemeContext --> ThemeProvider
+ThemeProvider --> ThemeTypes
 ```
 
 **图表来源**
@@ -371,6 +426,7 @@ ChatInput[ChatInput] --> useChatStream[useChatStream]
 MessageList[MessageList] --> MessageItem[MessageItem]
 MessageItem --> MarkdownRenderer[MarkdownRenderer]
 SettingsPanel[SettingsPanel] --> MemoryManager[MemoryManager]
+SettingsPanel --> ThemeProvider[主题提供者]
 useChatStream --> ChatAPI[Chat API Route]
 ChatAPI --> Web3Tools[Web3 Tools]
 ChatAPI --> AIConfig[AI Config]
@@ -428,6 +484,7 @@ UpdateContext --> Ready[准备就绪]
 - **组件状态缓存**：使用React状态管理消息和加载状态
 - **工具调用缓存**：工具调用结果通过消息传递系统缓存
 - **样式缓存**：Tailwind CSS类名预编译，减少运行时计算
+- **主题状态缓存**：localStorage存储主题偏好设置
 
 ## 故障排除指南
 
@@ -475,6 +532,20 @@ UpdateContext --> Ready[准备就绪]
 2. 清空记忆缓存
 3. 检查并发访问逻辑
 
+#### 主题切换问题
+
+**症状**：主题切换不生效或状态不同步
+
+**可能原因**：
+1. localStorage访问权限问题
+2. CSS变量未正确更新
+3. 主题提供者初始化失败
+
+**解决步骤**：
+1. 检查浏览器localStorage状态
+2. 刷新页面强制重新应用主题
+3. 重新登录钱包连接
+
 **章节来源**
 - [apps/web/hooks/useChatStream.ts:221-248](file://apps/web/hooks/useChatStream.ts#L221-L248)
 - [apps/web/app/api/chat/route.ts:360-404](file://apps/web/app/api/chat/route.ts#L360-L404)
@@ -488,11 +559,15 @@ Web3 AI Agent项目展现了现代Web3应用的最佳实践，成功地将企业
 - **性能优秀**：流式处理和内存优化确保流畅体验
 - **扩展性强**：插件化的工具系统支持功能扩展
 - **用户体验佳**：企业风格设计和响应式布局
+- **现代化UI**：统一的CSS变量系统和主题管理
+- **主题灵活**：深色/浅色/系统主题自由切换
 
 ### 应用价值
 - **企业适用性**：深色主题和专业设计适合企业环境
 - **功能完整性**：覆盖Web3核心需求的完整工具链
 - **开发效率**：完善的类型定义和错误处理机制
 - **维护友好**：清晰的代码结构和文档支持
+- **可访问性**：良好的对比度和色彩系统
+- **可扩展性**：模块化的主题系统便于功能扩展
 
 该系统为Web3领域的AI应用提供了优秀的参考实现，无论是作为生产环境部署还是学习研究都具有很高的价值。

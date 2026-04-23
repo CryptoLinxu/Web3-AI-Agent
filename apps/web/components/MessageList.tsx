@@ -32,27 +32,29 @@ export default function MessageList({
   return (
     <div
       ref={scrollRef}
-      className="h-full overflow-y-auto space-y-4 pr-2"
+      className="h-full overflow-y-auto"
     >
-      {messages.map((message) => (
-        <MessageItem 
-          key={message.id} 
-          message={message}
-          isStreaming={isStreaming && message.id === streamingMessageId}
-          toolCalls={message.id === streamingMessageId ? streamingToolCalls : undefined}
-        />
-      ))}
-      
-      {isLoading && (
-        <div className="flex items-center gap-2 text-gray-400 py-2">
-          <div className="flex gap-1">
-            <span className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-            <span className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-            <span className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+      <div className="px-[10%] py-4 space-y-4">
+        {messages.map((message) => (
+          <MessageItem 
+            key={message.id} 
+            message={message}
+            isStreaming={isStreaming && message.id === streamingMessageId}
+            toolCalls={message.id === streamingMessageId ? streamingToolCalls : undefined}
+          />
+        ))}
+        
+        {isLoading && (
+          <div className="flex items-center gap-2 text-gray-400 py-2">
+            <div className="flex gap-1">
+              <span className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+              <span className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+              <span className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+            </div>
+            <span className="text-sm">AI 正在思考...</span>
           </div>
-          <span className="text-sm">AI 正在思考...</span>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

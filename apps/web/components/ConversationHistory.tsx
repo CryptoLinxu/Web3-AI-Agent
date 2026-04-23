@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import * as conversationService from '@/lib/supabase/conversations'
 import type { ConversationSummary } from '@/lib/supabase/conversations'
+import { setWalletContext } from '@/lib/supabase/client'
 import { ConfirmDialog } from './ConfirmDialog'
 
 interface ConversationHistoryProps {
@@ -28,6 +29,7 @@ export default function ConversationHistory({
   // 加载对话列表
   useEffect(() => {
     if (isConnected && address) {
+      setWalletContext(address)
       loadConversations(address)
     } else {
       setConversations([])
@@ -75,7 +77,9 @@ export default function ConversationHistory({
   }
 
   const handleSelect = async (id: string) => {
+    if (!address) return
     try {
+      setWalletContext(address)
       const messages = await conversationService.loadMessages(id)
       onSelectConversation(id, messages)
     } catch (error) {
@@ -94,6 +98,7 @@ export default function ConversationHistory({
 
     try {
       setIsDeleting(true)
+      setWalletContext(address)
       await conversationService.deleteConversation(pendingDeleteId, address)
       setConversations((prev) => prev.filter((c) => c.id !== pendingDeleteId))
       if (activeConversationId === pendingDeleteId) {

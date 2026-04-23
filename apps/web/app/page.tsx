@@ -348,7 +348,7 @@ export default function Home() {
         </header>
 
         {/* Message List */}
-        <div className="flex-1 overflow-hidden px-[10%] py-4">
+        <div className="flex-1 overflow-hidden">
           <MessageList
             messages={messages}
             isLoading={isLoading}
