@@ -281,12 +281,12 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen relative overflow-hidden">
+    <main className="flex min-h-screen relative overflow-hidden bg-gradient-to-b from-[rgb(var(--background-start-rgb))] to-[rgb(var(--background-end-rgb))] text-[rgb(var(--text-primary))] transition-colors duration-300">
       {/* 背景装饰 */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-600/5 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[rgba(var(--accent-color),0.05)] rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-600/5 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary-500/[0.02] rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[rgba(var(--accent-color),0.02)] rounded-full blur-3xl" />
       </div>
 
       {/* 侧边栏 */}
@@ -299,7 +299,7 @@ export default function Home() {
       {/* 主内容 */}
       <div className="relative z-10 flex-1 flex flex-col h-screen px-4 md:px-8">
         {/* Header */}
-        <header className="flex items-center justify-between py-4 border-b border-white/[0.06]">
+        <header className="flex items-center justify-between py-4 border-b border-[rgba(var(--border-color))]">
           <div className="flex items-center gap-3">
             {/* Logo */}
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center shadow-lg shadow-primary-500/20">
@@ -335,7 +335,7 @@ export default function Home() {
             {/* Settings 按钮 */}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-gray-400 hover:text-white"
+              className="p-2 rounded-lg hover:bg-[rgba(var(--bg-tertiary))] transition-colors text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))]"
               title="设置"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

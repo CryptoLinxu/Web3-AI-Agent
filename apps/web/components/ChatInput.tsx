@@ -25,13 +25,13 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
 
   return (
     <div className="relative">
-      <div className="flex items-end gap-3 bg-white/[0.03] border border-white/[0.08] rounded-2xl p-2 focus-within:border-primary-500/30 focus-within:bg-white/[0.05] transition-all duration-200 shadow-lg shadow-black/10">
+      <div className="flex items-end gap-3 bg-[rgba(var(--bg-secondary),0.5)] border border-[rgba(var(--border-color))] rounded-2xl p-2 focus-within:border-[rgba(var(--accent-color),0.3)] focus-within:bg-[rgba(var(--bg-secondary),0.8)] transition-all duration-200 shadow-lg shadow-black/10">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="询问 Web3 相关问题，如 ETH 价格、钱包余额..."
-          className="flex-1 bg-transparent text-white placeholder-gray-500 resize-none outline-none min-h-[44px] max-h-[200px] py-2.5 px-4 text-sm leading-relaxed"
+          className="flex-1 bg-transparent text-[rgb(var(--text-primary))] placeholder-[rgb(var(--text-muted))] resize-none outline-none min-h-[44px] max-h-[200px] py-2.5 px-4 text-sm leading-relaxed"
           rows={1}
           disabled={isLoading}
         />

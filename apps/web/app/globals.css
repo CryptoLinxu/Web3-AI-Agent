@@ -2,16 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* 深色主题（默认） */
+:root,
+[data-theme='dark'] {
   --foreground-rgb: 255, 255, 255;
   --background-start-rgb: 6, 8, 20;
   --background-end-rgb: 12, 16, 40;
+  --bg-primary: 0, 0, 0;
+  --bg-secondary: 17, 24, 39;
+  --bg-tertiary: 31, 41, 55;
+  --border-color: 255, 255, 255, 0.06;
+  --text-primary: 255, 255, 255;
+  --text-secondary: 156, 163, 175;
+  --text-muted: 107, 114, 128;
+  --accent-color: 124, 58, 237;
+}
+
+/* 浅色主题 */
+[data-theme='light'] {
+  --foreground-rgb: 17, 24, 39;
+  --background-start-rgb: 249, 250, 251;
+  --background-end-rgb: 243, 244, 246;
+  --bg-primary: 255, 255, 255;
+  --bg-secondary: 249, 250, 251;
+  --bg-tertiary: 243, 244, 246;
+  --border-color: 0, 0, 0, 0.08;
+  --text-primary: 17, 24, 39;
+  --text-secondary: 75, 85, 99;
+  --text-muted: 107, 114, 128;
+  --accent-color: 124, 58, 237;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
   min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* 自定义滚动条 */
@@ -24,13 +54,20 @@ body {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
 }
 
 /* Markdown 渲染样式 */
@@ -48,9 +85,17 @@ body {
 }
 
 /* 代码块样式 */
-.markdown-body pre {
+[data-theme='dark'] .markdown-body pre {
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+[data-theme='light'] .markdown-body pre {
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.markdown-body pre {
   border-radius: 10px;
   padding: 14px 16px;
   overflow-x: auto;
@@ -74,10 +119,17 @@ body {
   }
 }
 
+[data-theme='dark'] .streaming-cursor::after {
+  color: #38bdf8;
+}
+
+[data-theme='light'] .streaming-cursor::after {
+  color: #7c3aed;
+}
+
 .streaming-cursor::after {
   content: '▋';
   animation: pulse-cursor 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  color: #38bdf8;
 }
 
 /* 微妙的发光效果 */
@@ -111,7 +163,12 @@ body {
 }
 
 /* 选中文字样式 */
-::selection {
+[data-theme='dark'] ::selection {
   background: rgba(14, 165, 233, 0.3);
   color: white;
+}
+
+[data-theme='light'] ::selection {
+  background: rgba(124, 58, 237, 0.2);
+  color: rgb(var(--text-primary));
 }

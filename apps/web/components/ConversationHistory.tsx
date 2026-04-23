@@ -147,10 +147,10 @@ export default function ConversationHistory({
       <aside
         className={`${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } fixed lg:static left-0 top-0 h-full w-72 bg-[#0a0a0f] border-r border-white/[0.06] z-40 transition-transform duration-300 flex flex-col`}
+        } fixed lg:static left-0 top-0 h-full w-72 bg-[rgb(var(--bg-primary))] border-r border-[rgba(var(--border-color))] z-40 transition-transform duration-300 flex flex-col`}
       >
         {/* 头部 */}
-        <div className="p-4 border-b border-white/[0.06]">
+        <div className="p-4 border-b border-[rgba(var(--border-color))]">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-white">对话历史</h2>
             <button
@@ -163,7 +163,7 @@ export default function ConversationHistory({
               </svg>
             </button>
           </div>
-          <p className="text-xs text-gray-500 truncate">
+          <p className="text-xs text-[rgb(var(--text-muted))] truncate">
             {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''}
           </p>
         </div>
@@ -176,8 +176,8 @@ export default function ConversationHistory({
             </div>
           ) : conversations.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-sm text-gray-500">暂无对话历史</p>
-              <p className="text-xs text-gray-600 mt-1">点击上方 + 开始新对话</p>
+              <p className="text-sm text-[rgb(var(--text-muted))]">暂无对话历史</p>
+              <p className="text-xs text-[rgb(var(--text-muted))] opacity-60 mt-1">点击上方 + 开始新对话</p>
             </div>
           ) : (
             conversations.map((conv) => (
@@ -187,26 +187,26 @@ export default function ConversationHistory({
                 className={`group relative p-3 rounded-lg cursor-pointer transition-colors ${
                   activeConversationId === conv.id
                     ? 'bg-primary-600/20 border border-primary-600/30'
-                    : 'hover:bg-white/[0.04] border border-transparent'
+                    : 'hover:bg-[rgba(var(--bg-tertiary))] border border-transparent'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-300 truncate">
+                    <p className="text-sm text-[rgb(var(--text-primary))] truncate">
                       {conv.title || '新对话'}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-[rgb(var(--text-muted))]">
                         {conv.message_count} 条消息
                       </span>
-                      <span className="text-xs text-gray-600">
+                      <span className="text-xs text-[rgb(var(--text-muted))] opacity-60">
                         {formatTime(conv.updated_at)}
                       </span>
                     </div>
                   </div>
                   <button
                     onClick={(e) => handleDelete(conv.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-all"
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/20 text-[rgb(var(--text-muted))] hover:text-red-400 transition-all"
                     title="删除"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -220,8 +220,8 @@ export default function ConversationHistory({
         </div>
 
         {/* 底部 */}
-        <div className="p-3 border-t border-white/[0.06]">
-          <p className="text-xs text-gray-600 text-center">
+        <div className="p-3 border-t border-[rgba(var(--border-color))]">
+          <p className="text-xs text-[rgb(var(--text-muted))] opacity-60 text-center">
             共 {conversations.length} 个对话
           </p>
         </div>
