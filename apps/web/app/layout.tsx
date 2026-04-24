@@ -26,7 +26,7 @@ export default async function RootLayout({
   )
 
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <head>
         {/* 内联脚本：在 React 执行前设置主题，避免闪烁 */}
         <script

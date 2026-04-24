@@ -4,7 +4,7 @@ import '@rainbow-me/rainbowkit/styles.css'
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit'
 import { WagmiProvider, type State } from 'wagmi'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { getFullConfig } from './config'
 import { useTheme } from '@/lib/theme/ThemeContext'
 
@@ -44,22 +44,29 @@ export function Providers({
 // 分离组件以使用 useTheme Hook
 function RainbowKitProviderWrapper({ children }: { children: React.ReactNode }) {
   const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  
+  // 等待 hydration 完成后才使用客户端实际主题，避免 SSR 与客户端主题不一致
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const themeConfig = {
+    accentColor: '#7C3AED',
+    accentColorForeground: 'white',
+    borderRadius: 'large' as const,
+    fontStack: 'system' as const,
+    overlayBlur: 'small' as const,
+  }
+  
+  // SSR 和首次客户端渲染始终使用暗色主题，与服务器渲染一致
+  const theme = mounted && resolvedTheme === 'light'
+    ? lightTheme(themeConfig)
+    : darkTheme(themeConfig)
   
   return (
     <RainbowKitProvider
-      theme={resolvedTheme === 'dark' ? darkTheme({
-        accentColor: '#7C3AED',
-        accentColorForeground: 'white',
-        borderRadius: 'large',
-        fontStack: 'system',
-        overlayBlur: 'small',
-      }) : lightTheme({
-        accentColor: '#7C3AED',
-        accentColorForeground: 'white',
-        borderRadius: 'large',
-        fontStack: 'system',
-        overlayBlur: 'small',
-      })}
+      theme={theme}
       modalSize="compact"
     >
       {children}

@@ -107,6 +107,8 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
   // Approve 相关状态
   const [approveTxHash, setApproveTxHash] = useState<string | undefined>()
   const [needsApproval, setNeedsApproval] = useState(false)
+  const [pendingAllowanceCheck, setPendingAllowanceCheck] = useState(false)
+  const [lastAllowanceBeforeApprove, setLastAllowanceBeforeApprove] = useState<bigint | undefined>()
 
   // 获取 Token 配置
   const tokenConfig = getTokenConfig(data.chain, data.tokenSymbol)
@@ -151,21 +153,44 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
   useEffect(() => {
     if (!isNative && allowance !== undefined && tokenConfig && status === 'pending') {
       const allowanceAmt = parseFloat(formatUnits(allowance, tokenConfig.decimals))
-      setNeedsApproval(allowanceAmt < parseFloat(data.amount))
+      const amount = parseFloat(data.amount)
+      const insufficient = allowanceAmt < amount
+
+      setNeedsApproval(insufficient)
+
+      if (pendingAllowanceCheck) {
+        // 等待 allowance 数据刷新（值改变才说明已从链上重新获取）
+        if (lastAllowanceBeforeApprove !== undefined && allowance === lastAllowanceBeforeApprove) {
+          return // allowance 还未刷新，等待
+        }
+
+        // allowance 已刷新，消费标记
+        setPendingAllowanceCheck(false)
+        setLastAllowanceBeforeApprove(undefined)
+
+        if (insufficient) {
+          // approve 后 allowance 仍然不足
+          setError(`授权额度不足，当前剩余额度: ${allowanceAmt.toFixed(6)} ${data.tokenSymbol}`)
+        } else {
+          // allowance 已足够，自动发起转账
+          setError(undefined)
+          setIsBalanceChecked(false)
+          setBalanceError('')
+          executeERC20Transfer()
+        }
+      }
     }
-  }, [allowance, isNative, tokenConfig, data.amount, status])
+  }, [allowance, isNative, tokenConfig, data.amount, status, pendingAllowanceCheck, lastAllowanceBeforeApprove])
 
   // 监听 approve 交易确认后自动发起 transfer
   useEffect(() => {
     if (!approveReceipt || !approveTxHash) return
     
     if (approveReceipt.status === 'success') {
-      // approve 成功,清除状态,自动转账
-      setNeedsApproval(false)
+      // approve 成功，等待 allowance 数据刷新后再验证
       setApproveTxHash(undefined)
-      setStatus('pending') // 回到 pending 状态后自动触发 transfer
-      // 立即执行转账
-      executeERC20Transfer()
+      setStatus('pending')
+      setPendingAllowanceCheck(true) // 标记等待 post-approve allowance 检查
     } else {
       setStatus('failed')
       setError('Token 授权失败')
@@ -175,7 +200,7 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
   // 检查余额
   const { data: tokenBalance } = useBalance({
     address: address ? (data.from as `0x${string}`) : undefined,
-    token: isNative ? undefined : (data.tokenAddress as `0x${string}` | undefined),
+    token: isNative ? undefined : (tokenConfig?.address as `0x${string}` | undefined),
     query: {
       enabled: status === 'pending' && !!address
     }
@@ -192,6 +217,17 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
   // 余额验证
   useEffect(() => {
     if (status === 'pending' && tokenBalance && !isBalanceChecked) {
+      // 对于 ERC20 Token，先等 allowance 加载完成
+      if (!isNative) {
+        if (allowance === undefined) return // allowance 仍在加载中，等待
+        if (needsApproval) {
+          // allowance 不足，显示授权提示而非余额不足
+          setIsBalanceChecked(true)
+          setBalanceError(`需要先授权 ${data.tokenSymbol}，当前授权额度不足`)
+          return
+        }
+      }
+
       const balanceNum = parseFloat(formatUnits(tokenBalance.value, tokenBalance.decimals))
       const amountNum = parseFloat(data.amount)
 
@@ -207,7 +243,7 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
 
       setIsBalanceChecked(true)
     }
-  }, [tokenBalance, nativeBalance, status, isBalanceChecked, data.amount, data.tokenSymbol, isNative])
+  }, [tokenBalance, nativeBalance, status, isBalanceChecked, data.amount, data.tokenSymbol, isNative, allowance, needsApproval])
 
   // 监听交易确认
   useEffect(() => {
@@ -275,7 +311,8 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
       return
     }
 
-    if (balanceError) {
+    // 余额不足只阻止转账(不阻止授权)
+    if (balanceError && (isNative || !needsApproval)) {
       return
     }
 
@@ -323,6 +360,8 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
           // Step 1: 先授权
           setStatus('approving')
           setError(undefined)
+          // 保存当前的 allowance 值，用于后续判断是否已刷新
+          setLastAllowanceBeforeApprove(allowance)
           writeContract(
             {
               address: tokenConfig.address as `0x${string}`,
@@ -492,17 +531,18 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
         </div>
       )}
 
-      {/* 底部按钮 */}
+      {/* 底部按钮 - 授权按钮：余额不足不影响，只需要 Gas */}
       {status === 'pending' && !isNative && needsApproval && (
         <button
           onClick={handleConfirm}
-          disabled={!!displayError || isSigning}
+          disabled={isSigning}
           className="w-full h-10 bg-blue-600 text-white font-semibold text-base rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
         >
           授权 {data.tokenSymbol}
         </button>
       )}
 
+      {/* 底部按钮 - 转账按钮：需要检查余额 */}
       {status === 'pending' && (isNative || !needsApproval) && (
         <button
           onClick={handleConfirm}
