@@ -1,6 +1,6 @@
 // 转账功能类型定义
 
-export type TransferStatus = 'pending' | 'signing' | 'confirmed' | 'failed'
+export type TransferStatus = 'pending' | 'approving' | 'signing' | 'confirmed' | 'failed'
 
 export type ChainId = 'ethereum' | 'polygon' | 'bsc'
 

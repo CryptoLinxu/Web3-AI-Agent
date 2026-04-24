@@ -17,14 +17,24 @@
 - [token.ts](file://packages/web3-tools/src/token.ts)
 - [tokens/index.ts](file://packages/web3-tools/src/tokens/index.ts)
 - [tokens/registry.ts](file://packages/web3-tools/src/tokens/registry.ts)
+- [TransferCard.tsx](file://apps/web/components/cards/TransferCard.tsx)
+- [DexSwapCard.tsx](file://apps/web/components/cards/DexSwapCard.tsx)
+- [transfer.ts](file://packages/web3-tools/src/transfer.ts)
+- [transfers.ts](file://apps/web/lib/supabase/transfers.ts)
+- [transfer.ts](file://apps/web/types/transfer.ts)
+- [tokens.ts](file://apps/web/lib/tokens.ts)
+- [create_transfer_cards.sql](file://supabase/migrations/create_transfer_cards.sql)
+- [fix_transfer_cards_rls.sql](file://supabase/migrations/fix_transfer_cards_rls.sql)
+- [2026-04-24-feat-web3-transfer-card.md](file://docs/changelog/2026-04-24-feat-web3-transfer-card.md)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 新增Token查询工具，实现Token元数据查询功能
-- 完善Token注册表系统，支持11个主流Token的元数据管理
-- 扩展多链支持架构，完善链适配器模式和统一类型系统
-- 增强工具间协作机制，支持Token与余额、Gas查询的组合使用
+- 新增Web3转账工具功能，包括TransferCard组件和DexSwapCard组件
+- 新增转账工具函数，支持ETH原生转账和ERC20 Token转账
+- 新增数据库迁移，支持转账卡片的持久化存储
+- 新增Token配置管理，支持多链Token配置
+- 扩展聊天系统，支持转账卡片的流式传输和状态同步
 
 ## 目录
 1. [简介](#简介)
@@ -42,7 +52,7 @@
 
 Web3 AI Agent 是一个旨在验证"能够理解用户意图、调用 Web3 工具、返回可信结果，并具备最小风险边界"的 AI Agent 项目。该项目服务于从 Web3 前端工程师升级为 AI 应用工程师/Agent 工程师的个人转型目标。
 
-**更新** 项目现已重构为核心Web3工具实现，采用多链支持架构，提供统一的多链查询接口和增强的错误处理机制。系统支持以太坊、Polygon、BNB Smart Chain、Bitcoin 和 Solana 等多个区块链网络，并新增Token查询工具，实现对11个主流Token的元数据查询功能。
+**更新** 项目现已重构为核心Web3工具实现，采用多链支持架构，提供统一的多链查询接口和增强的错误处理机制。系统支持以太坊、Polygon、BNB Smart Chain、Bitcoin 和 Solana 等多个区块链网络，并新增Token查询工具、转账工具和完整的转账卡片功能，实现从简单的多币种价格查询到复杂的链上转账操作的完整生态。
 
 ## 项目结构
 
@@ -54,6 +64,8 @@ subgraph "应用层"
 WebApp[Next.js Web 应用]
 API[工具 API 层]
 Chat[聊天界面]
+TransferCard[转账卡片组件]
+DexSwapCard[DexSwap卡片组件]
 end
 subgraph "共享包"
 Web3Tools[Web3 工具集]
@@ -64,6 +76,7 @@ PriceTool[多币种价格查询工具]
 BalanceTool[多链余额查询工具]
 GasTool[多链 Gas 价格工具]
 TokenTool[多链代币查询工具]
+TransferTool[转账工具函数]
 end
 subgraph "链适配器层"
 EVMAdapter[EVM 链适配器]
@@ -77,6 +90,11 @@ end
 subgraph "Token 管理"
 TokenRegistry[Token 注册表]
 TokenIndex[Token 模块导出]
+TokenConfig[Token 配置管理]
+end
+subgraph "数据库层"
+TransferDB[转账卡片数据库]
+ConversationDB[对话数据库]
 end
 subgraph "数据源"
 Binance[Binance API]
@@ -91,6 +109,7 @@ API --> PriceTool
 API --> BalanceTool
 API --> GasTool
 API --> TokenTool
+API --> TransferTool
 PriceTool --> Binance
 PriceTool --> Huobi
 BalanceTool --> EVMAdapter
@@ -99,6 +118,11 @@ BalanceTool --> SolanaAdapter
 GasTool --> EVMAdapter
 TokenTool --> TokenRegistry
 TokenTool --> EVMAdapter
+TransferTool --> TransferCard
+TransferTool --> TokenConfig
+TransferCard --> TransferDB
+DexSwapCard --> TransferDB
+TransferDB --> ConversationDB
 EVMAdapter --> ChainConfig
 BitcoinAdapter --> ChainConfig
 SolanaAdapter --> ChainConfig
@@ -106,6 +130,7 @@ EVMAdapter --> RPCNodes
 BitcoinAdapter --> BitcoinAPI
 SolanaAdapter --> SolanaRPC
 TokenRegistry --> TokenIndex
+TokenConfig --> TokenRegistry
 API --> ProxyAgent
 ```
 
@@ -114,10 +139,12 @@ API --> ProxyAgent
 - [route.ts:1-50](file://apps/web/app/api/tools/route.ts#L1-L50)
 - [chains/index.ts:1-7](file://packages/web3-tools/src/chains/index.ts#L1-L7)
 - [tokens/index.ts:1-4](file://packages/web3-tools/src/tokens/index.ts#L1-L4)
+- [TransferCard.tsx:1-441](file://apps/web/components/cards/TransferCard.tsx#L1-441)
+- [DexSwapCard.tsx:1-33](file://apps/web/components/cards/DexSwapCard.tsx#L1-33)
 
 ## 核心组件
 
-根据重构后的实现，Web3 AI Agent 的核心组件现在包括统一的多链支持架构、Token查询工具和传统工具的增强版本：
+根据重构后的实现，Web3 AI Agent 的核心组件现在包括统一的多链支持架构、Token查询工具、转账工具和传统工具的增强版本：
 
 ### 1. 多链类型系统 (`types.ts`)
 - **功能**: 提供统一的类型定义，支持 EVM 和非 EVM 链
@@ -188,7 +215,41 @@ API --> ProxyAgent
 - **查询方式**: 支持按符号和合约地址两种方式查询
 - **使用场景**: 为 Token 查询工具提供数据支持
 
-**更新** 新增了完整的 Token 查询工具和 Token 注册表系统，支持11个主流Token的元数据查询，扩展了多链支持架构的功能范围。
+### 11. 转账工具函数 (`transfer.ts`)
+- **功能**: 提供链上转账的核心工具函数
+- **支持功能**: Gas 估算、地址验证、区块链浏览器链接生成
+- **支持链**: 以太坊、Polygon、BNB Smart Chain
+- **使用场景**: 为转账卡片组件提供底层工具支持
+- **输出格式**: 结构化的转账工具结果
+
+### 12. 转账卡片组件 (`TransferCard.tsx`)
+- **功能**: 提供可视化的转账界面和状态管理
+- **支持功能**: ETH 原生转账、ERC20 Token 转账、状态跟踪、错误处理
+- **支持链**: 以太坊、Polygon、BNB Smart Chain
+- **使用场景**: 用户在聊天界面中进行链上转账操作
+- **状态管理**: pending、signing、confirmed、failed
+
+### 13. DexSwap 卡片组件 (`DexSwapCard.tsx`)
+- **功能**: 提供 DEX 交换功能的预留组件
+- **支持功能**: 交换卡片展示、未来功能扩展
+- **使用场景**: 为未来的 DEX 交换功能做准备
+- **状态管理**: 当前为占位符，预留开发空间
+
+### 14. Token 配置管理 (`tokens.ts`)
+- **功能**: 管理多链 Token 的配置信息
+- **支持链**: 以太坊、Polygon、BNB Smart Chain
+- **支持 Token**: USDT、USDC、DAI 等主流稳定币
+- **配置特性**: 合约地址、精度、图标 URL、链上标识
+- **使用场景**: 为转账和 Token 查询提供配置支持
+
+### 15. 转账数据库访问 (`transfers.ts`)
+- **功能**: 提供转账卡片的数据库 CRUD 操作
+- **支持功能**: 创建、更新、查询转账卡片
+- **数据模型**: TransferData 结构，包含转账信息和状态
+- **使用场景**: 为转账卡片提供持久化存储支持
+- **安全策略**: Row Level Security (RLS) 策略
+
+**更新** 新增了完整的转账工具功能，包括转账工具函数、转账卡片组件、Token配置管理和转账数据库访问层，形成了从用户界面到数据库的完整转账生态系统。
 
 ## 架构概览
 
@@ -199,49 +260,42 @@ sequenceDiagram
 participant User as 用户
 participant Agent as Agent 核心
 participant Tool as Web3 工具层
+participant TransferTool as 转账工具层
+participant Card as 转账卡片组件
+participant DB as 数据库层
 participant ChainAdapter as 链适配器层
 participant TokenRegistry as Token 注册表
 participant Chain as 区块链网络
 participant Config as 链配置管理
 participant Proxy as 代理服务器
-User->>Agent : 输入自然语言查询
+User->>Agent : 输入转账指令
 Agent->>Agent : 意图识别和工具选择
-Agent->>Tool : 调用相应 Web3 工具
-alt 多币种价格查询
-Tool->>Proxy : 检查代理配置
-Proxy-->>Tool : 返回代理状态
-Tool->>Tool : 获取价格数据多源备份
-Tool-->>Agent : 工具执行结果
-else 多链余额查询
-Tool->>Config : 获取链配置
-Config-->>Tool : 返回链配置
-Tool->>ChainAdapter : 创建链适配器实例
-ChainAdapter->>Chain : 查询链上余额
-Chain-->>ChainAdapter : 返回链上余额
-ChainAdapter-->>Tool : 返回适配器结果
-Tool-->>Agent : 工具执行结果
-else 多链 Gas 价格查询
-Tool->>Config : 获取链配置
-Config-->>Tool : 返回链配置
-Tool->>ChainAdapter : 创建 EVM 适配器
-ChainAdapter->>Chain : 获取 Gas 价格
-Chain-->>ChainAdapter : 返回网络费用信息
-ChainAdapter-->>Tool : 返回适配器结果
-Tool-->>Agent : 工具执行结果
-else Token 查询
-Tool->>TokenRegistry : 查询 Token 元数据
-TokenRegistry-->>Tool : 返回 Token 信息
-Tool-->>Agent : 工具执行结果
-end
-Agent->>Agent : 结果整理和格式化
-Agent-->>User : 返回自然语言回复
+Agent->>Tool : 调用 createTransferCard 工具
+Tool->>DB : 创建转账卡片记录
+DB-->>Tool : 返回卡片ID
+Tool-->>Agent : 返回 transferData
+Agent->>Card : 渲染转账卡片组件
+Card->>Card : 状态初始化 (pending)
+User->>Card : 点击确认按钮
+Card->>Card : 检查余额和链配置
+Card->>TransferTool : 调用转账工具函数
+TransferTool->>Config : 获取链配置
+Config-->>TransferTool : 返回链配置
+TransferTool->>ChainAdapter : 创建链适配器实例
+ChainAdapter->>Chain : 执行转账操作
+Chain-->>ChainAdapter : 返回交易结果
+ChainAdapter-->>TransferTool : 返回适配器结果
+TransferTool-->>Card : 返回转账结果
+Card->>DB : 更新转账状态
+DB-->>Card : 确认更新
+Card-->>User : 显示转账结果
 ```
 
 **图表来源**
 - [route.ts:9-36](file://apps/web/app/api/tools/route.ts#L9-L36)
-- [chains/evm-adapter.ts:15-19](file://packages/web3-tools/src/chains/evm-adapter.ts#L15-L19)
-- [chains/config.ts:54-60](file://packages/web3-tools/src/chains/config.ts#L54-L60)
-- [token.ts:10-57](file://packages/web3-tools/src/token.ts#L10-L57)
+- [TransferCard.tsx:165-253](file://apps/web/components/cards/TransferCard.tsx#L165-L253)
+- [transfers.ts:20-46](file://apps/web/lib/supabase/transfers.ts#L20-L46)
+- [transfer.ts:14-79](file://packages/web3-tools/src/transfer.ts#L14-L79)
 
 ## 详细组件分析
 
@@ -260,22 +314,29 @@ DefineChainConfig --> DefineBalanceData["定义统一余额数据"]
 DefineBalanceData --> DefineGasData["定义统一 Gas 数据"]
 DefineGasData --> DefineTokenMetadata["定义 Token 元数据接口"]
 DefineTokenMetadata --> DefineToolFunction["定义工具函数类型"]
-DefineToolFunction --> End([完成类型系统])
+DefineToolFunction --> DefineTransferData["定义转账数据接口"]
+DefineTransferData --> DefineTransferStatus["定义转账状态枚举"]
+DefineTransferStatus --> DefineChainId["定义链ID枚举"]
+DefineChainId --> End([完成类型系统])
 ```
 
 **图表来源**
 - [types.ts:3-86](file://packages/web3-tools/src/types.ts#L3-L86)
+- [transfer.ts:1-20](file://apps/web/types/transfer.ts#L1-L20)
 
 #### API 接口设计
 - **链 ID 类型**: `EvmChainId` 和 `NonEvmChainId` 枚举
 - **链配置接口**: `EvmChainConfig` 和 `NonEvmChainConfig` 接口
 - **统一数据结构**: `BalanceData`、`GasData`、`TokenMetadata`
 - **工具函数类型**: `ToolFunction<TArgs, TResult>` 泛型接口
+- **转账数据接口**: `TransferData` 包含转账相关信息
+- **转账状态枚举**: `TransferStatus` 支持四种状态
 
-**更新** 新增了完整的类型系统，支持 EVM 和非 EVM 链的类型安全操作。
+**更新** 新增了完整的转账类型系统，支持转账卡片的状态管理和数据结构定义。
 
 **章节来源**
 - [types.ts:3-86](file://packages/web3-tools/src/types.ts#L3-L86)
+- [transfer.ts:1-20](file://apps/web/types/transfer.ts#L1-L20)
 
 ### 链配置管理系统实现
 
@@ -671,6 +732,213 @@ ReturnSuccess --> End
 - [tokens/registry.ts:15-102](file://packages/web3-tools/src/tokens/registry.ts#L15-L102)
 - [tokens/registry.ts:110-135](file://packages/web3-tools/src/tokens/registry.ts#L110-L135)
 
+### 转账工具函数实现
+
+#### Gas 估算和转账执行流程
+转账工具函数提供了链上转账的核心功能：
+
+```mermaid
+flowchart TD
+Start([开始转账]) --> CheckChain["检查链类型"]
+CheckChain --> IsEVM{"是否 EVM 链？"}
+IsEVM --> |否| ReturnNotSupported["返回不支持错误"]
+IsEVM --> |是| ValidateAddress["验证地址格式"]
+ValidateAddress --> AddressValid{"地址有效？"}
+AddressValid --> |否| ReturnInvalidAddress["返回地址格式错误"]
+AddressValid --> |是| EstimateGas["估算 Gas 费用"]
+EstimateGas --> GasSuccess{"估算成功？"}
+GasSuccess --> |否| ReturnGasError["返回 Gas 估算错误"]
+GasSuccess --> |是| ExecuteTransfer["执行转账"]
+ExecuteTransfer --> TransferSuccess{"转账成功？"}
+TransferSuccess --> |否| ReturnTransferError["返回转账执行错误"]
+TransferSuccess --> |是| FormatResult["格式化转账结果"]
+FormatResult --> ReturnSuccess["返回成功结果"]
+ReturnNotSupported --> End([结束])
+ReturnInvalidAddress --> End
+ReturnGasError --> End
+ReturnTransferError --> End
+ReturnSuccess --> End
+```
+
+**图表来源**
+- [transfer.ts:14-79](file://packages/web3-tools/src/transfer.ts#L14-L79)
+
+#### API 接口设计
+- **函数名称**: `estimateTransferGas(chain: EvmChainId, from: string, to: string, amount: string, tokenAddress?: string)`
+- **输入参数**: 
+  - `chain`: EVM 链 ID（ethereum、polygon、bsc）
+  - `from`: 发送地址
+  - `to`: 接收地址
+  - `amount`: 转账金额
+  - `tokenAddress`: ERC20 合约地址（可选）
+- **输出格式**: 
+  - 成功: `{success: boolean, data: {gasEstimate: string, feeInETH: string}, timestamp: string, source: string}`
+  - 失败: `{success: boolean, error: string, timestamp: string, source: string}`
+- **错误码**: 
+  - 5001: 不支持的链
+  - 5002: Gas 估算失败
+  - 5003: RPC 连接失败
+
+#### 增强的功能特性
+- **Gas 估算**: 支持 ETH 原生转账和 ERC20 Token 转账的 Gas 估算
+- **地址验证**: 使用正则表达式验证以太坊地址格式
+- **区块链浏览器**: 生成链上交易的浏览器链接
+- **错误处理**: 完善的异常捕获和错误信息返回
+- **数据格式**: 统一的 ToolResult 结构
+
+**更新** 新增了完整的转账工具函数，支持 Gas 估算、地址验证和区块链浏览器链接生成，为转账卡片组件提供底层技术支持。
+
+**章节来源**
+- [transfer.ts:14-79](file://packages/web3-tools/src/transfer.ts#L14-L79)
+
+### 转账卡片组件实现
+
+#### 转账卡片状态管理和用户交互流程
+转账卡片组件提供了完整的用户交互体验：
+
+```mermaid
+flowchart TD
+Start([开始转账卡片]) --> InitState["初始化状态"]
+InitState --> LoadData["加载转账数据"]
+LoadData --> CheckWallet["检查钱包连接"]
+CheckWallet --> WalletConnected{"钱包已连接？"}
+WalletConnected --> |否| ShowWalletError["显示钱包连接错误"]
+WalletConnected --> |是| CheckBalance["检查余额"]
+CheckBalance --> BalanceChecked{"余额检查完成？"}
+BalanceChecked --> |否| ShowBalanceError["显示余额不足错误"]
+BalanceChecked --> |是| RenderCard["渲染转账卡片"]
+RenderCard --> UserAction{"用户操作"}
+UserAction --> |点击确认| ValidateInputs["验证输入"]
+ValidateInputs --> ValidateAddress["验证地址格式"]
+ValidateAddress --> AddressValid{"地址有效？"}
+AddressValid --> |否| ShowAddressError["显示地址格式错误"]
+AddressValid --> |是| ValidateChain["检查链配置"]
+ValidateChain --> ChainMatch{"链匹配？"}
+ChainMatch --> |否| ShowChainError["显示链配置错误"]
+ChainMatch --> |是| ExecuteTransfer["执行转账"]
+ExecuteTransfer --> ShowSigning["显示签名状态"]
+ShowSigning --> WaitReceipt["等待交易确认"]
+WaitReceipt --> ReceiptSuccess{"交易成功？"}
+ReceiptSuccess --> |是| ShowConfirmed["显示确认状态"]
+ReceiptSuccess --> |否| ShowFailed["显示失败状态"]
+ShowConfirmed --> UpdateDB["更新数据库状态"]
+ShowFailed --> UpdateDB
+UpdateDB --> End([结束])
+ShowWalletError --> End
+ShowBalanceError --> End
+ShowAddressError --> End
+ShowChainError --> End
+```
+
+**图表来源**
+- [TransferCard.tsx:77-441](file://apps/web/components/cards/TransferCard.tsx#L77-L441)
+
+#### 组件架构设计
+- **状态管理**: 使用 React Hooks 管理转账状态和错误信息
+- **钱包集成**: 集成 wagmi hooks 支持多种钱包
+- **余额检查**: 实时检查用户余额和 Gas 费用
+- **错误处理**: 完善的错误分类和用户友好的错误提示
+- **状态跟踪**: 支持 pending、signing、confirmed、failed 四种状态
+- **数据库同步**: 自动同步转账状态到 Supabase 数据库
+
+#### 核心功能特性
+- **ETH 原生转账**: 支持原生 ETH 转账
+- **ERC20 Token 转账**: 支持 USDT、USDC 等稳定币转账
+- **链配置**: 支持以太坊、Polygon、BNB Smart Chain
+- **地址验证**: 使用 viem 库验证地址格式
+- **余额检查**: 实时检查余额和 Gas 费用
+- **交易监控**: 自动监控交易确认状态
+- **错误恢复**: 支持失败后的重试机制
+
+**更新** 新增了完整的转账卡片组件，支持 ETH 原生转账和 ERC20 Token 转账，提供完整的用户交互体验和状态管理。
+
+**章节来源**
+- [TransferCard.tsx:77-441](file://apps/web/components/cards/TransferCard.tsx#L77-L441)
+
+### Token 配置管理实现
+
+#### 多链 Token 配置管理
+Token 配置管理提供了完整的多链 Token 信息管理：
+
+```mermaid
+flowchart TD
+Start([开始 Token 配置]) --> LoadTokens["加载 Token 配置"]
+LoadTokens --> CheckChain["检查链类型"]
+CheckChain --> ChainSupported{"链支持？"}
+ChainSupported --> |否| ReturnUndefined["返回 undefined"]
+ChainSupported --> |是| CheckSymbol["检查 Token 符号"]
+CheckSymbol --> SymbolSupported{"Token 支持？"}
+SymbolSupported --> |否| ReturnUndefined
+SymbolSupported --> |是| ReturnConfig["返回 Token 配置"]
+ReturnUndefined --> End([结束])
+ReturnConfig --> End
+```
+
+**图表来源**
+- [tokens.ts:76-85](file://apps/web/lib/tokens.ts#L76-L85)
+
+#### 配置数据结构
+- **TokenConfig 接口**: 包含符号、名称、合约地址、精度、图标 URL
+- **ChainTokens 接口**: 支持多链的 Token 配置映射
+- **支持链**: 以太坊、Polygon、BNB Smart Chain
+- **支持 Token**: USDT、USDC、DAI 等主流稳定币
+- **配置特性**: 链上标识、精度管理、图标资源
+
+#### API 接口设计
+- **函数名称**: `getTokenConfig(chain: string, symbol: string)`
+- **输入参数**: `chain` - 链 ID，`symbol` - Token 符号
+- **输出格式**: `TokenConfig` 对象或 `undefined`
+- **辅助函数**: `isNativeToken(symbol: string)` 判断是否为原生币
+
+**更新** 新增了完整的 Token 配置管理系统，支持多链 Token 配置和原生币识别，为转账和 Token 查询提供配置支持。
+
+**章节来源**
+- [tokens.ts:1-85](file://apps/web/lib/tokens.ts#L1-L85)
+
+### 转账数据库访问实现
+
+#### 转账卡片数据持久化流程
+转账数据库访问层提供了完整的数据持久化支持：
+
+```mermaid
+flowchart TD
+Start([开始数据库操作]) --> CreateCard["创建转账卡片"]
+CreateCard --> UpsertCard["Upsert 操作避免重复"]
+UpsertCard --> ReturnCardId["返回卡片 ID"]
+ReturnCardId --> UpdateStatus["更新转账状态"]
+UpdateStatus --> CheckTxHash["检查交易哈希"]
+CheckTxHash --> HasTxHash{"有交易哈希？"}
+HasTxHash --> |是| UpdateWithHash["更新状态和交易哈希"]
+HasTxHash --> |否| UpdateStatusOnly["仅更新状态"]
+UpdateWithHash --> LoadCards["加载转账卡片"]
+UpdateStatusOnly --> LoadCards
+LoadCards --> FilterByConversation["按对话过滤"]
+FilterByConversation --> TransformData["转换数据格式"]
+TransformData --> ReturnCards["返回卡片数组"]
+ReturnCards --> End([结束])
+```
+
+**图表来源**
+- [transfers.ts:20-142](file://apps/web/lib/supabase/transfers.ts#L20-L142)
+
+#### 数据库操作接口
+- **创建转账卡片**: `createTransferCard(params: CreateTransferCardParams) -> Promise<string>`
+- **更新转账状态**: `updateTransferCardStatus(cardId: string, status: TransferStatus, txHash?: string, errorMessage?: string) -> Promise<void>`
+- **加载转账卡片**: `loadTransferCards(conversationId: string) -> Promise<TransferData[]>`
+- **查找转账卡片**: `findTransferCardByMessageId(conversationId: string, messageId: string) -> Promise<TransferData | null>`
+
+#### 数据库设计特性
+- **表结构**: transfer_cards 表支持 UUID 主键和 TEXT 消息 ID
+- **索引优化**: 为 conversation_id 和 message_id 创建索引
+- **安全策略**: Row Level Security (RLS) 策略保护用户数据
+- **触发器**: 自动更新 updated_at 字段
+- **数据类型**: 使用 TEXT 存储金额避免精度丢失
+
+**更新** 新增了完整的转账数据库访问层，支持转账卡片的创建、更新、查询和删除操作，提供完整的数据持久化支持。
+
+**章节来源**
+- [transfers.ts:1-142](file://apps/web/lib/supabase/transfers.ts#L1-L142)
+
 ## 依赖分析
 
 Web3 工具的依赖关系和协作机制如下：
@@ -682,6 +950,9 @@ Web3SDK[Web3.js SDK]
 Ethers[Ethers.js]
 NodeFetch[node-fetch]
 HttpsProxyAgent[https-proxy-agent]
+Viem[viem]
+Wagmi[wagmi]
+NextImage[Next.js Image]
 end
 subgraph "内部组件"
 ToolRegistry[工具注册表]
@@ -694,12 +965,18 @@ ChainAdapter[链适配器]
 ConfigManager[配置管理器]
 TokenRegistry[Token 注册表]
 TokenIndex[Token 模块导出]
+TransferCard[转账卡片组件]
+DexSwapCard[DexSwap卡片组件]
+TransferDB[转账数据库]
+TokenConfig[Token配置管理]
+ChatStream[聊天流处理]
 end
 subgraph "核心工具"
 MultiPrice[多币种价格工具]
 MultiBalance[多链余额工具]
 MultiGas[多链 Gas 工具]
 TokenQuery[代币查询工具]
+TransferTool[转账工具函数]
 end
 subgraph "链适配器"
 EVMAdapter[EVM 链适配器]
@@ -718,10 +995,14 @@ Web3SDK --> ToolRegistry
 Ethers --> ToolRegistry
 NodeFetch --> ToolRegistry
 HttpsProxyAgent --> ToolRegistry
+Viem --> TransferTool
+Wagmi --> TransferCard
+NextImage --> TransferCard
 ToolRegistry --> MultiPrice
 ToolRegistry --> MultiBalance
 ToolRegistry --> MultiGas
 ToolRegistry --> TokenQuery
+ToolRegistry --> TransferTool
 MultiPrice --> BinanceAPI
 MultiPrice --> HuobiAPI
 MultiBalance --> EVMAdapter
@@ -730,11 +1011,17 @@ MultiBalance --> SolanaAdapter
 MultiGas --> EVMAdapter
 TokenQuery --> TokenRegistry
 TokenQuery --> EVMAdapter
+TransferTool --> TransferCard
+TransferTool --> TokenConfig
+TransferCard --> TransferDB
+DexSwapCard --> TransferDB
+TransferDB --> ChatStream
 EVMAdapter --> ChainAdapter
 BitcoinAdapter --> ChainAdapter
 SolanaAdapter --> ChainAdapter
 ChainAdapter --> ConfigManager
 TokenRegistry --> TokenIndex
+TokenConfig --> TokenRegistry
 ConfigManager --> RPCNode
 ConfigManager --> BitcoinAPI
 ConfigManager --> SolanaRPC
@@ -743,6 +1030,7 @@ TestSuite --> MultiPrice
 TestSuite --> MultiBalance
 TestSuite --> MultiGas
 TestSuite --> TokenQuery
+TestSuite --> TransferTool
 ErrorHandler --> ToolRegistry
 CacheManager --> ToolRegistry
 Logger --> ToolRegistry
@@ -754,6 +1042,8 @@ TypeSystem --> ToolRegistry
 - [route.ts:1-3](file://apps/web/app/api/tools/route.ts#L1-L3)
 - [chains/index.ts:1-7](file://packages/web3-tools/src/chains/index.ts#L1-L7)
 - [tokens/index.ts:1-4](file://packages/web3-tools/src/tokens/index.ts#L1-L4)
+- [TransferCard.tsx:3-8](file://apps/web/components/cards/TransferCard.tsx#L3-L8)
+- [transfers.ts:3-4](file://apps/web/lib/supabase/transfers.ts#L3-L4)
 
 ### 组件耦合度分析
 - **低耦合设计**: 每个工具都有独立的适配器层
@@ -765,8 +1055,11 @@ TypeSystem --> ToolRegistry
 - **类型安全**: 完整的 TypeScript 类型定义
 - **配置集中化**: 统一的链配置管理
 - **数据管理分离**: Token 元数据独立管理
+- **状态管理**: 转账卡片组件独立的状态管理
+- **数据库抽象**: 数据库操作通过专门的服务层封装
+- **聊天集成**: 转账卡片与聊天系统的深度集成
 
-**更新** 新增了完整的链适配器架构、类型系统和 Token 注册表，显著提升了系统的可扩展性和维护性。
+**更新** 新增了完整的转账生态系统，包括转账卡片组件、转账工具函数、Token配置管理和转账数据库访问层，形成了从用户界面到数据库的完整转账闭环。
 
 **章节来源**
 - [README.md:18-25](file://README.md#L18-L25)
@@ -783,12 +1076,14 @@ TypeSystem --> ToolRegistry
 4. **代理缓存**: 代理配置缓存，减少重复初始化
 5. **链配置缓存**: 链配置缓存，避免重复加载
 6. **Token 元数据缓存**: Token 信息缓存，减少重复查询
+7. **转账状态缓存**: 转账卡片状态缓存，支持实时更新
 
 ### 改进的并发控制
 - **最大并发数**: 5 个并发请求
 - **队列管理**: FIFO 队列，支持优先级排序
 - **超时控制**: 10 秒超时，支持重试机制
 - **代理超时**: 15 秒代理超时，避免阻塞
+- **转账并发**: 支持多个转账操作的并发处理
 
 ### 增强的错误恢复
 - **自动重试**: 最多重试 3 次
@@ -797,8 +1092,16 @@ TypeSystem --> ToolRegistry
 - **代理回退**: 代理失败时自动回退到直连
 - **多源备份**: 支持多个数据源的自动切换
 - **Token 查询优化**: Token 注册表内存缓存，快速查询
+- **转账错误处理**: 完善的转账错误分类和用户提示
 
-**更新** 新增了完整的链适配器架构、配置管理系统和 Token 注册表，显著提升了系统的性能和可靠性。
+### 转账性能优化
+- **状态预加载**: 转账卡片初始化时预加载必要状态
+- **余额实时检查**: 使用 wagmi hooks 实现实时余额检查
+- **Gas 估算缓存**: Gas 估算结果缓存，减少重复计算
+- **数据库批量操作**: 支持批量更新转账状态
+- **图像资源优化**: Token 图标使用 Next.js Image 优化加载
+
+**更新** 新增了完整的转账性能优化策略，包括状态缓存、实时余额检查、Gas 估算优化和数据库批量操作，显著提升了转账体验的响应速度。
 
 ## 故障排除指南
 
@@ -889,13 +1192,48 @@ TypeSystem --> ToolRegistry
 - 验证 Token 注册表文件存在性
 - 确认模块导出配置正确
 
-**更新** 新增了多链支持和 Token 查询相关的故障排除指南，包括链配置、地址验证、适配器错误处理和 Token 查询错误处理。
+#### 13. 转账卡片渲染错误
+**症状**: 转账卡片组件无法正确渲染
+**解决方案**:
+- 检查 TransferData 数据格式
+- 验证 conversationId 参数
+- 确认 Supabase 连接状态
+- 检查 Token 配置是否正确
+
+#### 14. 转账执行失败
+**症状**: 转账卡片无法执行转账
+**解决方案**:
+- 检查钱包连接状态
+- 验证地址格式和链配置
+- 确认余额是否充足
+- 检查网络错误和用户拒绝
+- 验证 ERC20 approve 状态
+
+#### 15. 数据库操作失败
+**症状**: 转账状态更新或查询失败
+**解决方案**:
+- 检查 Supabase 连接配置
+- 验证 RLS 策略设置
+- 确认表结构和索引
+- 检查权限和认证设置
+
+#### 16. 聊天流传输错误
+**症状**: 转账数据无法通过 SSE 传输
+**解决方案**:
+- 检查 SSE 事件类型
+- 验证 transfer_data 事件处理
+- 确认 useChatStream 配置
+- 检查前端状态同步机制
+
+**更新** 新增了转账相关的故障排除指南，包括转账卡片渲染、转账执行、数据库操作和聊天流传输等常见问题的解决方案。
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:192-196](file://docs/Web3-AI-Agent-PRD-MVP.md#L192-L196)
 - [route.ts:29-36](file://apps/web/app/api/tools/route.ts#L29-L36)
 - [chains/config.ts:54-60](file://packages/web3-tools/src/chains/config.ts#L54-L60)
 - [token.ts:14-22](file://packages/web3-tools/src/token.ts#L14-L22)
+- [TransferCard.tsx:255-279](file://apps/web/components/cards/TransferCard.tsx#L255-L279)
+- [transfers.ts:75-78](file://apps/web/lib/supabase/transfers.ts#L75-L78)
 
 ## 结论
 
@@ -907,17 +1245,22 @@ Web3 AI Agent 的核心 Web3 工具实现了以下关键特性：
 4. **链配置管理**: 集中的链配置管理，支持环境变量覆盖
 5. **多币种支持**: 统一的 getTokenPrice 函数支持五种主要加密货币
 6. **Token 管理**: 完整的 Token 注册表系统，支持11个主流Token的元数据查询
-7. **健壮的错误处理**: 完善的异常捕获和降级机制
-8. **高性能架构**: 缓存策略和并发控制确保响应速度
-9. **可扩展性**: 支持新工具的无缝集成和现有工具的扩展
-10. **环境适应性**: 支持代理服务器和自定义配置
-11. **多数据源备份**: 确保服务的高可用性
-12. **向后兼容性**: 保持原有 API 的兼容性
-13. **全面测试**: 包含完整的单元测试套件
+7. **转账功能**: 完整的转账生态系统，支持 ETH 原生转账和 ERC20 Token 转账
+8. **数据库持久化**: 转账卡片的完整数据持久化支持
+9. **用户界面**: 直观的转账卡片组件，支持完整的用户交互
+10. **状态管理**: 完善的转账状态跟踪和错误处理机制
+11. **聊天集成**: 转账功能与聊天系统的深度集成
+12. **健壮的错误处理**: 完善的异常捕获和降级机制
+13. **高性能架构**: 缓存策略和并发控制确保响应速度
+14. **可扩展性**: 支持新工具的无缝集成和现有工具的扩展
+15. **环境适应性**: 支持代理服务器和自定义配置
+16. **多数据源备份**: 确保服务的高可用性
+17. **向后兼容性**: 保持原有 API 的兼容性
+18. **全面测试**: 包含完整的单元测试套件
 
-**更新** 本次重构显著增强了系统的功能性和可靠性，通过多链支持架构、统一类型系统、链配置管理、Token 注册表和增强的工具功能，为构建可信的 Web3 AI Agent 奠定了更加坚实的基础。
+**更新** 本次重构显著增强了系统的功能性和可靠性，通过多链支持架构、统一类型系统、Token 注册表、转账工具函数、转账卡片组件和数据库持久化，形成了完整的 Web3 转账生态系统，为构建可信的 Web3 AI Agent 奠定了更加坚实的基础。
 
-这些工具为构建可信的 Web3 AI Agent 奠定了坚实基础，支持从简单的多币种价格查询到复杂的多链数据交互、Token 元数据查询等各种使用场景。
+这些工具为构建可信的 Web3 AI Agent 奠定了坚实基础，支持从简单的多币种价格查询到复杂的多链数据交互、Token 元数据查询和链上转账等各种使用场景。
 
 ## 附录
 
@@ -971,11 +1314,19 @@ Web3 AI Agent 的核心 Web3 工具实现了以下关键特性：
 用户输入："Polygon 链上 WETH 的合约地址是什么？"
 期望结果：返回 WETH 在 Polygon 链上的合约地址
 
-#### 场景 13：多轮跟进
+#### 场景 13：执行 ETH 转账
+用户输入："转 0.01 ETH 到 0x..."
+期望结果：在聊天界面中显示转账卡片，用户确认后执行转账并在链上确认
+
+#### 场景 14：执行 ERC20 Token 转账
+用户输入："转 100 USDT 到 0x..."
+期望结果：在聊天界面中显示转账卡片，用户确认后执行 ERC20 转账并在链上确认
+
+#### 场景 15：多轮跟进
 用户先问价格，再问："如果是我刚才那个地址呢？"
 期望结果：系统保留对话上下文，在合理范围内复用已有信息
 
-#### 场景 14：代理环境配置
+#### 场景 16：代理环境配置
 用户部署在受限网络环境中
 期望结果：系统自动检测代理配置并使用代理服务器访问数据源
 
@@ -996,8 +1347,17 @@ Web3 AI Agent 的核心 Web3 工具实现了以下关键特性：
 - `getBalance(chain: ChainId, address: string)`: 支持多链余额查询，包括 EVM 和非 EVM 链
 - `getGasPrice(chain: EvmChainId, rpcUrl?: string)`: 支持多链 Gas 价格查询，目前支持 EVM 链
 - `getTokenInfo(chain: ChainId, symbolOrAddress: string)`: 支持 EVM 链 Token 元数据查询
+- `estimateTransferGas(chain: EvmChainId, from: string, to: string, amount: string, tokenAddress?: string)`: 支持转账 Gas 估算
+- `validateAddress(address: string)`: 支持地址格式验证
+- `getExplorerUrl(chain: EvmChainId, txHash: string)`: 支持区块链浏览器链接生成
 
-**更新** 新增了 Token 查询工具相关的配置参数说明，包括支持的链列表、Token 查询接口和 Token 注册表配置。
+#### 转账配置
+- `TransferCard`: 支持 ETH 原生转账和 ERC20 Token 转账
+- `DexSwapCard`: 预留 DEX 交换功能
+- `TokenConfig`: 支持多链 Token 配置管理
+- `TransferData`: 支持转账卡片数据持久化
+
+**更新** 新增了转账相关的配置参数说明，包括转账工具函数、转账卡片组件和 Token 配置管理等新功能的配置选项。
 
 ### 支持的链和币种列表
 
@@ -1005,9 +1365,9 @@ Web3 AI Agent 的核心 Web3 工具实现了以下关键特性：
 
 | 链 ID | 链名称 | 链类型 | 原生代币 | 支持功能 |
 |-------|--------|--------|----------|----------|
-| ethereum | 以太坊 | EVM | ETH | 余额查询、Gas 查询、地址验证、Token 查询 |
-| polygon | Polygon | EVM | MATIC | 余额查询、Gas 查询、地址验证、Token 查询 |
-| bsc | BNB Smart Chain | EVM | BNB | 余额查询、Gas 查询、地址验证、Token 查询 |
+| ethereum | 以太坊 | EVM | ETH | 余额查询、Gas 查询、地址验证、Token 查询、转账功能 |
+| polygon | Polygon | EVM | MATIC | 余额查询、Gas 查询、地址验证、Token 查询、转账功能 |
+| bsc | BNB Smart Chain | EVM | BNB | 余额查询、Gas 查询、地址验证、Token 查询、转账功能 |
 | bitcoin | Bitcoin | 非 EVM | BTC | 余额查询、地址验证 |
 | solana | Solana | 非 EVM | SOL | 余额查询、地址验证 |
 
@@ -1028,13 +1388,26 @@ Web3 AI Agent 的核心 Web3 工具实现了以下关键特性：
 | ethereum | USDT | Tether USD | 0xdac17f958d2ee523a2206206994597c13d831ec7 |
 | ethereum | USDC | USD Coin | 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 |
 | ethereum | DAI | Dai Stablecoin | 0x6b175474e89094c44da98b954eedeac495271d0f |
-| ethereum | WETH | Wrapped Ether | 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2 |
-| ethereum | UNI | Uniswap | 0x1f9840a85d5af5bf1d1762f925bdaddc4201f984 |
 | polygon | USDT | Tether USD (Polygon) | 0xc2132d05d31c914a87c6611c10748aeb04b58e8f |
 | polygon | USDC | USD Coin (Polygon) | 0x3c499c542cef5e3811e1192ce70d8cc03d5c3359 |
-| polygon | WMATIC | Wrapped Matic | 0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270 |
 | bsc | USDT | Tether USD (BSC) | 0x55d398326f99059ff775485246999027b3197955 |
 | bsc | USDC | USD Coin (BSC) | 0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d |
-| bsc | WBNB | Wrapped BNB | 0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c |
 
-**更新** 新增了完整的多链支持列表、Token 查询功能和 Token 注册表信息，反映了重构后的多链查询能力和类型系统。
+#### 支持的转账状态
+
+| 状态 | 描述 | 用户界面显示 |
+|------|------|-------------|
+| pending | 待确认 | 灰色圆点 + "待确认" |
+| signing | 签名中 | 蓝色圆点 + "签名中" |
+| confirmed | 已确认 | 绿色圆点 + "已确认" |
+| failed | 失败 | 红色圆点 + "失败" |
+
+#### 支持的转账链
+
+| 链 ID | 链名称 | 原生代币 | 支持的 Token |
+|-------|--------|----------|-------------|
+| ethereum | 以太坊 | ETH | USDT、USDC、DAI |
+| polygon | Polygon | MATIC | USDT、USDC |
+| bsc | BNB Smart Chain | BNB | USDT、USDC |
+
+**更新** 新增了完整的转账支持列表，包括支持的转账状态、转账链和转账 Token，反映了重构后的转账功能和类型系统。

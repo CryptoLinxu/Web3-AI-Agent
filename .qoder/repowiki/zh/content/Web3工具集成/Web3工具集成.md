@@ -12,6 +12,7 @@
 - [packages/web3-tools/src/balance.ts](file://packages/web3-tools/src/balance.ts)
 - [packages/web3-tools/src/gas.ts](file://packages/web3-tools/src/gas.ts)
 - [packages/web3-tools/src/token.ts](file://packages/web3-tools/src/token.ts)
+- [packages/web3-tools/src/transfer.ts](file://packages/web3-tools/src/transfer.ts)
 - [packages/web3-tools/src/tokens/index.ts](file://packages/web3-tools/src/tokens/index.ts)
 - [packages/web3-tools/src/tokens/registry.ts](file://packages/web3-tools/src/tokens/registry.ts)
 - [packages/web3-tools/src/chains/index.ts](file://packages/web3-tools/src/chains/index.ts)
@@ -22,24 +23,28 @@
 - [packages/web3-tools/package.json](file://packages/web3-tools/package.json)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
-- [apps/web/package.json](file://apps/web/package.json)
 - [apps/web/app/page.tsx](file://apps/web/app/page.tsx)
-- [skills/x-ray/SKILL.md](file://skills/x-ray/SKILL.md)
-- [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md)
-- [skills/x-ray/MAP-V3.md](file://skills/x-ray/MAP-V3.md)
-- [2026-04-20-feat-web3-tools-refactor.md](file://docs/changelog/2026-04-20-feat-web3-tools-refactor.md)
-- [2026-04-22-feat-multichain-web3-tools.md](file://docs/changelog/2026-04-22-feat-multichain-web3-tools.md)
+- [apps/web/components/cards/TransferCard.tsx](file://apps/web/components/cards/TransferCard.tsx)
+- [apps/web/components/cards/DexSwapCard.tsx](file://apps/web/components/cards/DexSwapCard.tsx)
+- [apps/web/components/cards/index.ts](file://apps/web/components/cards/index.ts)
+- [apps/web/lib/supabase/transfers.ts](file://apps/web/lib/supabase/transfers.ts)
+- [apps/web/lib/tokens.ts](file://apps/web/lib/tokens.ts)
+- [apps/web/types/transfer.ts](file://apps/web/types/transfer.ts)
+- [supabase/migrations/create_transfer_cards.sql](file://supabase/migrations/create_transfer_cards.sql)
+- [docs/changelog/2026-04-20-feat-web3-tools-refactor.md](file://docs/changelog/2026-04-20-feat-web3-tools-refactor.md)
+- [docs/changelog/2026-04-22-feat-multichain-web3-tools.md](file://docs/changelog/2026-04-22-feat-multichain-web3-tools.md)
+- [docs/changelog/2026-04-24-feat-web3-transfer-card.md](file://docs/changelog/2026-04-24-feat-web3-transfer-card.md)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 新增多链架构支持，从单链功能重构为支持5条链（Ethereum、Polygon、BSC、Bitcoin、Solana）
-- 新增多币种价格查询工具，支持ETH、BTC、SOL、MATIC、BNB
-- 新增多链钱包余额查询工具，支持EVM、Bitcoin、Solana链
-- 新增Gas价格查询工具，支持EVM链网络状态检查和降级策略
-- 新增Token查询工具，支持EVM链Token元数据查询
-- 新增统一的链配置管理系统和链适配器模式
-- 更新API端点以支持多链和多代币功能增强
+- 新增转账卡片工具，支持ETH原生转账和ERC20 Token转账
+- 新增DEX交换工具卡片预留，支持后续DEX Swap功能实现
+- 新增多链支持扩展，支持以太坊、Polygon、BNB Smart Chain链
+- 新增转账工具函数，支持Gas估算和地址验证
+- 新增转账卡片组件，支持实时状态跟踪和区块链浏览器链接
+- 新增数据库表结构，支持转账卡片的持久化存储
+- 新增Token配置管理，支持多链Token元数据查询
 
 ## 目录
 1. [简介](#简介)
@@ -55,15 +60,16 @@
 11. [附录](#附录)
 
 ## 简介
-本文件面向Web3开发者，系统化阐述AI-Agent项目的Web3工具集成方案。项目已从概念设计升级为完整实现，包含多币种价格查询、钱包余额查询、Gas价格查询、Token查询等核心工具，以及完整的工具抽象层设计。围绕"工具抽象层、工具调用接口、数据格式化与错误处理策略"，结合MVP阶段的四大核心工具进行设计与实现指导；并提供扩展机制、API接口文档、性能优化与故障恢复建议，帮助团队在可控风险边界内构建可演进的Web3数据服务能力。
+本文件面向Web3开发者，系统化阐述AI-Agent项目的Web3工具集成方案。项目已从概念设计升级为完整实现，包含多币种价格查询、钱包余额查询、Gas价格查询、Token查询、转账卡片工具等核心功能，以及完整的工具抽象层设计。围绕"工具抽象层、工具调用接口、数据格式化与错误处理策略"，结合MVP阶段的五大核心工具进行设计与实现指导；并提供扩展机制、API接口文档、性能优化与故障恢复建议，帮助团队在可控风险边界内构建可演进的Web3数据服务能力。
 
-**更新** 项目现已重构为多链架构支持，统一使用getTokenPrice工具支持ETH、BTC、SOL、MATIC、BNB等多种加密货币的价格查询，替代了原有的独立ETH和BTC价格查询工具，增强了Web3工具包的功能完整性和统一性。新增Token查询工具，支持EVM链Token元数据查询，包括合约地址、精度、Logo等信息。新增多链架构支持，包括EVM链适配器、比特币适配器、Solana适配器，以及统一的链配置管理。
+**更新** 项目现已重构为多链架构支持，统一使用getTokenPrice工具支持ETH、BTC、SOL、MATIC、BNB等多种加密货币的价格查询，替代了原有的独立ETH和BTC价格查询工具，增强了Web3工具包的功能完整性和统一性。新增转账卡片工具，支持ETH原生转账和ERC20 Token转账，提供完整的转账生命周期管理。新增DEX交换工具卡片预留，为后续DEX Swap功能实现奠定基础。新增Token查询工具，支持EVM链Token元数据查询，包括合约地址、精度、Logo等信息。新增多链架构支持，包括EVM链适配器、比特币适配器、Solana适配器，以及统一的链配置管理。
 
 ## 项目结构
-该项目采用"技能系统（Skill System）+ 工具层 + API层"的分层组织方式，现已升级为monorepo架构：
+该项目采用"技能系统（Skill System）+ 工具层 + API层 + UI组件层"的分层组织方式，现已升级为monorepo架构：
 - 技能系统：通过统一入口路由不同任务类型，按需进入定义、交付、治理等子链路。
 - 工具层：封装Web3数据获取逻辑，提供标准化接口与错误处理策略，确保Agent在调用工具前后能获得一致、可解释的结果。
 - API层：提供RESTful接口，支持前端调用和工具调用。
+- UI组件层：提供转账卡片、DEX交换卡片等可视化组件，增强用户体验。
 
 ```mermaid
 graph TB
@@ -74,12 +80,14 @@ D --> E["定义层<br/>pm/prd/req/check-in"]
 D --> F["交付层<br/>architect/qa/coder/audit"]
 D --> G["治理层<br/>digest/update-map"]
 F --> H["工具层<br/>Web3工具抽象与实现"]
-H --> I["外部数据源<br/>链上/价格/第三方API"]
-I --> J["Binance Huobi<br/>价格API"]
-I --> K["EVM RPC<br/>链上节点"]
-I --> L["公共RPC节点<br/>llamarpc.com"]
-I --> M["Bitcoin API<br/>区块链API"]
-I --> N["Solana RPC<br/>JSON-RPC节点"]
+F --> I["UI组件层<br/>转账卡片/DEX卡片"]
+H --> J["外部数据源<br/>链上/价格/第三方API"]
+I --> K["区块链浏览器<br/>Etherscan/Polygonscan"]
+J --> L["Binance Huobi<br/>价格API"]
+J --> M["EVM RPC<br/>链上节点"]
+J --> N["公共RPC节点<br/>llamarpc.com"]
+J --> O["Bitcoin API<br/>区块链API"]
+J --> P["Solana RPC<br/>JSON-RPC节点"]
 ```
 
 **图表来源**
@@ -100,24 +108,25 @@ I --> N["Solana RPC<br/>JSON-RPC节点"]
   - EVM链适配器：支持以太坊、Polygon、BNB Smart Chain等EVM兼容链
   - 非EVM链适配器：支持比特币和Solana等非EVM链
   - 统一链配置管理：提供链配置注册表和链ID类型定义
-- 四大核心工具
+- 五大核心工具
   - 多币种价格查询：统一使用getTokenPrice工具，支持ETH、BTC、SOL、MATIC、BNB等多种加密货币，内置代理支持和10秒超时处理，返回价格与24小时变化率。
   - 钱包余额查询：支持EVM兼容链（以太坊、Polygon、BNB链）、比特币、Solana，校验钱包地址合法性，查询链上余额并标注数据来源。
   - Gas价格查询：检查网络可用性，返回当前Gas价格（基础/优先级/乐观），支持自定义RPC节点。
   - Token查询工具：查询EVM链Token元数据信息，包括合约地址、精度、Logo等，支持符号和合约地址两种查询方式。
+  - 转账卡片工具：生成转账卡片数据，支持ETH原生转账和ERC20 Token转账，提供完整的转账生命周期管理。
 - 错误处理与降级
   - 参数无效、外部API超时、网络不可用、工具失败等场景均需返回可理解的失败说明与保守建议，避免伪造数据。
 
-**更新** 新增多链架构支持，包括EVM链适配器、比特币适配器、Solana适配器，以及统一的链配置管理。新增Token查询工具，支持EVM链Token元数据查询，包括合约地址、精度、Logo等信息。钱包余额查询工具现支持多链余额查询，包括EVM链、比特币和Solana。
+**更新** 新增多链架构支持，包括EVM链适配器、比特币适配器、Solana适配器，以及统一的链配置管理。新增转账卡片工具，支持ETH原生转账和ERC20 Token转账，提供完整的转账生命周期管理。新增DEX交换工具卡片预留，为后续DEX Swap功能实现奠定基础。新增转账工具函数，支持Gas估算和地址验证。新增转账卡片组件，支持实时状态跟踪和区块链浏览器链接。
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:84-156](file://docs/Web3-AI-Agent-PRD-MVP.md#L84-L156)
 - [Web3-AI-Agent-PRD-MVP.md:174-197](file://docs/Web3-AI-Agent-PRD-MVP.md#L174-L197)
 
 ## 架构总览
-Web3工具集成的总体架构由"技能系统路由 + 工具层 + API层 + 外部数据源"四层组成。技能系统负责任务识别与流程编排，工具层负责数据获取与结果格式化，API层提供统一接口，外部数据源包括链上节点、价格API与第三方Web3数据提供商。
+Web3工具集成的总体架构由"技能系统路由 + 工具层 + API层 + UI组件层 + 外部数据源"五层组成。技能系统负责任务识别与流程编排，工具层负责数据获取与结果格式化，API层提供统一接口，UI组件层提供可视化交互，外部数据源包括链上节点、价格API与第三方Web3数据提供商。
 
-**更新** 架构已重构为monorepo模式，工具实现位于packages/web3-tools/src/目录，通过包导入方式直接调用，提升性能和可维护性。现已集成多币种价格查询系统，统一使用getTokenPrice工具支持ETH、BTC、SOL、MATIC、BNB等多种加密货币的价格查询。新增Token查询工具，支持EVM链Token元数据查询。新增多链架构支持，包括EVM链适配器、比特币适配器、Solana适配器。
+**更新** 架构已重构为monorepo模式，工具实现位于packages/web3-tools/src/目录，通过包导入方式直接调用，提升性能和可维护性。现已集成多币种价格查询系统，统一使用getTokenPrice工具支持ETH、BTC、SOL、MATIC、BNB等多种加密货币的价格查询。新增转账卡片工具，支持ETH原生转账和ERC20 Token转账，提供完整的转账生命周期管理。新增DEX交换工具卡片预留，支持后续DEX Swap功能实现。新增Token查询工具，支持EVM链Token元数据查询。新增多链架构支持，包括EVM链适配器、比特币适配器、Solana适配器。
 
 ```mermaid
 graph TB
@@ -132,11 +141,18 @@ subgraph "API层"
 T --> API["工具API<br/>/api/tools"]
 API --> CHAT["聊天API<br/>/api/chat"]
 end
+subgraph "UI组件层"
+CHAT --> CARDS["转账卡片<br/>TransferCard"]
+CHAT --> DEX["DEX交换卡片<br/>DexSwapCard"]
+CARDS --> TRANSFER["转账工具<br/>transfer.ts"]
+DEX --> SWAP["交换工具<br/>swap.ts(预留)"]
+end
 subgraph "工具层"
 T --> W1["多币种价格查询<br/>getTokenPrice<br/>ETH/BTC/SOL/MATIC/BNB"]
 T --> W2["钱包余额查询<br/>getBalance<br/>多链支持"]
 T --> W3["Gas价格查询<br/>getGasPrice<br/>EVM链支持"]
 T --> W4["Token查询<br/>getTokenInfo<br/>EVM链Token元数据"]
+T --> W5["转账卡片<br/>createTransferCard<br/>ETH/ERC20转账"]
 end
 subgraph "链适配器层"
 W2 --> EVM["EVM链适配器<br/>ethereum/polygon/bsc"]
@@ -150,6 +166,7 @@ W2 --> EX3["Bitcoin API<br/>blockchain.info"]
 W2 --> EX4["Solana RPC<br/>api.mainnet-beta.solana.com"]
 W3 --> EX5["公共RPC节点<br/>自定义RPC支持"]
 W4 --> EX6["Token注册表<br/>主流Token元数据"]
+W5 --> EX7["区块链浏览器<br/>Etherscan/Polygonscan"]
 end
 ```
 
@@ -349,6 +366,88 @@ ErrNotFound --> Done
 - [packages/web3-tools/src/token.ts:1-65](file://packages/web3-tools/src/token.ts#L1-L65)
 - [packages/web3-tools/src/tokens/registry.ts:1-145](file://packages/web3-tools/src/tokens/registry.ts#L1-L145)
 
+### 转账卡片工具
+- 功能概述
+  - 生成转账卡片数据，支持ETH原生转账和ERC20 Token转账
+  - 提供完整的转账生命周期管理，包括状态跟踪和错误处理
+  - 支持多链转账，包括以太坊、Polygon、BNB Smart Chain
+- 转账工具函数
+  - estimateTransferGas：估算转账所需的Gas费用
+  - validateAddress：验证钱包地址格式
+  - getExplorerUrl：获取区块链浏览器链接
+- 数据格式化
+  - 统一的TransferData结构，包含from、to、tokenSymbol、amount、chain、status等字段
+  - 支持原生币和ERC20 Token转账
+  - 标注数据来源和时间戳
+
+```mermaid
+flowchart TD
+Start(["开始"]) --> Validate["验证转账参数<br/>地址格式/金额/链类型"]
+Validate --> GasEstimate["估算Gas费用<br/>estimateTransferGas"]
+GasEstimate --> CreateCard["创建转账卡片<br/>TransferData结构"]
+CreateCard --> Return["返回转账卡片数据"]
+Return --> Done(["结束"])
+```
+
+**图表来源**
+- [packages/web3-tools/src/transfer.ts:14-99](file://packages/web3-tools/src/transfer.ts#L14-L99)
+
+**章节来源**
+- [packages/web3-tools/src/transfer.ts:1-99](file://packages/web3-tools/src/transfer.ts#L1-L99)
+
+### 转账卡片组件
+- 组件功能
+  - 渲染转账卡片UI，支持实时状态跟踪
+  - 处理用户交互，包括确认转账、查看交易、重试操作
+  - 集成钱包连接和交易签名功能
+- 状态管理
+  - pending：待确认状态，显示确认按钮
+  - signing：签名中状态，显示加载动画
+  - confirmed：已确认状态，显示区块链浏览器链接
+  - failed：失败状态，显示错误信息和重试按钮
+- 链接配置
+  - 支持多链浏览器链接，包括Etherscan、Polygonscan、BscScan
+  - 根据链类型动态生成浏览器URL
+
+```mermaid
+flowchart TD
+Start(["组件初始化"]) --> LoadData["加载转账数据<br/>TransferData"]
+LoadData --> CheckStatus{"检查状态"}
+CheckStatus --> |pending| RenderPending["渲染待确认界面<br/>显示确认按钮"]
+CheckStatus --> |signing| RenderSigning["渲染签名中界面<br/>显示加载动画"]
+CheckStatus --> |confirmed| RenderConfirmed["渲染已确认界面<br/>显示浏览器链接"]
+CheckStatus --> |failed| RenderFailed["渲染失败界面<br/>显示错误信息"]
+RenderPending --> UserAction["用户点击确认"]
+UserAction --> Validate["验证地址/余额/链匹配"]
+Validate --> Success{"验证成功?"}
+Success --> |是| SignTx["调用钱包签名<br/>sendTransaction/writeContract"]
+Success --> |否| ShowError["显示错误信息"]
+SignTx --> UpdateStatus["更新状态为signing"]
+UpdateStatus --> WaitConfirm["等待交易确认"]
+WaitConfirm --> ConfirmTx["交易确认成功<br/>更新状态为confirmed"]
+ConfirmTx --> ShowExplorer["显示区块链浏览器链接"]
+ShowError --> Failed["状态变为failed"]
+```
+
+**图表来源**
+- [apps/web/components/cards/TransferCard.tsx:77-441](file://apps/web/components/cards/TransferCard.tsx#L77-L441)
+
+**章节来源**
+- [apps/web/components/cards/TransferCard.tsx:1-441](file://apps/web/components/cards/TransferCard.tsx#L1-L441)
+
+### DEX交换卡片
+- 功能概述
+  - DEX交换卡片预留，为后续DEX Swap功能实现提供基础
+  - 支持从Token、ToToken、金额等参数配置
+  - 提供用户友好的界面占位符
+- 开发状态
+  - 当前为预留状态，TODO标记后续实现
+  - 提供基本的UI框架和类型定义
+  - 支持slippage参数配置
+
+**章节来源**
+- [apps/web/components/cards/DexSwapCard.tsx:1-33](file://apps/web/components/cards/DexSwapCard.tsx#L1-L33)
+
 ### 链配置管理系统
 - 统一链配置架构
   - EvmChainConfig：定义EVM链配置，包含id、name、nativeToken、chainId、rpcUrls、explorerUrl
@@ -389,12 +488,17 @@ ErrNotFound --> Done
   - 在TOKEN_REGISTRY中添加新的Token条目
   - 定义Token符号、合约地址、精度等元数据
   - 编写测试用例与异常路径验证
+- 转账工具扩展流程
+  - 在transfer.ts中添加新的转账功能
+  - 在TransferCard组件中集成新功能
+  - 更新数据库表结构和CRUD操作
+  - 编写测试用例与异常路径验证
 - 集成流程
   - 在工具层新增适配器，实现统一接口
   - 在技能系统中注册工具，确保Agent可调用
   - 编写测试用例与异常路径验证
 
-**更新** 新增多链扩展机制，支持在CHAIN_CONFIGS中添加新的链配置，创建对应的链适配器类，统一使用ChainId类型定义。新增Token扩展流程，在TOKEN_REGISTRY中添加新的Token条目。
+**更新** 新增多链扩展机制，支持在CHAIN_CONFIGS中添加新的链配置，创建对应的链适配器类，统一使用ChainId类型定义。新增Token扩展流程，在TOKEN_REGISTRY中添加新的Token条目。新增转账工具扩展流程，支持新的转账功能和UI组件。
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:143-156](file://docs/Web3-AI-Agent-PRD-MVP.md#L143-L156)
@@ -426,9 +530,15 @@ ErrNotFound --> Done
 - 失败响应：包含error字段
 
 **getTokenInfo - Token元数据查询**
-- 请求体：`{ "name": "getTokenInfo", "arguments": { "chain": "ethereum", "symbolOrAddress": "USDT" } }`
+- 请求体：`{ "name": "getTokenInfo", "arguments": { "chain": "ethereum", "symbol": "USDT" } }`
 - 支持链：ethereum、polygon、bsc
 - 成功响应：包含chain、symbol、name、decimals、contractAddress、logoUri字段
+- 失败响应：包含error字段
+
+**createTransferCard - 转账卡片创建**
+- 请求体：`{ "name": "createTransferCard", "arguments": { "to": "0x...", "tokenSymbol": "ETH", "amount": "1", "chain": "ethereum" } }`
+- 支持链：ethereum、polygon、bsc
+- 成功响应：包含transferData字段，包含from、to、tokenSymbol、amount、chain、status等
 - 失败响应：包含error字段
 
 #### 向后兼容工具
@@ -450,6 +560,18 @@ ErrNotFound --> Done
 - 端点：POST /api/chat
 - 功能：AI Agent聊天接口，支持工具调用和多链数据查询
 
+#### 工具定义
+- getTokenPrice：获取指定加密货币的当前价格（美元）
+- getBalance：查询指定链上钱包地址的余额
+- getGasPrice：获取指定EVM链的当前Gas价格
+- getTokenInfo：查询Token的元数据信息
+- createTransferCard：生成转账卡片数据，支持ETH原生转账和ERC20 Token转账
+
+#### 系统提示
+- 基础能力：查询多种加密货币价格、多条链上钱包余额、EVM链Gas价格、Token元数据、转账卡片生成
+- 转账场景识别：支持"转X个Token给地址"、"发送X ETH/USDT到地址"等转账意图识别
+- 安全边界：明确标注数据来源，提醒用户确认地址和金额，告知"此操作不可逆"
+
 **章节来源**
 - [apps/web/app/api/chat/route.ts:77-219](file://apps/web/app/api/chat/route.ts#L77-L219)
 
@@ -464,8 +586,12 @@ ErrNotFound --> Done
   - monorepo架构，使用pnpm workspace管理
   - @web3-ai-agent/web3-tools包提供核心工具功能
   - @web3-ai-agent/web应用依赖工具包
+- UI组件依赖
+  - wagmi：区块链交互库，支持钱包连接和交易签名
+  - viem：以太坊客户端库，支持地址验证和交易构建
+  - next/image：图像处理库，支持外部图片加载
 
-**更新** 依赖管理已迁移到monorepo模式，使用pnpm workspace进行包管理。多币种价格查询工具与钱包余额查询工具共享相同的外部依赖，包括ethers、node-fetch、https-proxy-agent等。新增链适配器依赖，包括不同链的特定API库。新增Token查询工具依赖Token注册表。
+**更新** 依赖管理已迁移到monorepo模式，使用pnpm workspace进行包管理。多币种价格查询工具与钱包余额查询工具共享相同的外部依赖，包括ethers、node-fetch、https-proxy-agent等。新增链适配器依赖，包括不同链的特定API库。新增Token查询工具依赖Token注册表。新增转账工具依赖viem和wagmi库。
 
 ```mermaid
 graph LR
@@ -476,8 +602,11 @@ T --> CACHE["缓存层"]
 T --> LOG["日志/监控"]
 API["API层"] --> T
 API --> CHAT["聊天API"]
+CARDS["UI组件层"] --> TRANSFER["TransferCard组件"]
+TRANSFER --> WAGMI["wagmi库"]
+TRANSFER --> VIEM["viem库"]
 subgraph "Monorepo包管理"
-PKG["@web3-ai-agent/web3-tools<br/>pnpm workspace:*"] --> DEPS["ethers/node-fetch/https-proxy-agent"]
+PKG["@web3-ai-agent/web3-tools<br/>pnpm workspace:*"] --> DEPS["ethers/node-fetch/https-proxy-agent/viem/wagmi"]
 APP["@web3-ai-agent/web<br/>workspace:*"] --> PKG
 END
 ```
@@ -500,22 +629,26 @@ END
   - 钱包余额：按地址维度缓存，结合区块高度或时间戳判断有效性
   - Token元数据：按Token符号和链维度缓存，设置合理的TTL
   - 多链缓存：不同链的缓存策略可以独立配置
+  - 转账卡片：按消息ID缓存，支持实时状态更新
 - 并发与限流
   - 对外部API进行并发限制与重试退避
   - 对链上RPC进行队列化与限流，避免抖动
   - 多链查询的并发控制和资源管理
+  - 转账操作的队列化处理，避免重复提交
 - 降级与可观测性
   - 失败时返回降级提示，记录失败原因与耗时
   - 健康检查周期化，异常告警与自动恢复
   - 多链状态监控和故障隔离
+  - 转账状态的实时监控和通知
 - 代理支持
   - 支持HTTPS_PROXY和HTTP_PROXY环境变量
   - 自动检测代理配置并启用代理连接
 - 超时处理
   - HTTP请求设置10秒超时限制
   - RPC调用使用ethers提供的超时机制
+  - 转账操作的超时控制和重试机制
 
-**更新** 多币种价格查询系统同样适用统一的缓存策略，支持多种加密货币的统一缓存管理。新增Token查询工具的缓存策略，Token元数据按Token符号和链维度缓存。新增多链架构的性能考虑，包括不同链的缓存策略和并发控制。
+**更新** 多币种价格查询系统同样适用统一的缓存策略，支持多种加密货币的统一缓存管理。新增Token查询工具的缓存策略，Token元数据按Token符号和链维度缓存。新增多链架构的性能考虑，包括不同链的缓存策略和并发控制。新增转账卡片的性能考虑，包括状态缓存和实时更新机制。
 
 ## 故障排查指南
 - 常见问题与处理
@@ -528,26 +661,30 @@ END
   - 不支持的链：检查链ID是否在CHAIN_CONFIGS中
   - 地址格式错误：检查地址是否符合对应链的格式规范
   - Token未找到：检查Token符号或合约地址是否正确
+  - 转账失败：检查余额、Gas费、地址格式、链匹配等
+  - 钱包连接失败：检查钱包状态和网络配置
 - 日志与监控
   - 记录工具调用参数、响应时间、错误码与降级原因
   - 设置SLA阈值与告警，保障用户体验
   - 多链状态监控和故障隔离
+  - 转账状态监控和异常处理
 - 诊断步骤
   - 检查环境变量配置（RPC节点、代理设置）
   - 验证网络连通性和防火墙设置
   - 查看工具返回的source字段确认数据来源
   - 检查工具调用的timestamp和error字段
   - 验证链配置和RPC节点可用性
+  - 检查钱包连接状态和账户余额
 
-**更新** 新增多链架构的故障排查指南，包括链配置检查、地址格式验证和多链状态监控。新增Token查询工具的故障排查，包括Token注册表验证和查询参数检查。
+**更新** 新增多链架构的故障排查指南，包括链配置检查、地址格式验证和多链状态监控。新增Token查询工具的故障排查，包括Token注册表验证和查询参数检查。新增转账卡片的故障排查，包括余额检查、Gas估算、地址验证和链匹配检查。
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:174-197](file://docs/Web3-AI-Agent-PRD-MVP.md#L174-L197)
 
 ## 结论
-本方案以"技能系统路由 + 工具层抽象 + API层 + 外部数据源"为核心，围绕MVP四大工具构建了可演进的Web3数据服务能力。通过标准化接口、统一错误处理与降级策略，以及可插拔的扩展机制，团队可在可控风险边界内持续迭代，逐步完善多链支持与高级能力。
+本方案以"技能系统路由 + 工具层抽象 + API层 + UI组件层 + 外部数据源"为核心，围绕MVP五大工具构建了可演进的Web3数据服务能力。通过标准化接口、统一错误处理与降级策略，以及可插拔的扩展机制，团队可在可控风险边界内持续迭代，逐步完善多链支持、转账功能与高级能力。
 
-**更新** 架构重构完成后，系统采用monorepo包管理模式，工具实现更加模块化和可维护。新增的多币种价格查询系统显著增强了系统的功能完整性和统一性，统一使用getTokenPrice工具支持ETH、BTC、SOL、MATIC、BNB等多种加密货币的价格查询，替代了原有的独立工具，同时保持了原有的代理支持、多数据源容错和超时处理等功能。新增Token查询工具，支持EVM链Token元数据查询，包括合约地址、精度、Logo等信息。新增多链架构支持，包括EVM链适配器、比特币适配器、Solana适配器，以及统一的链配置管理，进一步提升了系统的扩展性和实用性。
+**更新** 架构重构完成后，系统采用monorepo包管理模式，工具实现更加模块化和可维护。新增的多币种价格查询系统显著增强了系统的功能完整性和统一性，统一使用getTokenPrice工具支持ETH、BTC、SOL、MATIC、BNB等多种加密货币的价格查询，替代了原有的独立工具，同时保持了原有的代理支持、多数据源容错和超时处理等功能。新增转账卡片工具，支持ETH原生转账和ERC20 Token转账，提供完整的转账生命周期管理。新增DEX交换工具卡片预留，为后续DEX Swap功能实现奠定基础。新增Token查询工具，支持EVM链Token元数据查询，包括合约地址、精度、Logo等信息。新增多链架构支持，包括EVM链适配器、比特币适配器、Solana适配器，以及统一的链配置管理，进一步提升了系统的扩展性和实用性。
 
 ## 附录
 
@@ -557,6 +694,7 @@ END
 - BalanceData：统一的钱包余额数据结构
 - GasData：Gas价格数据结构
 - TokenMetadata：Token元数据结构
+- TransferData：转账卡片数据结构
 - EvmChainId：EVM兼容链类型定义
 - NonEvmChainId：非EVM链类型定义
 - ChainId：统一链ID类型定义
@@ -564,7 +702,7 @@ END
 - NonEvmChainConfig：非EVM链配置接口
 - ChainConfig：统一链配置接口
 
-**更新** 新增多链架构的类型定义，统一使用ChainId类型定义，支持EVM链和非EVM链的统一接口。新增TokenMetadata类型定义。
+**更新** 新增多链架构的类型定义，统一使用ChainId类型定义，支持EVM链和非EVM链的统一接口。新增TransferData类型定义，支持转账卡片的完整数据结构。
 
 **章节来源**
 - [packages/web3-tools/src/types.ts:1-86](file://packages/web3-tools/src/types.ts#L1-L86)
@@ -583,7 +721,7 @@ END
   - HTTP请求超时：10秒
   - RPC调用超时：由ethers库处理
 
-**更新** 多币种价格查询工具同样支持代理配置和超时处理，新增Solana RPC节点配置。多链架构支持不同的RPC节点配置。新增Token查询工具的环境变量配置。
+**更新** 多币种价格查询工具同样支持代理配置和超时处理，新增Solana RPC节点配置。多链架构支持不同的RPC节点配置。新增Token查询工具的环境变量配置。新增转账工具的环境变量配置。
 
 **章节来源**
 - [packages/web3-tools/src/chains/config.ts:6-19](file://packages/web3-tools/src/chains/config.ts#L6-L19)
@@ -607,6 +745,25 @@ END
 **章节来源**
 - [packages/web3-tools/src/tokens/registry.ts:14-102](file://packages/web3-tools/src/tokens/registry.ts#L14-L102)
 
+### 数据库表结构
+- transfer_cards表
+  - id：UUID主键，自动生成
+  - conversation_id：对话ID，外键关联conversations表
+  - message_id：消息ID，关联Message的id
+  - from_address：发送地址
+  - to_address：接收地址
+  - token_symbol：Token符号（ETH、USDT、USDC等）
+  - token_address：ERC20合约地址（原生币为NULL）
+  - amount：转账金额（字符串格式）
+  - chain：区块链名称（ethereum、polygon、bsc）
+  - status：交易状态（pending/signing/confirmed/failed）
+  - tx_hash：交易哈希
+  - error_message：失败原因
+  - created_at/updated_at：时间戳
+
+**章节来源**
+- [supabase/migrations/create_transfer_cards.sql:1-70](file://supabase/migrations/create_transfer_cards.sql#L1-L70)
+
 ### 工具调用示例
 - 前端调用流程
   - 用户输入问题
@@ -616,10 +773,10 @@ END
   - 生成最终回复并返回给前端
 - 直接触发方式
   - 直接导入@web3-ai-agent/web3-tools包
-  - 调用getTokenPrice、getBalance、getGasPrice、getTokenInfo函数
+  - 调用getTokenPrice、getBalance、getGasPrice、getTokenInfo、createTransferCard函数
   - 处理返回的ToolResult对象
 
-**更新** 新增多链钱包余额查询工具的直接调用方式，支持统一的工具调用接口。新增Token查询工具的直接调用方式。
+**更新** 新增多链钱包余额查询工具的直接调用方式，支持统一的工具调用接口。新增Token查询工具的直接调用方式。新增转账卡片工具的直接调用方式。
 
 **章节来源**
 - [apps/web/app/api/chat/route.ts:77-219](file://apps/web/app/api/chat/route.ts#L77-L219)

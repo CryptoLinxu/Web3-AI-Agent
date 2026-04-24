@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount, useSendTransaction, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi'
+import { useAccount, useSendTransaction, useWriteContract, useWaitForTransactionReceipt, useBalance, useReadContract } from 'wagmi'
 import { parseEther, parseUnits, formatUnits, isAddress } from 'viem'
 import { TransferData, TransferStatus } from '@/types/transfer'
 import { getTokenConfig, isNativeToken } from '@/lib/tokens'
@@ -14,7 +14,7 @@ interface TransferCardProps {
   onUpdate?: (data: TransferData) => void
 }
 
-// ERC20 最小 ABI
+// ERC20 最小 ABI (含 allowance 和 approve)
 const ERC20_ABI = [
   {
     name: 'transfer',
@@ -32,6 +32,26 @@ const ERC20_ABI = [
     stateMutability: 'view',
     inputs: [],
     outputs: [{ name: '', type: 'uint8' }]
+  },
+  {
+    name: 'allowance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' }
+    ],
+    outputs: [{ name: '', type: 'uint256' }]
+  },
+  {
+    name: 'approve',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' }
+    ],
+    outputs: [{ name: '', type: 'bool' }]
   }
 ] as const
 
@@ -69,7 +89,8 @@ const CHAIN_CONFIGS: Record<string, {
 // 状态配置
 const STATUS_CONFIG: Record<TransferStatus, { label: string; color: string; dotColor: string }> = {
   pending: { label: '待确认', color: 'text-orange-600', dotColor: 'bg-orange-500' },
-  signing: { label: '签名中', color: 'text-blue-600', dotColor: 'bg-blue-500' },
+  approving: { label: '授权中', color: 'text-blue-600', dotColor: 'bg-blue-500' },
+  signing: { label: '确认中', color: 'text-blue-600', dotColor: 'bg-blue-500' },
   confirmed: { label: '已确认', color: 'text-green-600', dotColor: 'bg-green-500' },
   failed: { label: '失败', color: 'text-red-600', dotColor: 'bg-red-500' }
 }
@@ -82,8 +103,10 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
   const [error, setError] = useState<string | undefined>(data.error)
   const [isBalanceChecked, setIsBalanceChecked] = useState(false)
   const [balanceError, setBalanceError] = useState<string>('')
-  const [isApproving, setIsApproving] = useState(false)
-  const [approveError, setApproveError] = useState<string>('')
+
+  // Approve 相关状态
+  const [approveTxHash, setApproveTxHash] = useState<string | undefined>()
+  const [needsApproval, setNeedsApproval] = useState(false)
 
   // 获取 Token 配置
   const tokenConfig = getTokenConfig(data.chain, data.tokenSymbol)
@@ -97,13 +120,57 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
 
   const isSigning = isSigningETH || isSigningERC20
 
-  // 监听交易确认
+  // 监听交易确认 (transfer)
   const { data: receipt } = useWaitForTransactionReceipt({
     hash: txHash as `0x${string}` | undefined,
     query: {
       enabled: !!txHash && status === 'signing'
     }
   })
+
+  // 监听 Approve 确认
+  const { data: approveReceipt } = useWaitForTransactionReceipt({
+    hash: approveTxHash as `0x${string}` | undefined,
+    query: {
+      enabled: !!approveTxHash
+    }
+  })
+
+  // 读取 allowance (ERC20 授权额度)
+  const { data: allowance } = useReadContract({
+    address: tokenConfig?.address as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: address ? [address, address] : undefined,
+    query: {
+      enabled: !isNative && !!address && status === 'pending' && !!tokenConfig
+    }
+  })
+
+  // 判断是否需要 approve
+  useEffect(() => {
+    if (!isNative && allowance !== undefined && tokenConfig && status === 'pending') {
+      const allowanceAmt = parseFloat(formatUnits(allowance, tokenConfig.decimals))
+      setNeedsApproval(allowanceAmt < parseFloat(data.amount))
+    }
+  }, [allowance, isNative, tokenConfig, data.amount, status])
+
+  // 监听 approve 交易确认后自动发起 transfer
+  useEffect(() => {
+    if (!approveReceipt || !approveTxHash) return
+    
+    if (approveReceipt.status === 'success') {
+      // approve 成功,清除状态,自动转账
+      setNeedsApproval(false)
+      setApproveTxHash(undefined)
+      setStatus('pending') // 回到 pending 状态后自动触发 transfer
+      // 立即执行转账
+      executeERC20Transfer()
+    } else {
+      setStatus('failed')
+      setError('Token 授权失败')
+    }
+  }, [approveReceipt])
 
   // 检查余额
   const { data: tokenBalance } = useBalance({
@@ -152,6 +219,8 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
         if (conversationId && data.id) {
           transferService.updateTransferCardStatus(data.id, 'confirmed', txHash)
         }
+        // 通知父组件
+        onUpdate?.({ ...data, status: 'confirmed', txHash })
       } else {
         setStatus('failed')
         setError('交易执行失败')
@@ -161,6 +230,37 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
       }
     }
   }, [receipt, status, conversationId, data.id, txHash])
+
+  // 执行 ERC20 Transfer (提取为单独函数,支持从 approve 回调调用)
+  const executeERC20Transfer = () => {
+    if (!tokenConfig) return
+    
+    setStatus('signing')
+    setError(undefined)
+
+    writeContract(
+      {
+        address: tokenConfig.address as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'transfer',
+        args: [
+          data.to as `0x${string}`,
+          parseUnits(data.amount, tokenConfig.decimals)
+        ]
+      },
+      {
+        onSuccess: (hash) => {
+          setTxHash(hash)
+          if (conversationId && data.id) {
+            transferService.updateTransferCardStatus(data.id, 'signing', hash)
+          }
+        },
+        onError: (err) => {
+          handleTransferError(err)
+        }
+      }
+    )
+  }
 
   // 点击确认转账
   const handleConfirm = async () => {
@@ -193,6 +293,7 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
     try {
       if (isNative) {
         // ETH 原生转账
+        setStatus('signing')
         sendTransaction(
           {
             to: data.to as `0x${string}`,
@@ -211,41 +312,40 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
           }
         )
       } else {
-        // ERC20 转账 - 先检查是否需要 approve
+        // ERC20 转账
         if (!tokenConfig) {
-          throw new Error('Token 配置不存在')
+          setError('Token 配置不存在')
+          setStatus('failed')
+          return
         }
 
-        // TODO: 实现 approve 检查和流程
-        // 目前直接转账，如果失败会提示用户先 approve
-        writeContract(
-          {
-            address: tokenConfig.address as `0x${string}`,
-            abi: ERC20_ABI,
-            functionName: 'transfer',
-            args: [
-              data.to as `0x${string}`,
-              parseUnits(data.amount, tokenConfig.decimals)
-            ]
-          },
-          {
-            onSuccess: (hash) => {
-              setTxHash(hash)
-              if (conversationId && data.id) {
-                transferService.updateTransferCardStatus(data.id, 'signing', hash)
-              }
+        if (needsApproval) {
+          // Step 1: 先授权
+          setStatus('approving')
+          setError(undefined)
+          writeContract(
+            {
+              address: tokenConfig.address as `0x${string}`,
+              abi: ERC20_ABI,
+              functionName: 'approve',
+              args: [
+                address as `0x${string}`,
+                parseUnits(data.amount, tokenConfig.decimals)
+              ]
             },
-            onError: (err) => {
-              // 如果是 approve 错误，提示用户
-              if (err.message?.includes('execution reverted') || err.message?.includes('allowance')) {
-                setApproveError('需要先授权 Token，请在钱包中先进行 approve 操作')
-                setStatus('failed')
-              } else {
+            {
+              onSuccess: (hash) => {
+                setApproveTxHash(hash)
+              },
+              onError: (err) => {
                 handleTransferError(err)
               }
             }
-          }
-        )
+          )
+        } else {
+          // Step 2: 已授权,直接转账
+          executeERC20Transfer()
+        }
       }
     } catch (err) {
       handleTransferError(err)
@@ -316,7 +416,7 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
   }
 
   const statusConfig = STATUS_CONFIG[status]
-  const displayError = error || balanceError || approveError
+  const displayError = error || balanceError
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5" style={{ minWidth: '300px' }}>
@@ -393,13 +493,33 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
       )}
 
       {/* 底部按钮 */}
-      {status === 'pending' && (
+      {status === 'pending' && !isNative && needsApproval && (
+        <button
+          onClick={handleConfirm}
+          disabled={!!displayError || isSigning}
+          className="w-full h-10 bg-blue-600 text-white font-semibold text-base rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+        >
+          授权 {data.tokenSymbol}
+        </button>
+      )}
+
+      {status === 'pending' && (isNative || !needsApproval) && (
         <button
           onClick={handleConfirm}
           disabled={!!displayError || isSigning}
           className="w-full h-10 bg-black text-white font-semibold text-base rounded-xl hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
         >
-          {isSigning ? '签名中...' : '确认'}
+          {isSigning ? '签名中...' : !isNative ? '确认转账' : '确认'}
+        </button>
+      )}
+
+      {status === 'approving' && (
+        <button
+          disabled
+          className="w-full h-10 bg-gray-300 text-gray-500 font-semibold text-base rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <div className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+          授权中...
         </button>
       )}
 
