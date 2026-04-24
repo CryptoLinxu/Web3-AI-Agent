@@ -1,8 +1,10 @@
 // 流式输出类型定义
 
+import { TransferData } from './transfer'
+
 /** 流式输出块（与后端 StreamChunk 一致） */
 export interface StreamChunk {
-  type: 'content' | 'tool_call' | 'done' | 'error'
+  type: 'content' | 'tool_call' | 'done' | 'error' | 'transfer_data'
   content?: string
   toolCall?: {
     id: string
@@ -12,6 +14,7 @@ export interface StreamChunk {
       arguments: string
     }
   }
+  transferData?: TransferData  // 转账卡片数据
   error?: string
 }
 

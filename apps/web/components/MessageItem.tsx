@@ -3,14 +3,16 @@
 import { Message } from '@/types/chat'
 import { ToolCallUIState } from '@/types/stream'
 import MarkdownRenderer from './MarkdownRenderer'
+import { TransferCard } from '@/components/cards'
 
 interface MessageItemProps {
   message: Message
   isStreaming?: boolean
   toolCalls?: ToolCallUIState[]
+  conversationId?: string  // 用于 TransferCard 数据库更新
 }
 
-export default function MessageItem({ message, isStreaming, toolCalls: streamingToolCalls }: MessageItemProps) {
+export default function MessageItem({ message, isStreaming, toolCalls: streamingToolCalls, conversationId }: MessageItemProps) {
   const isUser = message.role === 'user'
   const isError = message.isError
 
@@ -34,9 +36,44 @@ export default function MessageItem({ message, isStreaming, toolCalls: streaming
     getBTCPrice: 'BTC 价格',
     getWalletBalance: '钱包余额',
     getEthGasPrice: 'Gas 价格',
+    createTransferCard: '转账卡片',
   }
 
   const getToolDisplayName = (name: string) => toolNameMap[name] || name
+
+  // 渲染转账卡片
+  if (message.transferData) {
+    return (
+      <div className="flex justify-start group">
+        {/* AI Avatar */}
+        <div className="flex-shrink-0 mr-3 mt-1">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center shadow-lg shadow-primary-500/20">
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+        </div>
+
+        <div className="max-w-[80%]">
+          {/* 消息头部 */}
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-xs font-medium text-[rgb(var(--text-secondary))]">
+              Web3 AI
+            </span>
+            <span className="text-xs text-[rgb(var(--text-muted))]">
+              {formatTime(message.timestamp)}
+            </span>
+          </div>
+
+          {/* 转账卡片 */}
+          <TransferCard 
+            data={message.transferData} 
+            conversationId={conversationId}
+          />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} group`}>

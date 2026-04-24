@@ -3,13 +3,15 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { StreamChunk, ToolCallUIState } from '@/types/stream'
 import { Message } from '@/types/chat'
+import { TransferData } from '@/types/transfer'
 
 interface UseChatStreamReturn {
   isStreaming: boolean
   content: string
   error: string | null
   toolCalls: ToolCallUIState[]
-  sendMessage: (messages: Array<{ role: string; content: string }>, walletAddress?: string) => Promise<{ content: string; toolCalls: ToolCallUIState[] }>
+  transferData?: TransferData  // 转账卡片数据
+  sendMessage: (messages: Array<{ role: string; content: string }>, walletAddress?: string) => Promise<{ content: string; toolCalls: ToolCallUIState[]; transferData?: TransferData }>
   abort: () => void
 }
 
@@ -29,12 +31,14 @@ export function useChatStream(): UseChatStreamReturn {
   const [content, setContent] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [toolCalls, setToolCalls] = useState<ToolCallUIState[]>([])
+  const [transferData, setTransferData] = useState<TransferData | undefined>(undefined)
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const contentBufferRef = useRef('')
   const lastUpdateTimeRef = useRef(0)
   const throttledUpdateRef = useRef<number | null>(null)
   const toolCallsBufferRef = useRef<ToolCallUIState[]>([])
+  const transferDataRef = useRef<TransferData | undefined>(undefined)  // 新增 ref
 
   // 清理函数
   useEffect(() => {
@@ -91,8 +95,12 @@ export function useChatStream(): UseChatStreamReturn {
           // 处理缓冲区剩余数据
           if (buffer.trim()) {
             const event = parseSSEEvent(buffer)
-            if (event) handleChunk(event)
+            if (event) {
+              console.log('[consumeStream] 处理最后的事件:', event.type)
+              handleChunk(event)
+            }
           }
+          console.log('[consumeStream] 流结束')
           break
         }
 
@@ -107,6 +115,7 @@ export function useChatStream(): UseChatStreamReturn {
 
           const event = parseSSEEvent(eventText)
           if (event) {
+            console.log('[consumeStream] 解析到事件:', event.type, event)
             handleChunk(event)
           }
         }
@@ -146,6 +155,14 @@ export function useChatStream(): UseChatStreamReturn {
         }
         break
 
+      case 'transfer_data':
+        if (chunk.transferData) {
+          console.log('[useChatStream] 收到 transfer_data:', chunk.transferData)
+          transferDataRef.current = chunk.transferData  // 同步更新 ref
+          setTransferData(chunk.transferData)
+        }
+        break
+
       case 'done':
         // 确保最终内容被设置（同步更新，避免节流延迟）
         if (throttledUpdateRef.current) {
@@ -164,14 +181,16 @@ export function useChatStream(): UseChatStreamReturn {
   }, [throttledUpdateContent])
 
   // 发送消息
-  const sendMessage = useCallback(async (messages: Array<{ role: string; content: string }>, walletAddress?: string): Promise<{ content: string; toolCalls: ToolCallUIState[] }> => {
+  const sendMessage = useCallback(async (messages: Array<{ role: string; content: string }>, walletAddress?: string): Promise<{ content: string; toolCalls: ToolCallUIState[]; transferData?: TransferData }> => {
     // 重置状态
     setIsStreaming(true)
     setContent('')
     setError(null)
     setToolCalls([])
+    setTransferData(undefined)
     contentBufferRef.current = ''
     lastUpdateTimeRef.current = 0
+    transferDataRef.current = undefined  // 重置 ref
 
     let retryCount = 0
     // 重置工具调用收集缓冲区
@@ -213,10 +232,13 @@ export function useChatStream(): UseChatStreamReturn {
 
         await consumeStream(response)
 
-        // 同步返回最终结果（避免 React state 延迟）
+        console.log('[useChatStream] consumeStream 完成, transferDataRef:', transferDataRef.current)
+
+        // 同步返回最终结果（使用 ref 避免 React state 延迟）
         return {
           content: contentBufferRef.current,
           toolCalls: toolCallsBufferRef.current,
+          transferData: transferDataRef.current,  // 使用 ref
         }
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : '未知错误'
@@ -225,21 +247,21 @@ export function useChatStream(): UseChatStreamReturn {
         if (err instanceof DOMException && err.name === 'AbortError') {
           setError('请求已取消')
           setIsStreaming(false)
-          return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current }
+          return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current, transferData }
         }
 
         // 客户端错误不重试
         if (errorMessage.startsWith('客户端错误')) {
           setError(`请求失败: ${errorMessage}`)
           setIsStreaming(false)
-          return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current }
+          return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current, transferData }
         }
 
         retryCount++
         if (retryCount > MAX_RETRIES) {
           setError(`请求失败: ${errorMessage}`)
           setIsStreaming(false)
-          return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current }
+          return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current, transferData }
         }
 
         // 等待 1s 后重试
@@ -248,8 +270,8 @@ export function useChatStream(): UseChatStreamReturn {
     }
 
     // 理论上不会执行到这里，但 TypeScript 需要返回值
-    return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current }
-  }, [consumeStream])
+    return { content: contentBufferRef.current, toolCalls: toolCallsBufferRef.current, transferData }
+  }, [consumeStream, transferData])
 
   // 中止请求
   const abort = useCallback(() => {
@@ -288,6 +310,7 @@ export function useChatStream(): UseChatStreamReturn {
     content,
     error,
     toolCalls,
+    transferData,
     sendMessage,
     abort,
   }

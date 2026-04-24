@@ -58,9 +58,19 @@ export interface ChatResponse {
 
 /** 流式输出块 */
 export interface StreamChunk {
-  type: 'content' | 'tool_call' | 'done' | 'error'
+  type: 'content' | 'tool_call' | 'done' | 'error' | 'transfer_data'
   content?: string
   toolCall?: ToolCall
+  transferData?: {
+    id: string
+    from: string
+    to: string
+    tokenSymbol: string
+    tokenAddress?: string
+    amount: string
+    chain: string
+    status: string
+  }
   error?: string
 }
 

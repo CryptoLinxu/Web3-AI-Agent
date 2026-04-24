@@ -122,12 +122,38 @@ export default function Home() {
     if (!conversationId || !isConnected) return
 
     try {
+      // 保存消息
       await conversationService.saveMessages(conversationId, msgs)
+      
+      // 保存转账卡片（如果有）
+      if (address) {
+        const transferMessages = msgs.filter(m => m.transferData && m.role === 'assistant')
+        
+        for (const msg of transferMessages) {
+          if (msg.transferData) {
+            try {
+              const { createTransferCard } = await import('@/lib/supabase/transfers')
+              const cardId = await createTransferCard({
+                conversationId,
+                messageId: msg.id,
+                fromAddress: msg.transferData!.from,
+                toAddress: msg.transferData!.to,
+                tokenSymbol: msg.transferData!.tokenSymbol,
+                tokenAddress: msg.transferData!.tokenAddress,
+                amount: msg.transferData!.amount,
+                chain: msg.transferData!.chain
+              })
+            } catch (err) {
+              console.error('Failed to save transfer card:', err)
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to save messages to cloud:', error)
       // TODO: 降级到 localStorage
     }
-  }, [conversationId, isConnected])
+  }, [conversationId, isConnected, address])
 
   // 新建对话
   const handleNewConversation = async () => {
@@ -252,7 +278,11 @@ export default function Home() {
               result: tc.result,
             }))
           : undefined,
+        transferData: result.transferData,  // 附加转账卡片数据
       }
+      
+      console.log('[page.tsx] assistantMessage.transferData:', result.transferData)
+      
       memoryManager.addMessage(assistantMessage)
 
       setMessages((prev) =>
@@ -354,6 +384,7 @@ export default function Home() {
             isLoading={isLoading}
             streamingMessageId={streamingMessageId}
             isStreaming={isStreaming}
+            conversationId={conversationId || undefined}
           />
         </div>
 

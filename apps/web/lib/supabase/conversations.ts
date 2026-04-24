@@ -114,6 +114,7 @@ export async function saveMessages(
   messages: Message[]
 ): Promise<void> {
   const messagesToInsert = messages.map((msg) => ({
+    id: msg.id,  // 使用前端生成的 ID
     conversation_id: conversationId,
     role: msg.role,
     content: msg.content,
@@ -124,7 +125,12 @@ export async function saveMessages(
     },
   }))
 
-  const { error } = await supabase.from('messages').insert(messagesToInsert as any)
+  // 使用 upsert：如果 ID 已存在则更新，否则插入
+  const { error } = await supabase
+    .from('messages')
+    .upsert(messagesToInsert as any, {
+      onConflict: 'id',  // 基于 id 字段判断冲突
+    })
 
   if (error) {
     throw new Error(`Failed to save messages: ${error.message}`)
@@ -150,17 +156,45 @@ export async function loadMessages(
     throw new Error(`Failed to load messages: ${error.message}`)
   }
 
+  // 加载该对话的所有转账卡片
+  const { data: transferCards } = await supabase
+    .from('transfer_cards')
+    .select('*')
+    .eq('conversation_id', conversationId)
+
+  // 创建 message_id 到 transferData 的映射
+  const transferMap = new Map<string, any>()
+  for (const card of (transferCards as any[]) || []) {
+    transferMap.set(card.message_id, {
+      id: card.id,
+      from: card.from_address,
+      to: card.to_address,
+      tokenSymbol: card.token_symbol,
+      tokenAddress: card.token_address || undefined,
+      amount: card.amount,
+      chain: card.chain,
+      status: card.status,
+      txHash: card.tx_hash || undefined,
+      error: card.error_message || undefined
+    })
+  }
+
   // 转换为 Message 格式
-  return (
-    (data as any[])?.map((row) => ({
+  const messages = (data as any[])?.map((row) => {
+    const msg = {
       id: row.id,
       role: row.role,
       content: row.content,
       timestamp: row.metadata?.timestamp || new Date(row.created_at).getTime(),
       toolCalls: row.metadata?.toolCalls || undefined,
       isError: row.metadata?.isError || false,
-    })) || []
-  )
+      transferData: transferMap.get(row.id) || undefined,  // 附加转账卡片数据
+    }
+    
+    return msg
+  }) || []
+  
+  return messages
 }
 
 /**

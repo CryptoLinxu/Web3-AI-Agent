@@ -11,6 +11,7 @@ interface MessageListProps {
   streamingMessageId?: string | null
   isStreaming?: boolean
   streamingToolCalls?: ToolCallUIState[]
+  conversationId?: string  // 传递给 TransferCard
 }
 
 export default function MessageList({ 
@@ -18,7 +19,8 @@ export default function MessageList({
   isLoading, 
   streamingMessageId,
   isStreaming,
-  streamingToolCalls 
+  streamingToolCalls,
+  conversationId
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -41,6 +43,7 @@ export default function MessageList({
             message={message}
             isStreaming={isStreaming && message.id === streamingMessageId}
             toolCalls={message.id === streamingMessageId ? streamingToolCalls : undefined}
+            conversationId={conversationId}
           />
         ))}
         

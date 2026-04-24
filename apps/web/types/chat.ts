@@ -1,3 +1,5 @@
+import { TransferData } from './transfer'
+
 export interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -5,6 +7,7 @@ export interface Message {
   timestamp: number
   toolCalls?: ToolCall[]
   isError?: boolean
+  transferData?: TransferData  // 转账卡片数据
 }
 
 export interface ToolCall {
