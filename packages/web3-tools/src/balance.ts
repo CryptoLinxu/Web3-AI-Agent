@@ -12,10 +12,14 @@ export async function getBalance(
   address: string,
   rpcUrl?: string
 ): Promise<ToolResult<BalanceData>> {
+  console.log(`[getBalance] 调用参数: chain=${chain}, address=${address}${rpcUrl ? `, rpcUrl=${rpcUrl}` : ''}`)
+  
   // 根据链类型选择适配器
   if (isEvmChain(chain)) {
     const adapter = new EvmChainAdapter(chain, rpcUrl)
-    return adapter.getBalance(address)
+    const result = await adapter.getBalance(address)
+    console.log(`[getBalance] 返回: ${JSON.stringify({ chain, unit: result.data?.unit, balance: result.data?.balance }, null, 2)}`)
+    return result
   }
 
   if (chain === 'bitcoin') {

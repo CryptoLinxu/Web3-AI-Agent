@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTokenPrice, getBalance, getGasPrice } from '@web3-ai-agent/web3-tools'
-import type { EvmChainId } from '@web3-ai-agent/web3-tools'
+import { getTokenPrice, getBalance, getGasPrice, getTokenBalance } from '@web3-ai-agent/web3-tools'
+import type { ChainId, EvmChainId } from '@web3-ai-agent/web3-tools'
 
 interface ToolRequest {
   name: string
@@ -23,6 +23,13 @@ export async function POST(request: NextRequest) {
         break
       case 'getGasPrice':
         result = await getGasPrice((args as { chain: string }).chain as EvmChainId)
+        break
+      case 'getTokenBalance':
+        result = await getTokenBalance(
+          (args as { chain: string }).chain as ChainId,
+          (args as { address: string }).address,
+          (args as { tokenSymbol: string }).tokenSymbol
+        )
         break
       // 向后兼容旧 API
       case 'getETHPrice':
