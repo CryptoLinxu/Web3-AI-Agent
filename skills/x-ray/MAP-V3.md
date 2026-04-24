@@ -1,8 +1,8 @@
 # Web3 AI Agent Skill Map V3
 
-> 最后更新：2026-04-24
-> 当前版本：v0.5.0
-> 当前阶段：Web3 转账卡片功能完成 → 聊天窗口实现在线转账
+> 最后更新：2026-04-24（第二版）
+> 当前版本：v0.5.1
+> 当前阶段：ERC20 Token 余额查询完成 → Web3 工具集扩展
 
 ## 项目状态速览
 
@@ -26,17 +26,18 @@
 | **钱包上下文注入** | ✅ 完成 | AI 自动感知钱包地址，system prompt 动态生成 |
 | **转账卡片** | ✅ 完成 | AI 识别转账意图生成卡片，支持 ETH+ERC20 转账，数据持久化 |
 | **Token 配置** | ✅ 完成 | 多链 Token 注册表，支持原生币和 ERC20 |
+| **ERC20 余额查询** | ✅ 完成 | getTokenBalance 链上查询，支持 USDT/USDC/DAI，正确精度 |
 | 待验证 | 🔄 待办 | 功能测试、浏览器验收、Anthropic 验证 |
-| 待补充 | ⏳ 待办 | 测试覆盖、部署文档、CI/CD、ERC20 Approve 流程 |
+| 待补充 | ⏳ 待办 | 测试覆盖、部署文档、CI/CD |
 
 ## 已完成能力清单
 
 ### 核心功能
 - ✅ **Chat UI**：基础聊天界面，消息列表，工具结果展示
 - ✅ **多模型支持**：OpenAI + Anthropic 双模型切换
-- ✅ **Web3 工具**：ETH/BTC/SOL/MATIC/BNB 价格、多链余额、Gas 价格、Token 信息查询
+- ✅ **Web3 工具**：ETH/BTC/SOL/MATIC/BNB 价格、多链余额、Gas 价格、Token 信息、ERC20 余额查询
 - ✅ **Agent Loop**：意图识别 → 工具调用 → 结果回填 → 回复生成
-- ✅ **工具调用**：4 组核心 Web3 工具已接入（5 链/5 币种/11 Token）
+- ✅ **工具调用**：6 组核心 Web3 工具已接入（5 链/5 种原生币/11 Token/ERC20 余额查询）
 - ✅ **SSE 流式后端**：双模型流式输出，支持 content/tool_call/done/error 事件
 - ✅ **SSE 流式前端**：useChatStream Hook + 流式渲染，50ms 节流，30s 超时
 - ✅ **钱包登录**：RainbowKit + Wagmi v2，支持 MetaMask/WalletConnect/EIP-6963
@@ -46,6 +47,7 @@
 - ✅ **断开清空**：钱包断开时清空 UI，保留 Supabase 数据，重连自动恢复
 - ✅ **钱包上下文注入**：AI 自动感知钱包地址，查询“我的余额”时无需手动输入
 - ✅ **转账卡片**：AI 识别转账意图，生成 TransferCard 组件，支持 ETH 原生转账和 ERC20 Token 转账
+- ✅ **ERC20 余额查询**：通过 getTokenBalance 工具链上查询 USDT/USDC/DAI 等 Token 余额，使用正确精度格式化，解决 AI 幻觉问题
 
 ### 项目治理
 - ✅ **Changelog 体系**：完整变更记录，AI 上下文追溯
@@ -212,7 +214,7 @@ AI-Agent/
 
 ### 高优先级
 - [ ] **ERC20 Approve 流程**：实现完整的 Token 授权流程 (P0)
-- [ ] **测试覆盖**：为核心功能添加单元测试和集成测试（含 Memory 管理、Supabase 数据层）
+- [ ] **测试覆盖**：为核心功能添加单元测试和集成测试（含 Memory 管理、Supabase 数据层、getTokenBalance）
 - [ ] **Anthropic 验证**：实际测试 Anthropic 工具调用链
 - [ ] **浏览器验收**：测试主题切换、钱包上下文、删除弹窗、断开清空、转账卡片
 
@@ -233,11 +235,12 @@ AI-Agent/
 - `/origin` - 新任务入口
 - `/browser-verify` - 浏览器验收测试（验证主题切换、钱包上下文、删除弹窗、转账卡片）
 - `/explore` - 探索项目现状
-- `/pipeline feat` - 开发新功能（如 ERC20 Approve、自定义主题色、多语言支持）
+- `/pipeline feat` - 开发新功能（如 ERC20 Approve 完整流程、自定义主题色、多语言支持）
 - `/pipeline patch` - 修复 SSR 主题闪烁、添加钱包地址验证
 
 ## 历史状态
 
+> 2026-04-24：新增 getTokenBalance 工具（v0.5.1）→ 链上查询 ERC20 Token（USDT/USDC/DAI）余额，使用正确精度格式化，解决 AI 把 ETH 余额误标为 USDT/USDC 的幻觉问题，Web3 工具从 5 组增至 6 组
 > 2026-04-24：Web3 转账卡片功能完成（v0.5.0）→ 支持 ETH+ERC20 转账、数据持久化、状态恢复、卡片可扩展架构，新增 7 文件 14 修改
 > 2026-04-23：UI 增强与全局主题系统 + 钱包上下文注入完成（v0.4.0，Audit 94分）→ 删除弹窗/断开清空/浅色主题/walletAddress 注入，用户体验全面提升
 > 2026-04-23：Memory 管理 L2 滑动窗口策略完成（QA 10/10 通过）→ L2+L3 双策略并存，Strategy 模式验证成功
@@ -460,7 +463,7 @@ origin -> qa / audit / browser-verify / resolve-doc-conflicts / digest / update-
 
 ### 🎯 推荐入口（按优先级）
 
-1. **实现 ERC20 Approve 流程** (`/pipeline patch`)
+1. **实现 ERC20 Approve 完整流程** (`/pipeline patch`)
    - USDT 等 Token 转账需要先 approve 授权
    - 使用 viem writeContract + ERC20 ABI
    - 预计 2-3 天
