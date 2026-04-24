@@ -11,6 +11,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "viem": "^2.0.0",
     "ethers": "^6.11.0",
     "node-fetch": "^3.3.2",
     "https-proxy-agent": "^7.0.4"
