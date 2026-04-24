@@ -1,12 +1,12 @@
 import { createConfig, http, cookieStorage, createStorage } from 'wagmi'
-import { mainnet, sepolia } from 'wagmi/chains'
+import { mainnet, sepolia, polygon, bsc } from 'wagmi/chains'
 import { walletConnect, injected } from 'wagmi/connectors'
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'your-project-id'
 
 export function getConfig() {
   return createConfig({
-    chains: [mainnet, sepolia],
+    chains: [mainnet, sepolia, polygon, bsc],
     ssr: true, // 开启 SSR 支持，允许客户端 hydration 恢复状态
     connectors: [
       // SSR 阶段只创建 injected connector
@@ -17,8 +17,10 @@ export function getConfig() {
       storage: cookieStorage, // 使用 cookie 持久化，支持 SSR 传递状态
     }),
     transports: {
-      [mainnet.id]: http(),
-      [sepolia.id]: http(),
+      [mainnet.id]: http('https://eth.llamarpc.com'),  // 支持 CORS 的公共 RPC
+      [sepolia.id]: http('https://sepolia.gateway.tenderly.co'),  // Sepolia 测试网
+      [polygon.id]: http('https://polygon.llamarpc.com'),
+      [bsc.id]: http('https://bsc.llamarpc.com'),
     },
   })
 }
@@ -31,7 +33,7 @@ export function getFullConfig() {
   }
 
   return createConfig({
-    chains: [mainnet, sepolia],
+    chains: [mainnet, sepolia, polygon, bsc],
     ssr: true,
     connectors: [
       // 客户端添加 walletConnect
@@ -51,8 +53,10 @@ export function getFullConfig() {
       storage: cookieStorage,
     }),
     transports: {
-      [mainnet.id]: http(),
-      [sepolia.id]: http(),
+      [mainnet.id]: http('https://eth.llamarpc.com'),  // 支持 CORS 的公共 RPC
+      [sepolia.id]: http('https://sepolia.gateway.tenderly.co'),  // Sepolia 测试网
+      [polygon.id]: http('https://polygon.llamarpc.com'),
+      [bsc.id]: http('https://bsc.llamarpc.com'),
     },
   })
 }
