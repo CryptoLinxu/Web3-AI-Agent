@@ -1,8 +1,8 @@
 # Web3 AI Agent Skill Map V3
 
-> 最后更新：2026-04-23
-> 当前版本：v0.4.0
-> 当前阶段：UI 增强与全局主题系统 + 钱包上下文注入完成 → 用户体验全面提升
+> 最后更新：2026-04-24
+> 当前版本：v0.5.0
+> 当前阶段：Web3 转账卡片功能完成 → 聊天窗口实现在线转账
 
 ## 项目状态速览
 
@@ -24,8 +24,10 @@
 | **断开清空** | ✅ 完成 | 客户端 UI 清空 + Supabase 数据保留 |
 | **全局主题系统** | ✅ 完成 | Light/Dark/System 三模式，CSS 变量架构，Audit 94分 |
 | **钱包上下文注入** | ✅ 完成 | AI 自动感知钱包地址，system prompt 动态生成 |
+| **转账卡片** | ✅ 完成 | AI 识别转账意图生成卡片，支持 ETH+ERC20 转账，数据持久化 |
+| **Token 配置** | ✅ 完成 | 多链 Token 注册表，支持原生币和 ERC20 |
 | 待验证 | 🔄 待办 | 功能测试、浏览器验收、Anthropic 验证 |
-| 待补充 | ⏳ 待办 | 测试覆盖、部署文档、CI/CD |
+| 待补充 | ⏳ 待办 | 测试覆盖、部署文档、CI/CD、ERC20 Approve 流程 |
 
 ## 已完成能力清单
 
@@ -42,7 +44,8 @@
 - ✅ **对话历史管理**：侧边栏展示、切换、删除、新建对话
 - ✅ **删除弹窗**：ConfirmDialog 自定义组件，紫色主题 + Loading 状态
 - ✅ **断开清空**：钱包断开时清空 UI，保留 Supabase 数据，重连自动恢复
-- ✅ **钱包上下文注入**：AI 自动感知钱包地址，查询"我的余额"时无需手动输入
+- ✅ **钱包上下文注入**：AI 自动感知钱包地址，查询“我的余额”时无需手动输入
+- ✅ **转账卡片**：AI 识别转账意图，生成 TransferCard 组件，支持 ETH 原生转账和 ERC20 Token 转账
 
 ### 项目治理
 - ✅ **Changelog 体系**：完整变更记录，AI 上下文追溯
@@ -78,7 +81,7 @@
 - ✅ **断开连接优化**：客户端 UI 清空 + 欢迎消息
 - ⚠️ **SSR 主题闪烁**：刷新页面短暂看到默认主题（~100ms，P3 优化项）
 
-### 工程能力
+### 工程能力 (v0.5.0)
 - ✅ **Monorepo**：pnpm workspace + turbo 构建
 - ✅ **类型安全**：TypeScript 全项目覆盖
 - ✅ **配置管理**：环境变量驱动模型切换
@@ -88,6 +91,7 @@
 - ✅ **前端 SSE 消费**：ReadableStream + 事件解析 + 节流更新
 - ✅ **链抽象层**：ChainConfig + ChainAdapter 接口，EVM 链统一处理
 - ✅ **主题系统架构**：lib/theme/ 完整架构（types, Context, Provider）
+- ✅ **卡片组件架构**：apps/web/components/cards/ 独立目录，支持可扩展卡片类型 (TransferCard, DexSwapCard)
 
 ### 文档体系
 - ✅ [README.md](/README.md) - 项目总览
@@ -96,6 +100,8 @@
 - ✅ [里程碑 Checklist](/docs/Web3-AI-Agent-项目里程碑-Checklist.md) - 进度跟踪
 - ✅ [docs/changelog/](/docs/changelog/README.md) - 变更历史记录
 - ✅ [docs/checklist/](/docs/checklist/PROJECT-CHECKLIST.md) - 项目清单与规划
+- ✅ **转账工具**：packages/web3-tools/src/transfer.ts (99行)
+- ✅ [supabase/migrations/](/supabase/migrations/) - 数据库迁移脚本 (transfer_cards 表)
 - ✅ [Skill Map](/skills/x-ray/MAP-V3.md) - 技能地图
 - ✅ [supabase/init.sql](/supabase/init.sql) - 数据库初始化脚本
 
@@ -162,8 +168,25 @@ AI-Agent/
 │       │   │   ├── chat/       # 对话 API（使用 ai-config）
 │       │   │   └── tools/      # 工具 API
 │       │   └── page.tsx        # Chat UI（集成 MemoryManager）
+│       ├── components/
+│       │   ├── cards/          # 转账卡片组件目录
+│       │   │   ├── TransferCard.tsx    # 转账卡片核心组件 (338行)
+│       │   │   ├── DexSwapCard.tsx     # DexSwap 卡片预留
+│       │   │   └── index.ts            # 统一导出
+│       │   ├── MessageItem.tsx # 消息项（渲染卡片）
+│       │   └── ...
 │       ├── lib/
-│       │   └── memory/         # Memory 管理模块
+│       │   ├── memory/         # Memory 管理模块
+│       │   ├── supabase/       # Supabase 数据访问层
+│       │   │   ├── conversations.ts    # 对话 CRUD
+│       │   │   └── transfers.ts        # 转账卡片 CRUD (146行)
+│       │   ├── tokens.ts       # Token 配置管理
+│       │   └── theme/          # 主题系统
+│       ├── types/
+│       │   ├── chat.ts         # 聊天类型（含 transferData）
+│       │   ├── stream.ts       # SSE 流式类型（含 transfer_data）
+│       │   └── transfer.ts     # 转账类型定义
+│       └── .env.example        # 多模型配置示例
 │       │       ├── types.ts    # MemoryManager 接口
 │       │       ├── config.ts   # 配置管理
 │       │       ├── SummaryCompressionMemory.ts  # L3 实现
@@ -188,9 +211,10 @@ AI-Agent/
 ## 待办事项（下一步）
 
 ### 高优先级
+- [ ] **ERC20 Approve 流程**：实现完整的 Token 授权流程 (P0)
 - [ ] **测试覆盖**：为核心功能添加单元测试和集成测试（含 Memory 管理、Supabase 数据层）
 - [ ] **Anthropic 验证**：实际测试 Anthropic 工具调用链
-- [ ] **浏览器验收**：测试主题切换、钱包上下文、删除弹窗、断开清空
+- [ ] **浏览器验收**：测试主题切换、钱包上下文、删除弹窗、断开清空、转账卡片
 
 ### 中优先级
 - [ ] **生产 RLS 升级**：Supabase Auth + JWT（生产部署前必须）
@@ -207,13 +231,14 @@ AI-Agent/
 ## 下一步建议入口
 
 - `/origin` - 新任务入口
-- `/browser-verify` - 浏览器验收测试（验证主题切换、钱包上下文、删除弹窗）
+- `/browser-verify` - 浏览器验收测试（验证主题切换、钱包上下文、删除弹窗、转账卡片）
 - `/explore` - 探索项目现状
-- `/pipeline feat` - 开发新功能（如自定义主题色、多语言支持、对话搜索）
+- `/pipeline feat` - 开发新功能（如 ERC20 Approve、自定义主题色、多语言支持）
 - `/pipeline patch` - 修复 SSR 主题闪烁、添加钱包地址验证
 
 ## 历史状态
 
+> 2026-04-24：Web3 转账卡片功能完成（v0.5.0）→ 支持 ETH+ERC20 转账、数据持久化、状态恢复、卡片可扩展架构，新增 7 文件 14 修改
 > 2026-04-23：UI 增强与全局主题系统 + 钱包上下文注入完成（v0.4.0，Audit 94分）→ 删除弹窗/断开清空/浅色主题/walletAddress 注入，用户体验全面提升
 > 2026-04-23：Memory 管理 L2 滑动窗口策略完成（QA 10/10 通过）→ L2+L3 双策略并存，Strategy 模式验证成功
 > 2026-04-21：Memory 管理（L3 摘要压缩）完成（Audit 82分）→ MVP 核心功能基本完成，MVP 完成率 95%
@@ -435,28 +460,34 @@ origin -> qa / audit / browser-verify / resolve-doc-conflicts / digest / update-
 
 ### 🎯 推荐入口（按优先级）
 
-1. **浏览器验收** (`/browser-verify`)
+1. **实现 ERC20 Approve 流程** (`/pipeline patch`)
+   - USDT 等 Token 转账需要先 approve 授权
+   - 使用 viem writeContract + ERC20 ABI
+   - 预计 2-3 天
+
+2. **浏览器验收** (`/browser-verify`)
+   - 验证转账卡片功能（ETH 转账、ERC20 转账、状态恢复）
    - 验证主题切换（Light/Dark/System）
-   - 验证钱包上下文注入（查询"我的余额"）
+   - 验证钱包上下文注入（查询“我的余额”）
    - 验证删除弹窗和断开清空
    - 测试多钱包切换场景
 
-2. **消除 SSR 主题闪烁** (`/pipeline patch`)
+3. **消除 SSR 主题闪烁** (`/pipeline patch`)
    - layout.tsx 的 <head> 添加同步脚本
    - 预计 20 分钟
 
-3. **添加钱包地址格式验证** (`/pipeline patch`)
+4. **添加钱包地址格式验证** (`/pipeline patch`)
    - route.ts 添加正则验证 `/^0x[a-fA-F0-9]{40}$/`
    - 预计 10 分钟
 
-4. **测试覆盖** (`/pipeline feat`)
+5. **测试覆盖** (`/pipeline feat`)
    - 编写对话持久化单元测试
    - 添加钱包登录 E2E 测试
    - 验证 Memory 策略切换
 
 ### ⚠️ 生产前必须完成
 
-- [ ] 升级 RLS 到 Supabase Auth + JWT
+- [ ] 实现 ERC20 Approve 完整流程（P0，生产环境必须）
 - [ ] 添加错误边界和加载状态
 - [ ] 优化首屏加载性能（钱包 SDK 按需加载）
 - [ ] 编写部署文档
