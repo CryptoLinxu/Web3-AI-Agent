@@ -10,10 +10,17 @@
 - [apps/web/components/ChatInput.tsx](file://apps/web/components/ChatInput.tsx)
 - [apps/web/components/ConversationHistory.tsx](file://apps/web/components/ConversationHistory.tsx)
 - [apps/web/types/chat.ts](file://apps/web/types/chat.ts)
+- [apps/web/types/stream.ts](file://apps/web/types/stream.ts)
 - [apps/web/package.json](file://apps/web/package.json)
 - [apps/web/app/layout.tsx](file://apps/web/app/layout.tsx)
 - [docs/DEPLOYMENT.md](file://docs/DEPLOYMENT.md)
 </cite>
+
+## 更新摘要
+**变更内容**
+- 新增钱包地址格式验证功能，通过`isValidEthereumAddress()`函数在聊天API路由中实现地址验证
+- 增强了输入数据验证和清理机制，防止无效地址注入系统提示词
+- 完善了安全边界控制，确保只有格式正确的钱包地址才能触发相关功能
 
 ## 目录
 1. [简介](#简介)
@@ -29,6 +36,8 @@
 ## 简介
 
 这是一个基于Next.js构建的Web3 AI Agent聊天系统，专注于提供安全的聊天API服务。该系统集成了AI模型、Web3工具集成、流式响应处理和完整的对话管理功能。本文档重点分析聊天API的安全增强机制，包括身份验证、授权控制、数据验证和传输安全等方面。
+
+**更新** 新增钱包地址格式验证功能，通过正则表达式确保输入的以太坊地址符合标准格式（0x开头的42字符十六进制），防止恶意地址注入系统提示词。
 
 ## 项目结构
 
@@ -81,6 +90,8 @@ ToolsAPI --> Validation
 
 聊天API是整个系统的核心，负责处理用户消息、调用AI模型、执行Web3工具以及管理流式响应。
 
+**更新** 新增钱包地址格式验证功能，在处理聊天请求时对可选的`walletAddress`参数进行严格验证，确保地址格式正确后再注入到系统提示词中。
+
 ### Supabase安全API
 
 提供对话所有权验证和删除功能，确保只有对话所有者才能删除其对话记录。
@@ -90,7 +101,7 @@ ToolsAPI --> Validation
 实现SSE（Server-Sent Events）流式响应处理，支持实时消息传输和工具调用反馈。
 
 **章节来源**
-- [apps/web/app/api/chat/route.ts:230-567](file://apps/web/app/api/chat/route.ts#L230-L567)
+- [apps/web/app/api/chat/route.ts:226-245](file://apps/web/app/api/chat/route.ts#L226-L245)
 - [apps/web/app/api/supabase/verify-ownership/route.ts:8-95](file://apps/web/app/api/supabase/verify-ownership/route.ts#L8-L95)
 - [apps/web/hooks/useChatStream.ts:29-318](file://apps/web/hooks/useChatStream.ts#L29-L318)
 
@@ -125,10 +136,12 @@ AuthValidator[身份验证器]
 PermissionChecker[权限检查器]
 DataValidator[数据验证器]
 RateLimiter[速率限制器]
+AddressValidator[地址验证器]
 end
 Browser --> ReactApp
 ReactApp --> ChatInput
 ChatInput --> ChatAPI
+ChatAPI --> AddressValidator
 ChatAPI --> LLMProvider
 ChatAPI --> ToolExecutor
 ChatAPI --> SupabaseAPI
@@ -141,12 +154,46 @@ SupabaseDB --> MessagesTable
 ```
 
 **图表来源**
-- [apps/web/app/api/chat/route.ts:247-274](file://apps/web/app/api/chat/route.ts#L247-L274)
-- [apps/web/app/api/supabase/verify-ownership/route.ts:36-58](file://apps/web/app/api/supabase/verify-ownership/route.ts#L36-L58)
+- [apps/web/app/api/chat/route.ts:226-245](file://apps/web/app/api/chat/route.ts#L226-L245)
+- [apps/web/app/api/supabase/verify-ownership/route.ts:28-34](file://apps/web/app/api/supabase/verify-ownership/route.ts#L28-L34)
 
 ## 详细组件分析
 
 ### 聊天API安全增强
+
+#### 钱包地址格式验证
+
+**新增功能** 系统在处理聊天请求时新增了钱包地址格式验证机制：
+
+```mermaid
+sequenceDiagram
+participant Client as 客户端
+participant ChatAPI as 聊天API
+participant Validator as 地址验证器
+participant SystemPrompt as 系统提示词生成器
+participant LLM as LLM提供者
+Client->>ChatAPI : POST /api/chat (walletAddress?)
+ChatAPI->>Validator : isValidEthereumAddress(walletAddress)
+Validator-->>ChatAPI : 验证结果 (true/false)
+alt 地址有效或未提供
+ChatAPI->>SystemPrompt : 生成系统提示词
+SystemPrompt-->>ChatAPI : 提示词内容
+ChatAPI->>LLM : 处理聊天请求
+LLM-->>ChatAPI : AI响应
+ChatAPI-->>Client : 结果响应
+else 地址无效
+ChatAPI-->>Client : 400 错误 (无效地址格式)
+end
+```
+
+**图表来源**
+- [apps/web/app/api/chat/route.ts:226-245](file://apps/web/app/api/chat/route.ts#L226-L245)
+
+验证规则：
+- 必须以`0x`开头的十六进制字符串
+- 总长度必须为42个字符（0x + 40个十六进制字符）
+- 只允许`a-fA-F0-9`字符
+- 例如：`0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18`
 
 #### 身份验证机制
 
@@ -188,6 +235,8 @@ end
 | 链ID枚举 | 限定的区块链名称 | 工具定义 | 400错误响应 |
 | 参数完整性 | 必需字段检查 | 工具调用 | 400错误响应 |
 
+**更新** 新增钱包地址格式验证，防止无效地址注入系统提示词，确保只有符合以太坊标准地址格式的输入才能触发相关功能。
+
 **章节来源**
 - [apps/web/app/api/chat/route.ts:226-245](file://apps/web/app/api/chat/route.ts#L226-L245)
 - [apps/web/app/api/supabase/verify-ownership/route.ts:14-34](file://apps/web/app/api/supabase/verify-ownership/route.ts#L14-L34)
@@ -224,6 +273,8 @@ ReturnForbidden --> End
 1. **前端验证**：客户端先验证用户权限
 2. **后端验证**：服务端再次验证所有权
 3. **级联删除**：先删除消息，再删除对话
+
+**更新** 在Supabase的对话所有权验证中也实现了相同的地址格式验证，确保数据库中存储的钱包地址格式正确。
 
 **章节来源**
 - [apps/web/components/ConversationHistory.tsx:103-146](file://apps/web/components/ConversationHistory.tsx#L103-L146)
@@ -281,6 +332,8 @@ Hook-->>Client : 实时更新UI
 | getTokenBalance | 地址格式验证 | 400错误响应 |
 | createTransferCard | 转账数据验证 | 400错误响应 |
 
+**更新** 在工具调用中也实现了地址格式验证，确保所有涉及钱包地址的工具调用都经过严格验证。
+
 **章节来源**
 - [apps/web/app/api/tools/route.ts:10-65](file://apps/web/app/api/tools/route.ts#L10-L65)
 
@@ -328,6 +381,9 @@ UIComponents --> ChatAPI
 2. **钱包集成**：使用RainbowKit和Wagmi实现安全的钱包连接
 3. **传输安全**：HTTPS加密和SSE安全传输
 4. **速率限制**：Nginx配置实现API速率限制
+5. **地址验证**：正则表达式验证确保地址格式正确
+
+**更新** 新增地址验证依赖，确保所有涉及钱包地址的输入都经过严格验证。
 
 **章节来源**
 - [docs/DEPLOYMENT.md:615-746](file://docs/DEPLOYMENT.md#L615-L746)
@@ -370,9 +426,12 @@ ClearBuffers --> End([结束])
 |---------|--------|---------|---------|
 | 配置错误 | 503 | LLM配置缺失 | 检查环境变量 |
 | 参数错误 | 400 | 输入参数无效 | 验证数据格式 |
+| 钱包地址格式错误 | 400 | 无效的钱包地址格式 | 使用标准以太坊地址格式 |
 | 权限错误 | 403 | 无权访问资源 | 检查所有权验证 |
 | 服务器错误 | 500 | 服务器内部异常 | 查看日志文件 |
 | 超时错误 | 408 | 请求超时 | 检查网络连接 |
+
+**更新** 新增钱包地址格式错误类型，当用户提供格式不正确的钱包地址时会返回400错误。
 
 ### 调试技巧
 
@@ -380,6 +439,7 @@ ClearBuffers --> End([结束])
 2. **检查网络请求**：使用浏览器开发者工具监控SSE连接
 3. **验证环境变量**：确保所有必需的环境变量已正确配置
 4. **测试工具调用**：单独测试各个工具API的可用性
+5. **验证地址格式**：使用正则表达式验证钱包地址格式
 
 **章节来源**
 - [apps/web/app/api/chat/route.ts:521-565](file://apps/web/app/api/chat/route.ts#L521-L565)
@@ -394,5 +454,8 @@ ClearBuffers --> End([结束])
 3. **数据安全保护**：全面的数据验证和清理机制防止恶意输入
 4. **传输安全保障**：SSE流式传输和HTTPS加密确保通信安全
 5. **性能优化**：智能的流式处理和内存管理提升用户体验
+6. **地址格式验证**：新增的钱包地址格式验证功能，防止无效地址注入系统提示词
+
+**更新** 新增的钱包地址格式验证功能通过`isValidEthereumAddress()`函数确保所有输入的以太坊地址都符合标准格式，有效防止了恶意地址注入和系统提示词污染，提升了系统的整体安全性。
 
 该系统为Web3应用的聊天功能提供了坚实的安全基础，建议在生产环境中结合文档中的部署指南进一步强化安全配置。

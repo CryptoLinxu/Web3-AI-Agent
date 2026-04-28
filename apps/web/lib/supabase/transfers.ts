@@ -19,6 +19,8 @@ export interface CreateTransferCardParams {
  */
 export async function createTransferCard(params: CreateTransferCardParams): Promise<string> {
   // 使用 upsert 避免重复插入
+  // 注意：不包含 status 字段，新记录由数据库 DEFAULT 'pending' 填充
+  // 已存在的记录不会被覆盖状态，避免流式更新期间覆盖已确认的状态
   const { data, error } = await supabase
     .from('transfer_cards')
     .upsert({
@@ -31,7 +33,6 @@ export async function createTransferCard(params: CreateTransferCardParams): Prom
       token_address: params.tokenAddress,
       amount: params.amount,
       chain: params.chain,
-      status: 'pending'
     }, {
       onConflict: 'id',
     })

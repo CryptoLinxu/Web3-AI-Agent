@@ -278,7 +278,11 @@ export default function Home() {
               result: tc.result,
             }))
           : undefined,
-        transferData: result.transferData,  // 附加转账卡片数据
+        transferData: result.transferData ? {
+          ...result.transferData,
+          id: assistantMessageId,  // 与消息 ID 一致，确保 updateTransferCardStatus 能找到记录
+          status: result.transferData.status || 'pending',
+        } : undefined,
       }
       
       console.log('[page.tsx] assistantMessage.transferData:', result.transferData)
