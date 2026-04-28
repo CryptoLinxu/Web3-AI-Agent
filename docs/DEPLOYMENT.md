@@ -592,6 +592,98 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ---
 
+## 生产环境 RLS 升级指南
+
+### 背景
+
+当前数据库 RLS 策略使用 `USING (true)`，仅依赖应用层 `verifyWalletContext()` 做数据隔离。Delete 操作已通过服务端 API 实现双重验证。生产环境应进一步提升安全层级。
+
+### 安全问题
+
+| 风险 | 描述 | 当前缓解 |
+|------|------|----------|
+| 未授权读取 | 知道对话 ID 可读任何数据 | 应用层 wallet 过滤 |
+| 未授权删除 | 可删除他人对话 | 服务端 API 两次验证 |
+| 数据泄露 | 直接查询 Supabase 可获取全部数据 | 无缓解 |
+
+### RLS 策略说明
+
+当前开发环境策略（`supabase/init.sql`）：
+- SELECT/INSERT/UPDATE：全放行（应用层控制）
+- DELETE：全放行（已通过服务端 API 保护）
+
+生产环境策略（`supabase/migrations/upgrade_production_rls.sql`）：
+- SELECT/INSERT/UPDATE：不变
+- DELETE：需 `current_setting('app.current_wallet_address')` 匹配，仅服务端 API 可执行
+
+### 升级步骤
+
+#### 1. 获取 Supabase Service Role Key
+
+1. 打开 [Supabase Dashboard](https://supabase.com) → 项目 → Settings → API
+2. 复制 `service_role` 密钥
+3. 在 `.env` 中添加：
+
+```env
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+```
+
+#### 2. 执行 RLS Migration
+
+```sql
+-- 在 Supabase SQL Editor 中执行
+psql "$DATABASE_URL" -f supabase/migrations/upgrade_production_rls.sql
+```
+
+或通过 Supabase Dashboard → SQL Editor 粘贴执行。
+
+#### 3. 验证 RLS 生效
+
+执行以下 SQL 确认策略已更新：
+
+```sql
+SELECT
+    schemaname,
+    tablename,
+    policyname,
+    permissive,
+    cmd,
+    qual
+FROM pg_policies
+WHERE schemaname = 'public'
+ORDER BY tablename, cmd;
+```
+
+应看到 DELETE 策略包含 `current_setting('app.current_wallet_address', true)` 条件。
+
+### 生产架构推荐（长期方案）
+
+#### 服务端代理架构
+
+```
+浏览器/Frontend
+    │
+    ├── Supabase (SELECT/INSERT/UPDATE) ← 应用层过滤
+    │     └── 通过 anon key + app-layer 验证
+    │
+    └── Next.js API Route (DELETE) ← 服务端验证
+          └── 通过 service_role key 绕过 RLS
+```
+
+#### 完整升级路径
+
+1. **(当前)** 应用层防护 + DELETE 服务端验证
+2. **(下一步)** 将所有写操作迁移到服务端 API
+3. **(推荐)** 使用 Supabase Auth + 钱包签名 + JWT
+
+| 阶段 | READ | INSERT/UPDATE | DELETE | 复杂度 |
+|------|------|--------------|--------|--------|
+| 当前 | 应用层 | 应用层 | 服务端 API | 低 |
+| 渐进 | 应用层 | 服务端 API | 服务端 API | 中 |
+| 生产 | Supabase Auth + JWT | | | 高 |
+
+---
+
 ## 生产环境优化
 
 ### 1. 性能优化

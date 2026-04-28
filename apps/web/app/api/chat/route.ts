@@ -216,14 +216,33 @@ function createSystemPrompt(walletAddress?: string): string {
 
 ## 当前用户信息
 - 用户已连接钱包，地址为：${walletAddress}
-- 当用户查询“我的余额”或“我的钱包”时，使用此地址
+- 当用户查询"我的余额"或"我的钱包"时，使用此地址
 - 如果用户未指定地址，默认使用此地址查询余额`
+}
+
+/**
+ * 验证以太坊地址格式
+ */
+function isValidEthereumAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address)
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: ChatRequest = await request.json()
     const { messages, walletAddress } = body
+
+    // 验证钱包地址格式（如果提供）
+    if (walletAddress && !isValidEthereumAddress(walletAddress)) {
+      console.warn('[route.ts] 收到无效钱包地址:', walletAddress)
+      return NextResponse.json(
+        {
+          error: true,
+          content: '无效的钱包地址格式',
+        },
+        { status: 400 }
+      )
+    }
 
     // 获取 LLM 提供商
     const provider = LLMFactory.getProvider()

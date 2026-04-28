@@ -35,41 +35,42 @@ ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 -- 5. 创建 RLS 策略 - 基于钱包地址隔离
 -- 注意：当前采用应用层过滤 + RLS 基础保护
 -- 生产环境强烈建议使用 Supabase Auth + 钱包签名登录
+-- 升级脚本：supabase/migrations/upgrade_production_rls.sql
 
 -- conversations 表策略
 -- 当前：允许所有查询（应用层通过 wallet_address 过滤）
--- 生产：使用 auth.uid() 或自定义 claim 验证
-CREATE POLICY "Enable read access for all users" 
+-- 生产：使用 migration 中的严格 DELETE 策略 + 服务端 API 删除
+CREATE POLICY "conversations_select_policy" 
   ON conversations FOR SELECT 
   USING (true);
 
-CREATE POLICY "Enable insert for authenticated users" 
+CREATE POLICY "conversations_insert_policy" 
   ON conversations FOR INSERT 
   WITH CHECK (true);
 
-CREATE POLICY "Enable update for users based on wallet_address" 
+CREATE POLICY "conversations_update_policy" 
   ON conversations FOR UPDATE 
   USING (true)
   WITH CHECK (true);
 
-CREATE POLICY "Enable delete for users based on wallet_address" 
+CREATE POLICY "conversations_delete_policy" 
   ON conversations FOR DELETE 
   USING (true);
 
 -- messages 表策略
-CREATE POLICY "Enable read access for all users" 
+CREATE POLICY "messages_select_policy" 
   ON messages FOR SELECT 
   USING (true);
 
-CREATE POLICY "Enable insert for authenticated users" 
+CREATE POLICY "messages_insert_policy" 
   ON messages FOR INSERT 
   WITH CHECK (true);
 
-CREATE POLICY "Enable update for users based on conversation" 
+CREATE POLICY "messages_update_policy" 
   ON messages FOR UPDATE 
   USING (true);
 
-CREATE POLICY "Enable delete for users based on conversation" 
+CREATE POLICY "messages_delete_policy" 
   ON messages FOR DELETE 
   USING (true);
 

@@ -27,7 +27,10 @@ Web3 AI Agent 使用 [Playwright](https://playwright.dev/) 进行端到端（E2E
 - ✅ Web3 工具调用（价格查询、余额查询等）
 - ✅ 主题切换
 - ✅ API 端点验证
-- ⏳ 钱包连接（待实现）
+- ✅ 钱包上下文验证
+- ✅ verify-ownership API
+- ✅ 转账卡片 UI
+- ⏳ 钱包连接（需 MetaMask 扩展）
 - ⏳ 转账卡片功能（待实现）
 
 ---
@@ -147,6 +150,40 @@ npx playwright test --headed --timeout=0
   - `success: true`
   - `price > 0`
 
+#### 4. 钱包上下文验证（新增）
+
+##### 4.1 传入有效钱包地址
+- **目标**: 验证 `/api/chat` 支持 walletAddress 参数
+- **步骤**: 发送 POST 请求携带有效钱包地址
+- **预期**: HTTP 200，响应包含 content
+
+##### 4.2 传入无效钱包地址
+- **目标**: 验证地址格式校验
+- **步骤**: 发送 `walletAddress: "invalid"`
+- **预期**: HTTP 400，响应包含错误信息
+
+##### 4.3 不传钱包地址
+- **目标**: 验证兼容性
+- **步骤**: 不传 walletAddress 字段
+- **预期**: HTTP 200，正常回复
+
+#### 5. verify-ownership API（新增）
+
+##### 5.1 无效参数
+- **目标**: 验证参数校验
+- **步骤**: 发送空请求体
+- **预期**: HTTP 400，`isOwner: false`
+
+##### 5.2 不存在的对话
+- **目标**: 验证对话存在性检查
+- **步骤**: 发送随机 UUID
+- **预期**: HTTP 404，`isOwner: false`
+
+##### 5.3 无效钱包地址格式
+- **目标**: 验证地址格式校验
+- **步骤**: 发送无效钱包地址
+- **预期**: HTTP 400，`isOwner: false`
+
 ### chat.spec.ts - 对话功能测试
 
 #### 1. 用户应该能够发送消息并收到回复
@@ -175,6 +212,34 @@ npx playwright test --headed --timeout=0
   2. 等待回复
   3. 发送第二条消息
   4. 验证消息列表包含多条消息
+
+### transfer.spec.ts - 转账卡片测试（新增）
+
+#### 1. 发送转账指令应该触发 AI 生成转账卡片
+
+- **目标**: 验证转账卡片自动触发和渲染
+- **步骤**:
+  1. 发送 "转账 0.001 ETH 到 0xd8dA..."
+  2. 等待 AI 回复
+  3. 检查是否渲染了转账卡片 (检查 "DEX 转账" 文本)
+- **预期**: 转账卡片渲染或 AI 回复了转账相关信息
+
+#### 2. 转账卡片应该正确显示金额和币种
+
+- **目标**: 验证卡片内容正确性
+- **步骤**:
+  1. 发送转账指令
+  2. 等待 AI 回复
+  3. 如果卡片渲染：验证 ETH 和金额可见
+- **预期**: 卡片显示正确的币种和金额，或 AI 有效回复
+
+#### 3. 转账指令验证
+
+- **目标**: 验证不完整转账指令的处理
+- **步骤**:
+  1. 发送 "给我转账"（缺少地址）
+  2. 等待 AI 回复
+- **预期**: AI 有效回复
 
 ---
 
@@ -451,6 +516,26 @@ test.beforeEach(async ({ page }) => {
 - 检查测试断言是否足够严格
 - 添加更多验证点
 - 使用 `--headed` 模式观察实际执行
+
+---
+
+### 钱包连接 E2E（当前限制）
+
+钱包连接功能依赖浏览器扩展（如 MetaMask），Playwright 无法直接控制。当前 E2E 覆盖：
+- API 层面验证钱包地址参数（已在 api.spec.ts 实现）
+- 转账卡片工具调用验证（已在 transfer.spec.ts 实现）
+
+**手动测试步骤**：
+1. 安装并配置 MetaMask 扩展
+2. 确认已连接以太坊主网
+3. 点击连接钱包按钮
+4. 在 MetaMask 弹窗中确认连接
+5. 验证页面显示已连接的钱包地址
+
+**第三方方案参考**：
+- [Synpress](https://github.com/Synthetixio/synpress) - 封装了 MetaMask 的 Playwright 集成
+- [playwright-wallet](https://github.com/nezz0746/playwright-wallet) - 轻量钱包测试工具
+- Mock Provider：使用 wagmi 的 mock connector 进行组件级测试
 
 ---
 
