@@ -1,8 +1,8 @@
 # Web3 AI Agent Skill Map V3
 
-> 最后更新：2026-04-28（第五版）
-> 当前版本：v0.7.1
-> 当前阶段：E2E测试全部通过 → 9 E2E tests 9/9（对话超时修复）+ 浏览器验收 7/7
+> 最后更新：2026-04-28（第六版）
+> 当前版本：v0.7.2
+> 当前阶段：P1 任务全量交付完成 → E2E 18 tests 18/18 + 浏览器验收 7/7 + RLS 升级 + 安全加固
 
 ## 项目状态速览
 
@@ -31,10 +31,11 @@
 | **ERC20 Approve 流程** | ✅ 完成 | TransferCard 完整授权流程，二次 allowance 校验 |
 | **API 参考文档** | ✅ 完成 | docs/API-REFERENCE.md，聊天/工具/健康检查/SSE 协议 |
 | **部署文档更新** | ✅ 完成 | Supabase 配置、环境变量扩充、表结构说明 |
-| **E2E 测试框架** | ✅ 完成 | Playwright chromium，9 E2E tests **9/9 全部通过** |
+| **E2E 测试框架** | ✅ 完成 | Playwright chromium，18 E2E tests **18/18 全部通过** |
 | **浏览器验收** | ✅ 完成 | 7/7 全部通过 |
-| 待验证 | 🔄 待办 | Anthropic 验证 |
-| 待补充 | ⏳ 待办 | CI/CD |
+| **RLS 升级方案** | ✅ 完成 | 服务端 DELETE 验证 + ownership API + migration |
+| **地址验证** | ✅ 完成 | route.ts + client.ts 双重正则验证 |
+| **SSR 闪烁** | ✅ 完成 | layout.tsx 内联脚本同步初始化 |
 
 ## 已完成能力清单
 
@@ -234,9 +235,9 @@ AI-Agent/
 - [x] **浏览器验收**：7/7 通过：页面加载、主题切换、聊天功能、设置面板、钱包连接、侧边栏、UI 布局
 
 ### 中优先级
-- [ ] **生产 RLS 升级**：Supabase Auth + JWT（生产部署前必须）
-- [x] **消除 SSR 主题闪烁**：layout.tsx 内联脚本已实现，React 执行前同步设置主题
-- [ ] **E2E 测试完善**：添加钱包连接和转账卡片 E2E 测试
+- [x] **生产 RLS 升级**：服务端 DELETE 验证 + ownership API + migration（已完成）
+- [x] **消除 SSR 主题闪烁**：layout.tsx 内联脚本已实现，React 执行前同步设置主题（已完成）
+- [x] **E2E 测试完善**：新增钱包验证 + verify-ownership + 转账卡片测试，9→18 tests（已完成）
 
 ### 低优先级
 - [x] **钱包地址格式验证**：route.ts 添加正则验证 + client.ts 双重防护
@@ -247,13 +248,13 @@ AI-Agent/
 ## 下一步建议入口
 
 - `/origin` - 新任务入口
-- `/browser-verify` - 浏览器验收测试（验证主题切换、钱包上下文、删除弹窗、转账卡片）
 - `/explore` - 探索项目现状
 - `/pipeline feat` - 开发新功能（如自定义主题色、多语言支持、RAG 知识库）
-- `/pipeline patch` - 修复 SSR 主题闪烁、添加钱包地址验证、完善 E2E 测试
+- `/pipeline patch` - 修复和优化（如 CSS 变量命名冲突、CI/CD）
 
 ## 历史状态
 
+ 2026-04-28：P1 任务全量交付完成（v0.7.2）→ E2E 18 tests 18/18，RLS 升级方案（服务端 DELETE 双验证 + migration），钱包地址验证，SSR 闪烁修复，新增 9 个测试覆盖钱包/verify-ownership/转账卡片
 > 2026-04-28：E2E 对话超时修复 + 浏览器验收完成（v0.7.1）→ 9/9 全部通过，对话测试 waitForTimeout→条件等待重构，浏览器验收 7/7
 > 2026-04-28：E2E 测试框架 + 文档体系完成（v0.7.0）→ Playwright chromium 9 tests 8/9 通过，API 文档 674 行，部署文档更新（Supabase），ERC20 Approve 流程验证完成，新增 changelog
 > 2026-04-28：单元测试全覆盖完成（v0.6.0）→ 31 文件 238 tests 100% 通过，测试报告+复盘文档
@@ -480,34 +481,41 @@ origin -> qa / audit / browser-verify / resolve-doc-conflicts / digest / update-
 
 ### 🎯 推荐入口（按优先级）
 
-1. **已完成：ERC20 Approve 完整流程** ✅
-   - TransferCard 已实现完整授权流程，二次 allowance 校验
-   - 无需额外开发
+- **已完成：P1 任务全量交付** ✅
+  - RLS 升级方案（服务端 DELETE 双验证 + migration）
+  - E2E 覆盖完善（9→18 tests，全部通过）
+  - 钱包地址格式验证（route.ts + client.ts 双重验证）
+  - SSR 主题闪烁修复（layout.tsx 内联脚本）
+  - 浏览器验收（7/7 通过）
+  - ERC20 Approve 完整流程
 
-2. **浏览器验收** (`/browser-verify`)
-   - 验证转账卡片功能（ETH 转账、ERC20 转账、状态恢复）
-   - 验证主题切换（Light/Dark/System）
-   - 验证钱包上下文注入（查询“我的余额”）
-   - 验证删除弹窗和断开清空
-   - 测试多钱包切换场景
+### 🆕 下一步推荐
 
-3. **消除 SSR 主题闪烁** (`/pipeline patch`)
-   - layout.tsx 的 <head> 添加同步脚本
-   - 预计 20 分钟
+1. **Anthropic 验证** (`/pipeline patch`)
+   - 验证多模型兼容性和工具调用链
+   - 依赖：Anthropic API Key
+   - 预估：1-2 天
 
-4. **添加钱包地址格式验证** (`/pipeline patch`)
-   - route.ts 添加正则验证 `/^0x[a-fA-F0-9]{40}$/`
-   - 预计 10 分钟
+2. **CI/CD 自动化** (`/pipeline feat`)
+   - 自动化测试和部署
+   - 工具：GitHub Actions / Vercel
+   - 预估：5-7 天
 
-5. **完善 E2E 测试覆盖** (`/pipeline feat`)
-   - 添加钱包连接 E2E 测试
-   - 添加转账卡片完整流程 E2E 测试
-   - 添加 ERC20 approve + transfer 端到端测试
+3. **自定义主题色** (`/pipeline feat`)
+   - 支持科技蓝、加密紫等方案（主题架构已就绪）
+   - 预估：3-5 天
+
+4. **多语言支持** (`/pipeline feat`)
+   - 中文、English、日本語切换
+   - 预估：5-7 天
 
 ### ⚠️ 生产前必须完成
 
-- [x] 实现 ERC20 Approve 完整流程（P0，生产环境必须）— 已验证完成
+- [x] 实现 ERC20 Approve 完整流程 — 已验证完成
 - [x] 编写部署文档 — 已完成
-- [x] 添加错误边界和加载状态
-- [x] 优化首屏加载性能（钱包 SDK 按需加载）
-- [ ] 配置 CI/CD 流程
+- [x] RLS 升级方案（服务端 DELETE 双验证 + migration）— 已完成
+- [x] E2E 测试覆盖完善（18 tests 18/18）— 已完成
+- [x] SSR 主题闪烁修复 — 已完成
+- [x] 钱包地址格式验证 — 已完成
+- [x] 浏览器验收测试 7/7 — 已完成
+- [ ] CI/CD 流程

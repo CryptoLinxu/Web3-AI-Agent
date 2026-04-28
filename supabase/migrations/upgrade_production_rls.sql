@@ -32,7 +32,34 @@ DROP POLICY IF EXISTS "Users can insert own transfer cards" ON transfer_cards;
 DROP POLICY IF EXISTS "Users can update own transfer cards" ON transfer_cards;
 
 -- ============================================
--- Step 2: 创建新的 RLS 策略
+-- Step 2: 删除已存在的新策略（源自 init.sql）
+-- ============================================
+
+-- conversations 表
+DROP POLICY IF EXISTS "conversations_select_policy" ON conversations;
+DROP POLICY IF EXISTS "conversations_insert_policy" ON conversations;
+DROP POLICY IF EXISTS "conversations_update_policy" ON conversations;
+DROP POLICY IF EXISTS "conversations_delete_policy" ON conversations;
+
+-- messages 表
+DROP POLICY IF EXISTS "messages_select_policy" ON messages;
+DROP POLICY IF EXISTS "messages_insert_policy" ON messages;
+DROP POLICY IF EXISTS "messages_update_policy" ON messages;
+DROP POLICY IF EXISTS "messages_delete_policy" ON messages;
+
+-- transfer_cards 表
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'transfer_cards') THEN
+    DROP POLICY IF EXISTS "transfer_cards_select_policy" ON transfer_cards;
+    DROP POLICY IF EXISTS "transfer_cards_insert_policy" ON transfer_cards;
+    DROP POLICY IF EXISTS "transfer_cards_update_policy" ON transfer_cards;
+    DROP POLICY IF EXISTS "transfer_cards_delete_policy" ON transfer_cards;
+  END IF;
+END $$;
+
+-- ============================================
+-- Step 3: 创建新的 RLS 策略
 -- ============================================
 
 -- conversations 表策略
@@ -108,7 +135,7 @@ BEGIN
 END $$;
 
 -- ============================================
--- Step 3: 验证配置
+-- Step 4: 验证配置
 -- ============================================
 
 -- 验证 RLS 已启用

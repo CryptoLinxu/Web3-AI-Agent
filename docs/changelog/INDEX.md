@@ -4,6 +4,14 @@
 
 ## 2026-04
 
+### 2026-04-28（4 个功能）
+
+| 文件 | 主题 | 类型 | Commit |
+|------|------|------|--------|
+| [feat-p1-completion](2026-04-28-feat-p1-completion.md) | P1 全量交付：RLS 升级 + E2E 覆盖完善 | PATCH | 待提交 |
+| [feat-e2e-testing](2026-04-28-feat-e2e-testing.md) | E2E 测试框架 + 文档体系（v0.7.0） | FEAT | 待提交 |
+| [feat-unit-test-coverage](2026-04-28-feat-unit-test-coverage.md) | 单元测试全覆盖（v0.6.0） | FEAT | 待提交 |
+
 ### 2026-04-24（1 个功能）
 
 | 文件 | 主题 | 类型 | Commit |
@@ -41,10 +49,9 @@
 
 ## 统计
 
-- **总记录数**: 7 (含 2 个未记录)
-- **FEAT**: 7
-- **PATCH**: 0
-- **REFACTOR**: 0
+- **总记录数**: 10 (含 2 个未记录)
+- **FEAT**: 9
+- **PATCH**: 1
 
 ## 按模块分类
 
@@ -89,6 +96,11 @@
 | ERC20 | [2026-04-24-feat-web3-transfer-card.md](2026-04-24-feat-web3-transfer-card.md) |
 | TransferCard | [2026-04-24-feat-web3-transfer-card.md](2026-04-24-feat-web3-transfer-card.md) |
 | 数据持久化 | [2026-04-24-feat-web3-transfer-card.md](2026-04-24-feat-web3-transfer-card.md) |
+| RLS | [2026-04-28-feat-p1-completion.md](2026-04-28-feat-p1-completion.md) |
+| 安全 | [2026-04-28-feat-p1-completion.md](2026-04-28-feat-p1-completion.md) |
+| E2E 测试 | [2026-04-28-feat-p1-completion.md](2026-04-28-feat-p1-completion.md) |
+| 转账卡片 E2E | [2026-04-28-feat-p1-completion.md](2026-04-28-feat-p1-completion.md) |
+| Playwright | [2026-04-28-feat-p1-completion.md](2026-04-28-feat-p1-completion.md) |
 
 ## 快速链接
 

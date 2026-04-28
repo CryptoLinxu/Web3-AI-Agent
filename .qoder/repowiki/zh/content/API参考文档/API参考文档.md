@@ -6,6 +6,8 @@
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
 - [apps/web/app/api/health/route.ts](file://apps/web/app/api/health/route.ts)
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
 - [apps/web/types/chat.ts](file://apps/web/types/chat.ts)
 - [apps/web/types/stream.ts](file://apps/web/types/stream.ts)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
@@ -25,6 +27,9 @@
 - 新增流式工具调用协议，说明工具执行过程的实时展示
 - 更新架构总览，反映SSE流式处理的两阶段对话流程
 - 新增流式调试功能，包含详细的流式过程日志记录
+- **新增**：对话删除API（/api/supabase/delete-conversation），提供安全的对话删除功能
+- **新增**：所有权验证API（/api/supabase/verify-ownership），提供对话所有权验证服务
+- **新增**：数据库安全增强，包含RLS策略升级和双重验证机制
 
 ## 目录
 1. [简介](#简介)
@@ -52,15 +57,18 @@
 - **新增**：useChatStream Hook前端集成指南
 - **新增**：流式工具调用协议和实时展示机制
 - **新增**：流式调试功能和详细的流式过程日志记录
+- **新增**：对话删除API和所有权验证API的安全接口文档
+- **新增**：数据库RLS策略升级和双重验证机制
 
 ## 项目结构
 技能系统以"主入口 + 分层路由 + 交付流水线 + 治理闭环"的方式组织，核心文件如下：
 - 主入口与命令约定：SKILL.md、COMMANDS.md
 - 系统设计（V3）：SKILL-SYSTEM-DESIGN-V3.md
 - 技能定义：architect、pm、pipeline、qa、coder、check-in、digest、update-map 等 SKILL.md
-- **新增**：Web应用API层，包含聊天API、工具API和健康检查API
+- **新增**：Web应用API层，包含聊天API、工具API、健康检查API、对话删除API和所有权验证API
 - **新增**：前端流式处理Hook，支持SSE流式输出和实时状态管理
 - **新增**：完整的API参考文档，包含详细的端点规范和使用示例
+- **新增**：数据库安全增强，包含RLS策略升级和双重验证机制
 
 ```mermaid
 graph TB
@@ -95,6 +103,8 @@ subgraph "Web应用API层"
 CHAT["/api/chat<br/>聊天API"]
 TOOLS["/api/tools<br/>工具API"]
 HEALTH["/api/health<br/>健康检查API"]
+DELCONV["/api/supabase/delete-conversation<br/>对话删除API"]
+VERIFYOWN["/api/supabase/verify-ownership<br/>所有权验证API"]
 END
 subgraph "前端集成层"
 HOOK["useChatStream Hook<br/>流式状态管理"]
@@ -121,6 +131,7 @@ PIPE --> DIGEST
 PIPE --> UMAP
 CHAT --> TOOLS
 CHAT --> HEALTH
+DELCONV --> VERIFYOWN
 TOOLS --> HOOK
 HEALTH --> HOOK
 HOOK --> COMP
@@ -133,6 +144,8 @@ HOOK --> COMP
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
 - [apps/web/app/api/health/route.ts](file://apps/web/app/api/health/route.ts)
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
 
 ## 核心组件
 - 主入口 web3-ai-agent：统一接收外部请求，先经 origin 判断任务类型，再路由到相应技能或 pipeline。
@@ -144,6 +157,9 @@ HOOK --> COMP
 - **新增**：useChatStream Hook，提供完整的流式状态管理和错误处理。
 - **新增**：流式工具调用协议，支持工具执行过程的实时展示和状态更新。
 - **新增**：转账卡片功能，支持ETH原生转账和ERC20 Token转账的完整流程。
+- **新增**：对话删除API，提供安全的对话删除功能，支持双重验证机制。
+- **新增**：所有权验证API，提供对话所有权验证服务，确保数据安全。
+- **新增**：数据库RLS策略升级，包含严格的DELETE权限控制。
 
 **章节来源**
 - [skills/x-ray/SKILL.md](file://skills/x-ray/SKILL.md)
@@ -152,11 +168,13 @@ HOOK --> COMP
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
 - [apps/web/app/api/health/route.ts](file://apps/web/app/api/health/route.ts)
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
 - [apps/web/types/stream.ts](file://apps/web/types/stream.ts)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
 
 ## 架构总览
-系统采用"入口路由 → 任务分类 → 交付管线（可选）→ 实施对齐 → 设计/验证/实现 → 风险审计 → 经验沉淀 → 地图更新"的闭环，**新增**SSE流式处理支持的两阶段对话流程。
+系统采用"入口路由 → 任务分类 → 交付管线（可选）→ 实施对齐 → 设计/验证/实现 → 风险审计 → 经验沉淀 → 地图更新"的闭环，**新增**SSE流式处理支持的两阶段对话流程。**新增**数据库安全增强，包含RLS策略升级和双重验证机制。
 
 ```mermaid
 sequenceDiagram
@@ -167,6 +185,9 @@ participant P as "pipeline"
 participant D as "定义层/交付层/治理层"
 participant M as "map(更新)"
 participant CHAT as "聊天API"
+participant DELCONV as "对话删除API"
+participant VERIFYOWN as "所有权验证API"
+participant DB as "数据库"
 participant STREAM as "SSE流式处理"
 participant HOOK as "useChatStream Hook"
 U->>W : "自然语言/斜杠命令"
@@ -191,6 +212,15 @@ else 不需要工具
 STREAM->>HOOK : "实时展示回复内容"
 end
 HOOK-->>U : "流式更新UI状态"
+Note over DELCONV,VERIFYOWN : 数据库安全增强
+U->>VERIFYOWN : "验证对话所有权"
+VERIFYOWN->>DB : "查询conversations表"
+DB-->>VERIFYOWN : "返回wallet_address"
+VERIFYOWN-->>U : "返回isOwner状态"
+U->>DELCONV : "删除对话需要验证通过"
+DELCONV->>DB : "删除messages和conversations"
+DB-->>DELCONV : "确认删除"
+DELCONV-->>U : "返回删除成功"
 ```
 
 **图表来源**
@@ -198,6 +228,8 @@ HOOK-->>U : "流式更新UI状态"
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md)
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
 - [apps/web/types/stream.ts](file://apps/web/types/stream.ts)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
 
@@ -506,9 +538,79 @@ curl http://localhost:3000/api/health
 **章节来源**
 - [apps/web/app/api/health/route.ts](file://apps/web/app/api/health/route.ts)
 
+### 对话删除API（/api/supabase/delete-conversation）
+**概述**
+服务端删除对话API，提供安全的对话删除功能。该API使用service_role密钥执行删除操作（绕过RLS），并在删除前进行所有权验证。
+
+**请求格式**
+```json
+{
+  "conversationId": "00000000-0000-0000-0000-000000000000",
+  "walletAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f5eE2B"
+}
+```
+
+**响应格式**
+```json
+{
+  "success": true
+}
+```
+
+**安全性机制**
+- **服务端特权访问**：使用service_role密钥（或anon密钥）绕过RLS策略
+- **双重验证**：先验证对话所有权，再执行删除操作
+- **外键约束处理**：先删除messages表中的相关记录，再删除conversations表中的对话
+
+**错误处理**
+- 缺少参数：返回400状态码，提示缺少conversationId或walletAddress参数
+- 无效钱包地址格式：返回400状态码，提示无效的钱包地址格式
+- 对话不存在：返回404状态码，提示对话不存在
+- 无权删除：返回403状态码，提示无权删除此对话
+- 删除失败：返回500状态码，提示删除消息或对话失败
+- 服务器内部错误：返回500状态码
+
+**章节来源**
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+
+### 所有权验证API（/api/supabase/verify-ownership）
+**概述**
+对话所有权验证API，提供对话所有权验证服务。该API通过直接查询数据库确认对话属于指定钱包地址。
+
+**请求格式**
+```json
+{
+  "conversationId": "00000000-0000-0000-0000-000000000000",
+  "walletAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f5eE2B"
+}
+```
+
+**响应格式**
+```json
+{
+  "isOwner": true
+}
+```
+
+**验证流程**
+- **参数验证**：检查conversationId和walletAddress参数的有效性
+- **钱包地址格式验证**：使用正则表达式验证钱包地址格式
+- **数据库查询**：查询conversations表获取wallet_address字段
+- **所有权比较**：比较请求中的钱包地址与数据库中的钱包地址
+- **结果返回**：返回isOwner布尔值表示验证结果
+
+**错误处理**
+- 缺少参数：返回400状态码，提示缺少conversationId或walletAddress参数
+- 无效钱包地址格式：返回400状态码，提示无效的钱包地址格式
+- 对话不存在：返回404状态码，提示对话不存在
+- 数据库查询失败：返回500状态码，提示服务器内部错误
+
+**章节来源**
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
+
 ### Web应用集成API
 **概述**
-Web应用提供完整的聊天界面，包含消息列表、输入框和工具调用展示。**新增**SSE流式处理支持，实现实时内容更新和工具调用展示。
+Web应用提供完整的聊天界面，包含消息列表、输入框和工具调用展示。**新增**SSE流式处理支持，实现实时内容更新和工具调用展示。**新增**对话删除和所有权验证的前端集成。
 
 **消息类型定义**
 ```typescript
@@ -576,6 +678,42 @@ const sendMessage = async (messages, walletAddress) => {
   
   return finalResult
 }
+
+// 对话删除前端集成
+const handleDeleteConversation = async (conversationId, walletAddress) => {
+  try {
+    // 第一步：验证所有权
+    const verifyRes = await fetch('/api/supabase/verify-ownership', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, walletAddress })
+    })
+    
+    const verifyData = await verifyRes.json()
+    
+    if (!verifyData.isOwner) {
+      throw new Error(verifyData.error || '无权删除此对话')
+    }
+    
+    // 第二步：执行删除
+    const deleteRes = await fetch('/api/supabase/delete-conversation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, walletAddress })
+    })
+    
+    const deleteData = await deleteRes.json()
+    
+    if (!deleteData.success) {
+      throw new Error(deleteData.error || '删除对话失败')
+    }
+    
+    // 删除成功后的UI更新
+    updateConversationList(conversationId)
+  } catch (error) {
+    showError(error.message)
+  }
+}
 ```
 
 **流式消息组件**
@@ -610,8 +748,9 @@ const sendMessage = async (messages, walletAddress) => {
 - 交付层：architect、qa、coder、audit
 - 治理层：digest、update-map
 - 辅助层：explore、init-docs、browser-verify、resolve-doc-conflicts
-- **新增**：Web应用API层：chat API、tools API、health API
+- **新增**：Web应用API层：chat API、tools API、health API、delete-conversation API、verify-ownership API
 - **新增**：前端集成层：useChatStream Hook、消息组件
+- **新增**：数据库安全层：RLS策略升级、双重验证机制
 
 ```mermaid
 graph LR
@@ -636,6 +775,9 @@ PIPE --> DIGEST["digest"]
 PIPE --> UMAP["update-map"]
 CHAT["/api/chat"] --> TOOLS["/api/tools"]
 CHAT --> HEALTH["/api/health"]
+DELCONV["/api/supabase/delete-conversation"] --> VERIFYOWN["/api/supabase/verify-ownership"]
+CHAT --> DELCONV
+CHAT --> VERIFYOWN
 TOOLS --> PM
 TOOLS --> PRD
 TOOLS --> REQ
@@ -651,6 +793,8 @@ COMP["消息组件"] --> HOOK
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
 - [apps/web/app/api/health/route.ts](file://apps/web/app/api/health/route.ts)
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
 - [apps/web/types/stream.ts](file://apps/web/types/stream.ts)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
 
@@ -660,6 +804,8 @@ COMP["消息组件"] --> HOOK
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
 - [apps/web/app/api/health/route.ts](file://apps/web/app/api/health/route.ts)
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
 - [apps/web/types/stream.ts](file://apps/web/types/stream.ts)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
 
@@ -674,11 +820,16 @@ COMP["消息组件"] --> HOOK
 - **新增**：工具调用流式展示：实时展示工具执行状态，提升用户体验。
 - **新增**：转账卡片优化：避免重复显示内容，提升转账场景的用户体验。
 - **新增**：流式调试优化：详细的流式过程日志记录，便于性能分析和问题诊断。
+- **新增**：数据库查询优化：使用单次查询获取wallet_address，避免多次数据库往返。
+- **新增**：RLS策略优化：使用service_role密钥绕过RLS，提升删除操作性能。
+- **新增**：前端验证优化：先进行前端格式验证，减少无效请求。
 
 **章节来源**
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md)
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
 
 ## 故障排查指南
 - 缺少 check-in
@@ -700,20 +851,33 @@ COMP["消息组件"] --> HOOK
   - **工具调用流式展示失败**：检查工具调用状态更新逻辑
   - **流式状态不同步**：检查节流更新机制和状态同步逻辑
   - **转账卡片显示异常**：检查transfer_data事件处理和状态更新
+- **新增**：对话删除API错误
+  - **参数验证失败**：检查conversationId和walletAddress格式，确保UUID格式和钱包地址格式正确
+  - **对话不存在**：确认conversationId是否正确，检查数据库中是否存在该对话
+  - **无权删除**：确认当前用户是否拥有该对话的所有权，检查钱包地址匹配
+  - **删除失败**：检查数据库连接和外键约束，确认messages表和conversations表的删除顺序
+- **新增**：所有权验证API错误
+  - **参数缺失**：检查conversationId和walletAddress是否都提供
+  - **钱包地址格式错误**：使用正则表达式验证钱包地址格式`^0x[a-fA-F0-9]{40}$`
+  - **数据库查询失败**：检查Supabase连接配置和RLS策略
 - **新增**：流式调试日志分析
   - **流式请求失败**：检查SSE连接建立和事件接收日志
   - **工具调用流式展示异常**：查看tool_call事件处理和状态更新
   - **流式性能问题**：分析流式传输耗时和内容更新频率
   - **错误追踪**：利用详细的流式错误日志进行问题定位
+  - **对话删除调试**：监控verify-ownership和delete-conversation的调用日志
+  - **数据库操作调试**：查看RLS策略执行和外键约束处理日志
 
 **章节来源**
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md)
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
 
 ## 结论
-本参考文档梳理了Web3 AI Agent技能系统的入口、命令、分层与流水线规则，明确了各技能的输入输出与衔接关系，并提供了故障排查与性能优化建议。**新增**的完整的API参考文档为系统提供了全面的技术规范，包含详细的REST端点规范、TypeScript接口定义、使用示例和错误处理文档。**新增**的SSE流式聊天API为系统增加了强大的实时交互能力，支持两阶段对话流程的完整流式体验。**新增**的StreamChunk接口和useChatStream Hook提供了统一的流式处理协议和完整的前端集成方案。**新增**的流式工具调用协议和实时展示机制显著提升了用户体验，让用户能够实时看到AI的思考过程和工具执行状态。**新增**的转账卡片功能进一步完善了Web3应用场景的用户体验。**新增**的流式调试功能增强了系统的可观测性和可维护性，详细的流式过程日志记录为问题诊断和性能优化提供了有力支持。建议集成方遵循斜杠命令约定与 check-in 强制规则，结合 pipeline 的短链路策略，充分利用SSE流式处理能力和完整的API规范提升交付效率与质量。
+本参考文档梳理了Web3 AI Agent技能系统的入口、命令、分层与流水线规则，明确了各技能的输入输出与衔接关系，并提供了故障排查与性能优化建议。**新增**的完整的API参考文档为系统提供了全面的技术规范，包含详细的REST端点规范、TypeScript接口定义、使用示例和错误处理文档。**新增**的SSE流式聊天API为系统增加了强大的实时交互能力，支持两阶段对话流程的完整流式体验。**新增**的StreamChunk接口和useChatStream Hook提供了统一的流式处理协议和完整的前端集成方案。**新增**的流式工具调用协议和实时展示机制显著提升了用户体验，让用户能够实时看到AI的思考过程和工具执行状态。**新增**的转账卡片功能进一步完善了Web3应用场景的用户体验。**新增**的流式调试功能增强了系统的可观测性和可维护性，详细的流式过程日志记录为问题诊断和性能优化提供了有力支持。**新增**的对话删除API和所有权验证API提供了完善的数据安全管理，包含RLS策略升级和双重验证机制，确保用户数据的安全性和隐私性。建议集成方遵循斜杠命令约定与 check-in 强制规则，结合 pipeline 的短链路策略，充分利用SSE流式处理能力和完整的API规范提升交付效率与质量。同时，建议在集成对话删除功能时，遵循前端验证和后端验证的双重安全机制，确保数据操作的安全性。
 
 ## 附录
 
@@ -745,17 +909,25 @@ COMP["消息组件"] --> HOOK
   - 流式日志级别：INFO、DEBUG、ERROR
   - 流式日志格式：JSON格式，包含时间戳、调用阶段、消息内容
   - 调试信息：流式连接、事件接收、状态更新、错误详情
+- **新增**：数据库安全协议
+  - RLS策略升级：DELETE操作严格限制为current_setting('app.current_wallet_address', true)
+  - 双重验证机制：前端verify-ownership + 后端delete-conversation
+  - 服务端特权访问：使用service_role密钥绕过RLS策略
+  - 外键约束处理：先删除messages再删除conversations
 - 数据传递机制
   - 以"任务卡/上下文/产物"为载体，在相邻技能间传递。
   - pipeline 根据任务类型动态选择必经/可跳过技能，减少冗余。
   - **新增**：流式消息携带工具调用信息，支持实时工具调用展示。
   - **新增**：转账卡片数据通过transfer_data事件实时传递。
+  - **新增**：对话删除API通过conversationId和walletAddress进行安全验证。
 
 **章节来源**
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md)
 - [apps/web/types/chat.ts](file://apps/web/types/chat.ts)
 - [apps/web/types/stream.ts](file://apps/web/types/stream.ts)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
 
 ### 版本管理与向后兼容
 - V3 核心变化
@@ -772,6 +944,7 @@ COMP["消息组件"] --> HOOK
   - **新增**：V4：SSE流式聊天API和实时工具调用展示
   - **新增**：V5：增强流式调试功能和日志记录
   - **新增**：V6：完整的API参考文档和TypeScript接口定义
+  - **新增**：V7：对话删除API和所有权验证API的安全增强
 - 向后兼容建议
   - 旧流程可逐步迁移到 V3 的 7 类任务与按需进入策略。
   - 保持斜杠命令与主入口不变，内部路由逻辑平滑过渡。
@@ -779,6 +952,8 @@ COMP["消息组件"] --> HOOK
   - **新增**：流式API向后兼容，支持传统JSON响应
   - **新增**：调试日志格式标准化，确保历史版本兼容
   - **新增**：工具API向后兼容，支持getETHPrice/getBTCPrice/getWalletBalance
+  - **新增**：数据库RLS策略向后兼容，支持匿名密钥降级
+  - **新增**：对话删除API向后兼容，支持前端验证降级
 
 **章节来源**
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md)
@@ -791,6 +966,7 @@ COMP["消息组件"] --> HOOK
   - **新增**：Web应用集成：使用内置聊天界面或自定义UI组件
   - **新增**：流式集成：使用useChatStream Hook实现SSE流式处理
   - **新增**：转账卡片集成：支持ETH原生转账和ERC20 Token转账的完整流程
+  - **新增**：对话删除集成：先调用verify-ownership，再调用delete-conversation
 - SDK 使用建议
   - 将"命令 + 描述"封装为统一输入格式，便于宿主产品下拉提示与自动补全。
   - 在 coder 卡住时，解析 STUCK 报告并触发人工介入流程。
@@ -799,6 +975,8 @@ COMP["消息组件"] --> HOOK
   - **新增**：流式状态管理：使用useChatStream Hook处理流式状态和错误
   - **新增**：流式调试集成：收集和分析流式过程日志
   - **新增**：转账卡片集成：支持实时转账状态展示和数据持久化
+  - **新增**：对话删除集成：实现前端验证和后端验证的双重安全保障
+  - **新增**：数据库安全集成：遵循RLS策略和双重验证的最佳实践
 - 错误码与异常处理
   - 缺少 check-in：禁止进入 architect/qa/coder，需先完成 check-in。
   - coder 超限：输出 STUCK 报告并终止，请求人工介入。
@@ -808,6 +986,8 @@ COMP["消息组件"] --> HOOK
   - **新增**：流式工具调用错误：地址格式验证、RPC连接检查、工具参数校验
   - **新增**：流式调试错误：提供详细的流式过程日志，便于问题诊断
   - **新增**：转账卡片错误：地址格式验证、链ID验证、金额格式验证
+  - **新增**：对话删除错误：参数验证、所有权验证、数据库操作错误处理
+  - **新增**：所有权验证错误：参数验证、钱包地址格式验证、数据库查询错误处理
 - **新增**：流式API集成最佳实践
   - 设置正确的Accept头：'text/event-stream'
   - 实现流式状态管理：使用useChatStream Hook
@@ -815,12 +995,16 @@ COMP["消息组件"] --> HOOK
   - 优化流式性能：合理使用节流更新和状态同步
   - 错误恢复：实现自动重试和错误提示
   - 转账卡片处理：避免重复显示内容，实时更新状态
+  - **新增**：对话删除最佳实践：先验证后删除，错误处理和用户反馈
+  - **新增**：数据库安全最佳实践：RLS策略遵循和服务端特权访问
 
 **章节来源**
 - [skills/x-ray/COMMANDS.md](file://skills/x-ray/COMMANDS.md)
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md)
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
+- [apps/web/app/api/supabase/delete-conversation/route.ts](file://apps/web/app/api/supabase/delete-conversation/route.ts)
+- [apps/web/app/api/supabase/verify-ownership/route.ts](file://apps/web/app/api/supabase/verify-ownership/route.ts)
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
 
 ### Web应用组件集成
@@ -856,6 +1040,60 @@ const {
 } = useChatStream()
 ```
 
+**对话删除组件集成示例**
+```typescript
+// 对话删除确认组件
+<ConfirmDialog
+  title="确认删除对话"
+  message="删除后将无法恢复，确定要删除此对话吗？"
+  onConfirm={() => handleDeleteConversation(conversationId, walletAddress)}
+  onCancel={() => setShowDeleteDialog(false)}
+  isOpen={showDeleteDialog}
+/>
+
+// 对话删除处理函数
+const handleDeleteConversation = async (conversationId, walletAddress) => {
+  try {
+    // 前端格式验证
+    if (!isValidConversationId(conversationId) || !isValidWalletAddress(walletAddress)) {
+      throw new Error('参数格式错误')
+    }
+
+    // 第一步：验证所有权
+    const verifyRes = await fetch('/api/supabase/verify-ownership', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, walletAddress })
+    })
+    
+    const verifyData = await verifyRes.json()
+    
+    if (!verifyData.isOwner) {
+      throw new Error(verifyData.error || '无权删除此对话')
+    }
+    
+    // 第二步：执行删除
+    const deleteRes = await fetch('/api/supabase/delete-conversation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, walletAddress })
+    })
+    
+    const deleteData = await deleteRes.json()
+    
+    if (!deleteData.success) {
+      throw new Error(deleteData.error || '删除对话失败')
+    }
+    
+    // 删除成功后的UI更新
+    updateConversationList(conversationId)
+    setShowDeleteDialog(false)
+  } catch (error) {
+    showError(error.message)
+  }
+}
+```
+
 **章节来源**
 - [apps/web/types/chat.ts](file://apps/web/types/chat.ts)
 - [apps/web/types/stream.ts](file://apps/web/types/stream.ts)
@@ -879,6 +1117,8 @@ const {
 - 错误追踪：利用日志中的错误信息快速定位问题
 - **新增**：流式状态监控：实时监控流式状态变化和性能指标
 - **新增**：转账卡片调试：监控转账卡片事件和状态更新
+- **新增**：对话删除调试：监控verify-ownership和delete-conversation的调用日志
+- **新增**：数据库操作调试：查看RLS策略执行和外键约束处理日志
 
 **章节来源**
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
@@ -892,6 +1132,7 @@ const {
 - 使用示例：完整的客户端集成示例
 - 错误处理：详细的错误码说明和处理策略
 - SSE协议：流式通信的详细规范
+- **新增**：数据库安全：RLS策略和双重验证机制说明
 
 **使用建议**
 - 从API概览开始，了解系统提供的所有功能
@@ -900,6 +1141,8 @@ const {
 - 参考使用示例，快速集成到项目中
 - 重点关注错误处理和异常情况
 - 利用SSE协议实现实时交互功能
+- **新增**：遵循数据库安全最佳实践，确保数据操作安全
+- **新增**：实现前端验证和后端验证的双重安全保障
 
 **章节来源**
 - [docs/API-REFERENCE.md](file://docs/API-REFERENCE.md)
