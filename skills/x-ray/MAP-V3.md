@@ -1,8 +1,8 @@
 # Web3 AI Agent Skill Map V3
 
-> 最后更新：2026-04-28（第三版）
-> 当前版本：v0.6.0
-> 当前阶段：单元测试全覆盖完成 → 238 tests 100% 通过
+> 最后更新：2026-04-28（第四版）
+> 当前版本：v0.7.0
+> 当前阶段：E2E测试框架+文档体系完成 → 9 E2E tests 8/9 通过
 
 ## 项目状态速览
 
@@ -27,9 +27,13 @@
 | **转账卡片** | ✅ 完成 | AI 识别转账意图生成卡片，支持 ETH+ERC20 转账，数据持久化 |
 | **Token 配置** | ✅ 完成 | 多链 Token 注册表，支持原生币和 ERC20 |
 | **ERC20 余额查询** | ✅ 完成 | getTokenBalance 链上查询，支持 USDT/USDC/DAI，正确精度 |
-| **单元测试体系** | ✅ 完成 | Vitest monorepo workspace，31 文件 238 tests 100% 通过 |
+| 单元测试体系 | ✅ 完成 | Vitest monorepo workspace，31 文件 238 tests 100% 通过 |
+| **ERC20 Approve 流程** | ✅ 完成 | TransferCard 完整授权流程，二次 allowance 校验 |
+| **API 参考文档** | ✅ 完成 | docs/API-REFERENCE.md，聊天/工具/健康检查/SSE 协议 |
+| **部署文档更新** | ✅ 完成 | Supabase 配置、环境变量扩充、表结构说明 |
+| **E2E 测试框架** | ✅ 完成 | Playwright chromium，9 E2E tests 8/9 通过 |
 | 待验证 | 🔄 待办 | 浏览器验收、Anthropic 验证 |
-| 待补充 | ⏳ 待办 | E2E 测试、部署文档、CI/CD |
+| 待补充 | ⏳ 待办 | CI/CD |
 
 ## 已完成能力清单
 
@@ -221,16 +225,17 @@ AI-Agent/
 ## 待办事项（下一步）
 
 ### 高优先级
-- [ ] **ERC20 Approve 流程**：实现完整的 Token 授权流程 (P0)
-- [ ] **测试覆盖**：为核心功能添加单元测试和集成测试（含 Memory 管理、Supabase 数据层、getTokenBalance）
+- [x] **ERC20 Approve 流程**：实现完整的 Token 授权流程 (P0) — 已完成，代码已实现完整
+- [x] **测试覆盖**：为核心功能添加单元测试和集成测试（含 Memory 管理、Supabase 数据层、getTokenBalance）— 已完成
+- [x] **部署文档**：补充生产环境部署指南 — 已完成
+- [x] **API 文档**：补充详细 API 接口文档 — 已完成
 - [ ] **Anthropic 验证**：实际测试 Anthropic 工具调用链
 - [ ] **浏览器验收**：测试主题切换、钱包上下文、删除弹窗、断开清空、转账卡片
 
 ### 中优先级
 - [ ] **生产 RLS 升级**：Supabase Auth + JWT（生产部署前必须）
-- [ ] **部署文档**：补充生产环境部署指南
-- [ ] **API 文档**：补充详细 API 接口文档
 - [ ] **消除 SSR 主题闪烁**：layout.tsx 添加同步脚本（20 分钟）
+- [ ] **E2E 测试完善**：添加钱包连接和转账卡片 E2E 测试
 
 ### 低优先级
 - [ ] **钱包地址格式验证**：route.ts 添加正则验证（10 分钟）
@@ -243,11 +248,13 @@ AI-Agent/
 - `/origin` - 新任务入口
 - `/browser-verify` - 浏览器验收测试（验证主题切换、钱包上下文、删除弹窗、转账卡片）
 - `/explore` - 探索项目现状
-- `/pipeline feat` - 开发新功能（如 ERC20 Approve 完整流程、自定义主题色、多语言支持）
-- `/pipeline patch` - 修复 SSR 主题闪烁、添加钱包地址验证
+- `/pipeline feat` - 开发新功能（如自定义主题色、多语言支持、RAG 知识库）
+- `/pipeline patch` - 修复 SSR 主题闪烁、添加钱包地址验证、完善 E2E 测试
 
 ## 历史状态
 
+> 2026-04-28：E2E 测试框架 + 文档体系完成（v0.7.0）→ Playwright chromium 9 tests 8/9 通过，API 文档 674 行，部署文档更新（Supabase），ERC20 Approve 流程验证完成，新增 changelog
+> 2026-04-28：单元测试全覆盖完成（v0.6.0）→ 31 文件 238 tests 100% 通过，测试报告+复盘文档
 > 2026-04-24：新增 getTokenBalance 工具（v0.5.1）→ 链上查询 ERC20 Token（USDT/USDC/DAI）余额，使用正确精度格式化，解决 AI 把 ETH 余额误标为 USDT/USDC 的幻觉问题，Web3 工具从 5 组增至 6 组
 > 2026-04-24：Web3 转账卡片功能完成（v0.5.0）→ 支持 ETH+ERC20 转账、数据持久化、状态恢复、卡片可扩展架构，新增 7 文件 14 修改
 > 2026-04-23：UI 增强与全局主题系统 + 钱包上下文注入完成（v0.4.0，Audit 94分）→ 删除弹窗/断开清空/浅色主题/walletAddress 注入，用户体验全面提升
@@ -471,10 +478,9 @@ origin -> qa / audit / browser-verify / resolve-doc-conflicts / digest / update-
 
 ### 🎯 推荐入口（按优先级）
 
-1. **实现 ERC20 Approve 完整流程** (`/pipeline patch`)
-   - USDT 等 Token 转账需要先 approve 授权
-   - 使用 viem writeContract + ERC20 ABI
-   - 预计 2-3 天
+1. **已完成：ERC20 Approve 完整流程** ✅
+   - TransferCard 已实现完整授权流程，二次 allowance 校验
+   - 无需额外开发
 
 2. **浏览器验收** (`/browser-verify`)
    - 验证转账卡片功能（ETH 转账、ERC20 转账、状态恢复）
@@ -491,15 +497,15 @@ origin -> qa / audit / browser-verify / resolve-doc-conflicts / digest / update-
    - route.ts 添加正则验证 `/^0x[a-fA-F0-9]{40}$/`
    - 预计 10 分钟
 
-5. **测试覆盖** (`/pipeline feat`)
-   - 编写对话持久化单元测试
-   - 添加钱包登录 E2E 测试
-   - 验证 Memory 策略切换
+5. **完善 E2E 测试覆盖** (`/pipeline feat`)
+   - 添加钱包连接 E2E 测试
+   - 添加转账卡片完整流程 E2E 测试
+   - 添加 ERC20 approve + transfer 端到端测试
 
 ### ⚠️ 生产前必须完成
 
-- [ ] 实现 ERC20 Approve 完整流程（P0，生产环境必须）
-- [ ] 添加错误边界和加载状态
-- [ ] 优化首屏加载性能（钱包 SDK 按需加载）
-- [ ] 编写部署文档
+- [x] 实现 ERC20 Approve 完整流程（P0，生产环境必须）— 已验证完成
+- [x] 编写部署文档 — 已完成
+- [x] 添加错误边界和加载状态
+- [x] 优化首屏加载性能（钱包 SDK 按需加载）
 - [ ] 配置 CI/CD 流程

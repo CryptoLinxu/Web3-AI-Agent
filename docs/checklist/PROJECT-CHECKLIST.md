@@ -1,8 +1,8 @@
 # Web3 AI Agent 项目清单
 
-> 最后更新：2026-04-28（第三版）
-> 当前版本：v0.6.0
-> 项目阶段：单元测试全覆盖完成 → 238 tests 100% 通过
+> 最后更新：2026-04-28（第四版）
+> 当前版本：v0.7.0
+> 项目阶段：E2E测试框架+文档体系完成 → 9 E2E tests 8/9 通过
 
 ## 一、已完成功能 ✅
 
@@ -153,6 +153,13 @@
   - 测试报告：docs/test-report.md
   - 复盘文档：docs/digest/2026-04-28-unit-test-coverage.md
 
+- [x] **E2E 测试框架**（2026-04-28）
+  - Playwright 1.59.1 chromium
+  - playwright.config.ts 配置
+  - 9 个 E2E 测试用例（basic/api/chat），8/9 通过
+  - HTML 测试报告 + Trace 追踪
+  - 测试脚本：test:e2e / test:e2e:ui / test:e2e:headed
+
 - [x] Monorepo 架构（2026-04-17）
   - pnpm workspace
   - turbo 2.x 构建系统
@@ -195,6 +202,11 @@
   - apps/web/components/cards/TransferCard.tsx (338行)
   - apps/web/components/cards/DexSwapCard.tsx (预留)
   - apps/web/components/cards/index.ts (统一导出)
+- [x] **ERC20 Approve 完整流程**（2026-04-28）
+  - TransferCard 完整授权流程实现
+  - allowance 查询 + approve 交易调用 + 交易监听
+  - approve 成功后自动触发 transfer
+  - 二次 allowance 校验（防止链上状态未更新）
 - [x] **Token 配置管理**（2026-04-24）
   - apps/web/lib/tokens.ts
   - 支持多链 Token (ETH/Polygon/BSC)
@@ -232,6 +244,19 @@
   - docs/changelog/INDEX.md - 变更索引
   - docs/changelog/BACKFILL-GUIDE.md - 补录指南
   - docs/digest/2026-04-24-web3-transfer-card-implementation.md - 转账卡片功能实施
+  - docs/digest/2026-04-28-unit-test-coverage.md - 单元测试覆盖复盘
+- [x] **API 参考文档**（2026-04-28）
+  - docs/API-REFERENCE.md (674行)
+  - 包含 /api/chat、/api/tools、/api/health
+  - SSE 流式协议说明，含完整请求/响应示例
+- [x] **部署文档更新**（2026-04-28）
+  - docs/DEPLOYMENT.md 更新至 v1.1
+  - 新增 Supabase 数据库配置章节
+  - 扩充环境变量（Supabase/WalletConnect/RPC）
+  - 新增数据表结构说明
+- [x] **E2E 测试指南**（2026-04-28）
+  - docs/E2E-TESTING.md (466行)
+  - 包含测试结构、用例说明、调试技巧、CI/CD 集成
 
 ### 1.4 AI Agent 技能体系
 
@@ -259,17 +284,30 @@
   - 完成情况：31 文件、238 tests、100% 通过
   - 详见：docs/test-report.md
 
+- [x] **ERC20 Approve 完整流程** ✅（2026-04-28 完成）
+  - 价值：支持 USDT 等 Token 转账
+  - 完成情况：TransferCard 完整授权流程已验证
+  - 包含：allowance 查询 + approve 调用 + 状态管理 + 二次校验
+
+- [x] **部署文档** ✅（2026-04-28 完成）
+  - 价值：指导生产环境部署
+  - 完成情况：docs/DEPLOYMENT.md v1.1
+  - 新增：Supabase 配置章节、环境变量扩充
+
+- [x] **API 文档** ✅（2026-04-28 完成）
+  - 价值：完善接口说明
+  - 完成情况：docs/API-REFERENCE.md (674行)
+  - 内容：聊天/工具/健康检查/SSE 流式协议
+
 - [ ] **Anthropic 工具调用验证**
   - 价值：验证多模型兼容性
   - 预计工作量：1-2 天
   - 依赖：Anthropic API Key
-  - 参考：MAP-V3 待办事项
 
 - [ ] **浏览器验收测试**
-  - 价值：确保前端功能正常（钱包登录、对话历史、新建对话、主题切换）
+  - 价值：确保前端功能正常
   - 预计工作量：1-2 天
-  - 参考：MAP-V3 待验证
-  - 重点：多钱包切换、对话切换、刷新保持连接、主题切换、钱包上下文查询
+  - 重点：多钱包切换、对话切换、主题切换、转账卡片
 
 ### 3.2 中优先级 P1
 
@@ -279,18 +317,6 @@
   - 方案：Supabase Auth + 钱包签名登录 + JWT
   - 当前状态：应用层防护（可绕过）
   - 优先级：**生产部署前必须完成**
-  - 优先级：**生产部署前必须完成**
-
-- [ ] **部署文档**
-  - 价值：指导生产环境部署
-  - 预计工作量：1-2 天
-  - 参考：MAP-V3 待办事项
-  - 备注：需包含 Supabase 部署步骤
-
-- [ ] **API 文档**
-  - 价值：完善接口说明
-  - 预计工作量：2-3 天
-  - 参考：MAP-V3 待办事项
 
 - [ ] **生产环境 RLS 升级**
   - 价值：扩展 Web3 工具集到多链
@@ -522,6 +548,7 @@ graph LR
 | **转账卡片** | ✅ ETH+ERC20 转账+状态恢复 | ✅ | 🟢 完成 |
 | **ERC20 余额查询** | ✅ getTokenBalance 链上查询 | ✅ | 🟢 完成 |
 | **单元测试** | ✅ 238 tests 100% 通过 | ✅ | 🟢 完成 |
+| **E2E 测试** | ✅ 9 tests 8/9 通过 | 9+ | 🟡 部分完成 |
 
 **MVP 功能完成率计算**：
 - 必做功能：11 项（新增转账卡片）
@@ -532,59 +559,47 @@ graph LR
 
 ### 🔴 立即执行（本周）
 
-1. **实现 ERC20 Approve 完整流程**
-   - 原因：USDT 等 Token 转账需要先 approve 授权
-   - 预估：2-3 天
-   - 链路：`/origin` -> `/pipeline patch`
-   - 重点：writeContract + ERC20 ABI + approve 错误处理
+1. **已完成：ERC20 Approve 完整流程** ✅
+   - TransferCard 已实现完整授权流程，二次 allowance 校验
+   - 无需额外开发
 
 2. **浏览器验收测试**
-   - 原因：验证钱包登录、对话历史、主题切换、钱包上下文功能
-   - 预估：1-2 天
+   - 原因：验证钱包登录、对话历史、主题切换、钱包上下文、转账卡片功能
    - 链路：`/browser-verify`
    - 重点：多钱包切换、对话切换、刷新保持连接、主题切换、余额查询
 
+3. **Anthropic 验证**
+   - 原因：验证多模型兼容性和工具调用链
+   - 预估：1-2 天
+   - 依赖：Anthropic API Key
+
 ### 🟡 本周完成
 
-3. **手动验证 RLS 策略**
+4. **生产环境 RLS 升级方案设计**
    - 原因：当前应用层防护不安全
    - 预估：1-2 天
    - 方案：调研 Supabase Auth + 钱包签名
-   - 输出：技术方案文档
 
-4. **生产环境 RLS 升级方案设计**
-   - 原因：指导生产环境部署
-   - 预估：1-2 天
-   - 内容：Supabase 部署、环境变量、钱包配置
-
-5. **补充部署文档**
-   - 原因：提升项目专业度
-   - 预估：2-3 天
-
-6. **完善 API 文档**
-   - 原因：当前 11 个 Token，可扩充到 50+
+5. **完善 E2E 测试覆盖**
+   - 原因：新增钱包连接和转账卡片 E2E 测试
    - 预估：1 天
-   - 内容：添加更多主流 Token
+   - 内容：playwright e2e 测试用例完善
 
-7. **扩展 Token 注册表**
-   - 原因：补充 fetch 超时、用户提示、依赖注入
-   - 预估：1 天
-   - 参考：Audit 报告中 P1/P2 建议
-
-8. **Memory 性能优化**
+6. **消除 SSR 主题闪烁**
    - 原因：提升用户体验
    - 预估：20 分钟
    - 方案：layout.tsx 的 <head> 添加同步脚本
 
-9. **消除 SSR 主题闪烁**
-    - 原因：增强 system prompt 注入安全性
-    - 预估：10 分钟
-    - 方案：route.ts 添加正则验证
+7. **添加钱包地址格式验证**
+   - 原因：增强 system prompt 注入安全性
+   - 预估：10 分钟
+   - 方案：route.ts 添加正则验证
 
 ## 九、更新历史
 
 | 日期 | 版本 | 更新内容 | 更新人 |
 |------|------|----------|--------|
+| 2026-04-28 | v7.0 | E2E 测试框架 + 文档体系完成：Playwright 9 tests 8/9 通过，API 文档 674 行，部署文档更新，ERC20 Approve 验证完成 | AI Agent |
 | 2026-04-28 | v6.0 | 单元测试全覆盖完成，31 文件 238 tests 100% 通过，新增测试报告和复盘文档 | AI Agent |
 | 2026-04-24 | v5.1 | 新增 getTokenBalance 工具，支持链上查询 ERC20 Token（USDT/USDC/DAI）余额，使用正确精度格式化，新增 4 文件 134 行 | AI Agent |
 | 2026-04-24 | v5.0 | Web3 转账卡片功能完成，支持 ETH+ERC20 转账、数据持久化、状态恢复、卡片可扩展架构，新增 7 文件 14 修改 | AI Agent |

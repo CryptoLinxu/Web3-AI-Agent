@@ -1,7 +1,7 @@
 # Web3 AI Agent 部署文档
 
-> 版本：v1.0  
-> 最后更新：2026-04-22  
+> 版本：v1.1  
+> 最后更新：2026-04-28  
 > 适用项目：Web3 AI Agent (Monorepo)
 
 ---
@@ -14,6 +14,7 @@
 - [方案二：Docker 部署](#方案二docker-部署)
 - [方案三：传统服务器部署](#方案三传统服务器部署)
 - [环境变量配置](#环境变量配置)
+- [数据库配置（Supabase）](#数据库配置supabase)
 - [生产环境优化](#生产环境优化)
 - [监控与日志](#监控与日志)
 - [常见问题](#常见问题)
@@ -93,6 +94,13 @@ OPENAI_MODEL=gpt-3.5-turbo
 
 # Web3 配置
 ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+
+# Supabase 配置（对话持久化和转账卡片）
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# WalletConnect 配置
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
 
 # 应用配置
 APP_VERSION=0.2.0
@@ -449,6 +457,11 @@ sudo certbot renew --dry-run
 | `ANTHROPIC_API_KEY` | Anthropic API Key | - |
 | `ANTHROPIC_MODEL` | Anthropic 模型 | `claude-3-sonnet-20240229` |
 | `ETHEREUM_RPC_URL` | Ethereum RPC 节点 | 公共节点 |
+| `POLYGON_RPC_URL` | Polygon RPC 节点 | 公共节点 |
+| `BSC_RPC_URL` | BSC RPC 节点 | 公共节点 |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 项目 URL | - |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 匿名 Key | - |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect 项目 ID | - |
 | `HTTPS_PROXY` | HTTP 代理（国内需要） | - |
 | `APP_VERSION` | 应用版本 | `0.2.0` |
 
@@ -469,6 +482,113 @@ OPENAI_API_KEY=sk-your_dashscope_key
 OPENAI_MODEL=qwen-turbo
 OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ```
+
+---
+
+## 数据库配置（Supabase）
+
+### 概述
+
+Web3 AI Agent 使用 Supabase 作为后端数据库，用于存储：
+- 对话历史（messages 表）
+- 转账卡片状态（transfer_cards 表）
+
+### 步骤
+
+#### 1. 创建 Supabase 项目
+
+1. 访问 [Supabase](https://supabase.com/)
+2. 点击 **"New Project"**
+3. 填写项目信息
+4. 设置数据库密码（请妥善保管）
+
+#### 2. 获取项目凭证
+
+在项目设置中获取：
+- **Project URL**: `https://xxxxx.supabase.co`
+- **Anon Key**: `eyJhbG...`（公开可访问）
+
+#### 3. 执行数据库迁移
+
+```bash
+# 克隆项目后，执行迁移脚本
+cd supabase
+
+# 方式一：使用 Supabase CLI
+supabase db push
+
+# 方式二：手动执行 SQL
+# 1. 访问 Supabase Dashboard → SQL Editor
+# 2. 依次执行以下文件：
+#    - init.sql
+#    - migrations/create_transfer_cards.sql
+#    - migrations/fix_transfer_cards_rls.sql
+#    - migrations/alter_messages_id_type.sql
+```
+
+#### 4. 配置行级安全（RLS）
+
+**开发环境**：可以临时禁用 RLS 策略
+
+```sql
+-- 仅用于开发测试
+ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
+ALTER TABLE transfer_cards DISABLE ROW LEVEL SECURITY;
+```
+
+**生产环境**：必须启用 RLS 并集成 Supabase Auth
+
+```sql
+-- 启用 RLS
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transfer_cards ENABLE ROW LEVEL SECURITY;
+
+-- 创建策略（示例）
+CREATE POLICY "Users can view own messages"
+  ON messages FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own messages"
+  ON messages FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+```
+
+#### 5. 配置环境变量
+
+将 Supabase 凭证添加到 `.env.local`：
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### 数据表结构
+
+#### messages 表
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `id` | UUID | 主键 |
+| `conversation_id` | TEXT | 对话 ID |
+| `role` | TEXT | 角色（user/assistant/system） |
+| `content` | TEXT | 消息内容 |
+| `created_at` | TIMESTAMPTZ | 创建时间 |
+
+#### transfer_cards 表
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `id` | TEXT | 主键 |
+| `conversation_id` | TEXT | 对话 ID |
+| `from` | TEXT | 发送地址 |
+| `to` | TEXT | 接收地址 |
+| `tokenSymbol` | TEXT | Token 符号 |
+| `amount` | TEXT | 转账金额 |
+| `chain` | TEXT | 链名称 |
+| `status` | TEXT | 状态（pending/signing/confirmed/failed） |
+| `txHash` | TEXT | 交易哈希 |
+| `error` | TEXT | 错误信息 |
+| `created_at` | TIMESTAMPTZ | 创建时间 |
 
 ---
 

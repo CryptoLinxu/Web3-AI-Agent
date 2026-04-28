@@ -357,7 +357,7 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
         }
 
         if (needsApproval) {
-          // Step 1: 先授权
+          // Step 1: 先授权给自己（用户自己执行 transfer）
           setStatus('approving')
           setError(undefined)
           // 保存当前的 allowance 值，用于后续判断是否已刷新
