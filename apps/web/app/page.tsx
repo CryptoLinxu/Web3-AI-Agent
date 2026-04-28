@@ -195,10 +195,22 @@ export default function Home() {
   // 选择对话
   const handleSelectConversation = (id: string, loadedMessages: Message[]) => {
     setConversationId(id)
+    memoryManager.clear()
+    
     if (loadedMessages.length > 0) {
-      memoryManager.clear()
+      // 有历史消息，加载到 MemoryManager 并显示
       loadedMessages.forEach(msg => memoryManager.addMessage(msg))
       setMessages(loadedMessages)
+    } else {
+      // 新对话（没有消息），显示欢迎消息
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: '你好！我是 **Web3 AI Agent** 🌐\n\n我可以帮你查询以下信息：\n\n- **价格查询**：ETH、BTC、SOL、MATIC、BNB 实时价格\n- **余额查询**：Ethereum、Polygon、BSC、Bitcoin、Solana 链上余额\n- **Gas 查询**：EVM 链 Gas 费用\n- **Token 查询**：主流 Token 合约地址和元数据\n\n试试问我："ETH 现在多少钱？"',
+          timestamp: Date.now(),
+        },
+      ])
     }
   }
 

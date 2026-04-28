@@ -117,8 +117,11 @@ export default function ConversationHistory({
       }
       
       setConversations((prev) => prev.filter((c) => c.id !== pendingDeleteId))
+      
+      // 如果删除的是当前激活的对话，不自动创建新对话，而是清空当前状态
       if (activeConversationId === pendingDeleteId) {
-        onNewConversation()
+        // 通知父组件清空当前对话状态，显示欢迎页面
+        onSelectConversation('', [])
       }
     } catch (error) {
       console.error('Failed to delete conversation:', error)
