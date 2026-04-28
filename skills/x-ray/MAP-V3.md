@@ -1,8 +1,8 @@
 # Web3 AI Agent Skill Map V3
 
-> 最后更新：2026-04-24（第二版）
-> 当前版本：v0.5.1
-> 当前阶段：ERC20 Token 余额查询完成 → Web3 工具集扩展
+> 最后更新：2026-04-28（第三版）
+> 当前版本：v0.6.0
+> 当前阶段：单元测试全覆盖完成 → 238 tests 100% 通过
 
 ## 项目状态速览
 
@@ -27,8 +27,9 @@
 | **转账卡片** | ✅ 完成 | AI 识别转账意图生成卡片，支持 ETH+ERC20 转账，数据持久化 |
 | **Token 配置** | ✅ 完成 | 多链 Token 注册表，支持原生币和 ERC20 |
 | **ERC20 余额查询** | ✅ 完成 | getTokenBalance 链上查询，支持 USDT/USDC/DAI，正确精度 |
-| 待验证 | 🔄 待办 | 功能测试、浏览器验收、Anthropic 验证 |
-| 待补充 | ⏳ 待办 | 测试覆盖、部署文档、CI/CD |
+| **单元测试体系** | ✅ 完成 | Vitest monorepo workspace，31 文件 238 tests 100% 通过 |
+| 待验证 | 🔄 待办 | 浏览器验收、Anthropic 验证 |
+| 待补充 | ⏳ 待办 | E2E 测试、部署文档、CI/CD |
 
 ## 已完成能力清单
 
@@ -83,7 +84,7 @@
 - ✅ **断开连接优化**：客户端 UI 清空 + 欢迎消息
 - ⚠️ **SSR 主题闪烁**：刷新页面短暂看到默认主题（~100ms，P3 优化项）
 
-### 工程能力 (v0.5.0)
+### 工程能力 (v0.6.0)
 - ✅ **Monorepo**：pnpm workspace + turbo 构建
 - ✅ **类型安全**：TypeScript 全项目覆盖
 - ✅ **配置管理**：环境变量驱动模型切换
@@ -94,6 +95,13 @@
 - ✅ **链抽象层**：ChainConfig + ChainAdapter 接口，EVM 链统一处理
 - ✅ **主题系统架构**：lib/theme/ 完整架构（types, Context, Provider）
 - ✅ **卡片组件架构**：apps/web/components/cards/ 独立目录，支持可扩展卡片类型 (TransferCard, DexSwapCard)
+- ✅ **单元测试体系**：Vitest v3.2.4 monorepo workspace
+  - apps/web（130 tests）：supabase、theme、memory、tokens、hooks、components、api
+  - packages/ai-config（34 tests）：config、factory、providers
+  - packages/web3-tools（74 tests）：balance、chains、gas、price、token、transfer
+  - Mock 策略：vi.mock() + vi.hoisted() + vi.fn()
+  - 组件测试：@testing-library/react + jsdom
+  - 详见：docs/test-report.md、docs/digest/2026-04-28-unit-test-coverage.md
 
 ### 文档体系
 - ✅ [README.md](/README.md) - 项目总览
