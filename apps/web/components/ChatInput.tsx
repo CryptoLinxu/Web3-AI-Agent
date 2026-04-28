@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, KeyboardEvent } from 'react'
+import { useState, KeyboardEvent, useRef } from 'react'
+import { PromptTemplate } from '@/config/prompts'
+import PromptSelectorModal from './PromptSelectorModal'
 
 interface ChatInputProps {
   onSend: (message: string) => void
@@ -9,6 +11,8 @@ interface ChatInputProps {
 
 export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [input, setInput] = useState('')
+  const [isPromptSelectorOpen, setIsPromptSelectorOpen] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const handleSend = () => {
     if (!input.trim() || isLoading) return
@@ -21,6 +25,15 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
       e.preventDefault()
       handleSend()
     }
+  }
+
+  const handlePromptSelect = (prompt: PromptTemplate) => {
+    setInput(prompt.content)
+    setIsPromptSelectorOpen(false)
+    // 延迟聚焦，等待弹窗关闭动画
+    setTimeout(() => {
+      textareaRef.current?.focus()
+    }, 100)
   }
 
   return (
@@ -65,9 +78,41 @@ export default function ChatInput({ onSend, isLoading }: ChatInputProps) {
         </button>
       </div>
       <div className="flex items-center justify-between mt-2 px-2">
-        <p className="text-[10px] text-[rgb(var(--text-muted))]">Enter 发送 · Shift+Enter 换行</p>
-        <p className="text-[10px] text-[rgb(var(--text-muted))]">数据仅供参考，不构成投资建议</p>
+        {/* 左侧：提示词入口按钮 */}
+        <button
+          onClick={() => setIsPromptSelectorOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[rgb(var(--bg-secondary))] hover:bg-[rgb(var(--bg-tertiary))] border border-[rgb(var(--border-color))] hover:border-primary-500/50 transition-all duration-200 group"
+          title="快捷提示词"
+        >
+          <svg
+            className="w-3.5 h-3.5 text-primary-600 group-hover:text-primary-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
+          </svg>
+          <span className="text-xs text-[rgb(var(--text-secondary))] group-hover:text-[rgb(var(--text-primary))]">快捷提示词</span>
+        </button>
+
+        {/* 右侧：快捷键提示 */}
+        <div className="flex items-center gap-3">
+          <p className="text-[10px] text-[rgb(var(--text-muted))]">Enter 发送 · Shift+Enter 换行</p>
+          <p className="text-[10px] text-[rgb(var(--text-muted))]">数据仅供参考，不构成投资建议</p>
+        </div>
       </div>
+
+      {/* 提示词选择器弹窗 */}
+      <PromptSelectorModal
+        isOpen={isPromptSelectorOpen}
+        onClose={() => setIsPromptSelectorOpen(false)}
+        onSelectPrompt={handlePromptSelect}
+      />
     </div>
   )
 }

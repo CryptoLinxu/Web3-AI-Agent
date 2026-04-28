@@ -27,6 +27,8 @@
 - [apps/web/lib/memory/index.ts](file://apps/web/lib/memory/index.ts)
 - [apps/web/types/chat.ts](file://apps/web/types/chat.ts)
 - [apps/web/lib/supabase/client.ts](file://apps/web/lib/supabase/client.ts)
+- [apps/web/lib/supabase/conversations.ts](file://apps/web/lib/supabase/conversations.ts)
+- [apps/web/lib/supabase/transfers.ts](file://apps/web/lib/supabase/transfers.ts)
 - [apps/web/app/globals.css](file://apps/web/app/globals.css)
 - [apps/web/tailwind.config.ts](file://apps/web/tailwind.config.ts)
 - [apps/web/package.json](file://apps/web/package.json)
@@ -46,6 +48,7 @@
 - 增强UI组件体系，提升用户交互体验
 - 优化主题提供者架构，实现响应式主题切换
 - 改进连接状态管理，断开连接时清空UI但保留云端数据
+- **新增**：智能欢迎消息处理机制，优化对话切换用户体验
 
 ## 目录
 1. [简介](#简介)
@@ -57,11 +60,12 @@
 7. [确认对话框组件](#确认对话框组件)
 8. [钱包上下文注入](#钱包上下文注入)
 9. [内存管理策略](#内存管理策略)
-10. [UI设计与样式](#ui设计与样式)
-11. [依赖关系分析](#依赖关系分析)
-12. [性能考虑](#性能考虑)
-13. [故障排除指南](#故障排除指南)
-14. [结论](#结论)
+10. [智能欢迎消息处理](#智能欢迎消息处理)
+11. [UI设计与样式](#ui设计与样式)
+12. [依赖关系分析](#依赖关系分析)
+13. [性能考虑](#性能考虑)
+14. [故障排除指南](#故障排除指南)
+15. [结论](#结论)
 
 ## 简介
 
@@ -78,6 +82,7 @@
 - **新增**：完整的主题系统支持
 - **新增**：统一的确认对话框组件
 - **新增**：钱包上下文注入功能，实现AI对用户钱包地址的感知
+- **新增**：智能欢迎消息处理机制，优化对话切换用户体验
 
 应用采用现代化的技术栈，包括 Next.js 14、TypeScript、Tailwind CSS 和 Ethers.js，构建了一个响应式的 Web3 信息查询平台，具备企业级的设计风格和用户体验。
 
@@ -188,12 +193,12 @@ Home --> MemoryManager : 使用
 ```
 
 **图表来源**
-- [apps/web/app/page.tsx:1-376](file://apps/web/app/page.tsx#L1-L376)
+- [apps/web/app/page.tsx:1-423](file://apps/web/app/page.tsx#L1-L423)
 - [apps/web/types/chat.ts:1-29](file://apps/web/types/chat.ts#L1-L29)
 
 **章节来源**
 - [apps/web/app/layout.tsx:1-38](file://apps/web/app/layout.tsx#L1-L38)
-- [apps/web/app/page.tsx:1-376](file://apps/web/app/page.tsx#L1-L376)
+- [apps/web/app/page.tsx:1-423](file://apps/web/app/page.tsx#L1-L423)
 - [apps/web/types/chat.ts:1-29](file://apps/web/types/chat.ts#L1-L29)
 
 ## 架构概览
@@ -213,6 +218,8 @@ ThemeSystem[主题系统]
 ConfirmDialog[确认对话框]
 WalletContext[钱包上下文]
 RainbowKit[钱包连接]
+ConversationHistory[对话历史]
+WelcomeMessage[智能欢迎消息]
 </subgraph>
 subgraph "API层"
 ChatAPI[聊天API]
@@ -237,6 +244,8 @@ ChatUI --> ThemeSystem
 ChatUI --> ConfirmDialog
 ChatUI --> WalletContext
 ChatUI --> RainbowKit
+ChatUI --> ConversationHistory
+ChatUI --> WelcomeMessage
 Components --> ChatAPI
 SettingsPanel --> MemoryManager
 SettingsPanel --> ThemeSystem
@@ -246,6 +255,7 @@ ThemeSystem --> Providers
 ConfirmDialog --> ChatUI
 WalletContext --> ChatAPI
 RainbowKit --> WalletContext
+ConversationHistory --> WelcomeMessage
 ChatAPI --> LLMFactory
 ChatAPI --> ToolsAPI
 ToolsAPI --> Tools
@@ -257,7 +267,7 @@ MemoryStrategies --> MemoryManager
 ```
 
 **图表来源**
-- [apps/web/app/api/chat/route.ts:1-424](file://apps/web/app/api/chat/route.ts#L1-L424)
+- [apps/web/app/api/chat/route.ts:1-567](file://apps/web/app/api/chat/route.ts#L1-L567)
 - [apps/web/app/api/tools/route.ts:1-135](file://apps/web/app/api/tools/route.ts#L1-L135)
 
 ### 数据流序列图
@@ -271,6 +281,8 @@ participant Theme as 主题系统
 participant Memory as 内存管理器
 participant Dialog as 确认对话框
 participant Wallet as 钱包上下文
+participant History as 对话历史
+participant Welcome as 智能欢迎消息
 participant ChatAPI as 聊天API
 participant LLM as LLM工厂
 participant ToolsAPI as 工具API
@@ -292,11 +304,13 @@ UI->>Memory : 添加AI消息
 UI->>Settings : 更新内存策略
 UI->>Theme : 应用主题切换
 UI->>Dialog : 显示确认对话框
+UI->>History : 更新对话列表
+UI->>Welcome : 显示智能欢迎消息
 UI-->>User : 显示结果
 ```
 
 **图表来源**
-- [apps/web/app/page.tsx:190-282](file://apps/web/app/page.tsx#L190-L282)
+- [apps/web/app/page.tsx:228-328](file://apps/web/app/page.tsx#L228-L328)
 - [apps/web/app/api/chat/route.ts:150-319](file://apps/web/app/api/chat/route.ts#L150-L319)
 
 ## 详细组件分析
@@ -519,7 +533,7 @@ FinalReply --> End
 - [apps/web/components/SettingsPanel.tsx:1-231](file://apps/web/components/SettingsPanel.tsx#L1-L231)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
 - [apps/web/components/ConfirmDialog.tsx:1-101](file://apps/web/components/ConfirmDialog.tsx#L1-L101)
-- [apps/web/app/api/chat/route.ts:1-424](file://apps/web/app/api/chat/route.ts#L1-L424)
+- [apps/web/app/api/chat/route.ts:1-567](file://apps/web/app/api/chat/route.ts#L1-L567)
 
 ## 主题系统
 
@@ -835,6 +849,111 @@ Config --> MemoryConfig : 创建
 - [apps/web/lib/memory/config.ts:1-15](file://apps/web/lib/memory/config.ts#L1-L15)
 - [apps/web/lib/memory/types.ts:1-38](file://apps/web/lib/memory/types.ts#L1-L38)
 
+## 智能欢迎消息处理
+
+### 欢迎消息机制设计
+
+应用程序实现了智能欢迎消息处理机制，优化了对话切换的用户体验：
+
+```mermaid
+classDiagram
+class WelcomeMessageHandler {
++Message welcomeMessage
++checkFirstMessage(messages) boolean
++displayWelcomeIfNeeded(messages) Message[]
++generateWelcomeContent() string
++render() JSX.Element
+}
+class ConversationFlow {
++loadConversationHistory() void
++handleNewConversation() void
++handleSelectConversation() void
++displaySmartWelcome() void
+}
+class SmartWelcomeLogic {
++isNewConversation(messages) boolean
++hasHistory(messages) boolean
++showWelcomeMessage() boolean
++clearPreviousContent() void
+}
+WelcomeMessageHandler --> ConversationFlow : 控制
+WelcomeMessageHandler --> SmartWelcomeLogic : 使用
+ConversationFlow --> SmartWelcomeLogic : 评估
+```
+
+**图表来源**
+- [apps/web/app/page.tsx:28-35](file://apps/web/app/page.tsx#L28-L35)
+- [apps/web/app/page.tsx:101-111](file://apps/web/app/page.tsx#L101-L111)
+- [apps/web/app/page.tsx:204-214](file://apps/web/app/page.tsx#L204-L214)
+
+### 欢迎消息触发条件
+
+智能欢迎消息在以下情况下自动显示：
+
+```mermaid
+flowchart TD
+Start([用户操作]) --> CheckConnection{"钱包已连接?"}
+CheckConnection --> |否| ShowWelcome["显示欢迎消息"]
+CheckConnection --> |是| CheckAction{"操作类型?"}
+CheckAction --> |新建对话| CheckHistory{"有历史消息?"}
+CheckAction --> |切换对话| CheckHistory2{"有历史消息?"}
+CheckHistory --> |否| ShowWelcome
+CheckHistory --> |是| LoadHistory["加载历史消息"]
+CheckHistory2 --> |否| ShowWelcome
+CheckHistory2 --> |是| LoadHistory
+ShowWelcome --> End([结束])
+LoadHistory --> End
+```
+
+**图表来源**
+- [apps/web/app/page.tsx:86-118](file://apps/web/app/page.tsx#L86-L118)
+- [apps/web/app/page.tsx:195-215](file://apps/web/app/page.tsx#L195-L215)
+
+### 欢迎消息内容管理
+
+应用程序维护了固定的欢迎消息模板，确保用户获得一致的引导体验：
+
+| 场景 | 欢迎消息内容 | 触发条件 | 显示逻辑 |
+|------|-------------|----------|----------|
+| 首次连接 | 基础功能介绍 + 价格查询 + 余额查询 + Gas查询 + Token查询 | 用户首次连接钱包 | 固定模板显示 |
+| 新建对话 | 同上基础模板 | 用户点击新建对话按钮 | 清空当前内容后显示 |
+| 切换到新对话 | 同上基础模板 | 用户从历史列表选择对话 | 清空前对话残留内容 |
+| 切换到有历史对话 | 加载历史消息 | 用户选择有消息的对话 | 显示历史消息内容 |
+
+### 对话切换用户体验优化
+
+智能欢迎消息处理机制显著改善了用户的对话切换体验：
+
+```mermaid
+sequenceDiagram
+participant User as 用户
+participant History as 对话历史
+participant Page as 主页面
+participant Memory as 内存管理器
+participant Welcome as 欢迎消息
+User->>History : 点击新对话
+History->>Page : onSelectConversation(id, [])
+Page->>Memory : memoryManager.clear()
+Page->>Welcome : setMessages([welcome])
+Welcome-->>User : 显示智能欢迎消息
+User->>History : 点击有历史对话
+History->>Page : onSelectConversation(id, messages)
+Page->>Memory : memoryManager.clear()
+Page->>Page : setMessages(loadedMessages)
+Page-->>User : 显示历史对话内容
+```
+
+**图表来源**
+- [apps/web/app/page.tsx:195-215](file://apps/web/app/page.tsx#L195-L215)
+- [apps/web/components/ConversationHistory.tsx:79-88](file://apps/web/components/ConversationHistory.tsx#L79-L88)
+
+**章节来源**
+- [apps/web/app/page.tsx:28-35](file://apps/web/app/page.tsx#L28-L35)
+- [apps/web/app/page.tsx:86-118](file://apps/web/app/page.tsx#L86-L118)
+- [apps/web/app/page.tsx:158-193](file://apps/web/app/page.tsx#L158-L193)
+- [apps/web/app/page.tsx:195-215](file://apps/web/app/page.tsx#L195-L215)
+- [apps/web/components/ConversationHistory.tsx:79-88](file://apps/web/components/ConversationHistory.tsx#L79-L88)
+
 ## UI设计与样式
 
 ### Web3企业风格设计
@@ -858,6 +977,7 @@ Components[组件样式]
 Animations[动画效果]
 Effects[视觉效果]
 Theme[主题系统]
+Welcome[欢迎消息样式]
 </subgraph>
 subgraph "颜色系统"
 Primary[primary: 科技蓝]
@@ -877,6 +997,7 @@ Tailwind --> Components
 Tailwind --> Animations
 Tailwind --> Effects
 Tailwind --> Theme
+Components --> Welcome
 Components --> Primary
 Components --> Web3
 Components --> Dark
@@ -1020,6 +1141,7 @@ Packages --> Build
 4. **内存管理优化**: 支持两种内存策略，平衡性能和上下文质量
 5. **主题持久化**: 使用 localStorage 减少主题切换的计算开销
 6. **钱包上下文缓存**: 使用内存变量存储当前钱包地址，避免重复验证
+7. **欢迎消息缓存**: 固定的欢迎消息模板减少重复计算
 
 ### 网络优化
 
@@ -1105,6 +1227,15 @@ Packages --> Build
 - 验证 setWalletContext 的调用时机
 - 确认 sendMessage 是否正确传递 walletAddress
 
+#### 8. 欢迎消息显示问题
+
+**症状**: 新对话切换时显示之前对话的内容
+**原因**: 消息状态管理或内存清理不彻底
+**解决方案**:
+- 确保 memoryManager.clear() 在切换对话前调用
+- 验证 handleSelectConversation 中的消息重置逻辑
+- 检查欢迎消息的条件判断是否正确
+
 **章节来源**
 - [apps/web/app/api/chat/route.ts:360-404](file://apps/web/app/api/chat/route.ts#L360-L404)
 - [apps/web/app/api/tools/route.ts:124-133](file://apps/web/app/api/tools/route.ts#L124-L133)
@@ -1112,6 +1243,7 @@ Packages --> Build
 - [apps/web/lib/theme/ThemeProvider.tsx:17-22](file://apps/web/lib/theme/ThemeProvider.tsx#L17-L22)
 - [apps/web/components/ConfirmDialog.tsx:28-40](file://apps/web/components/ConfirmDialog.tsx#L28-L40)
 - [apps/web/lib/supabase/client.ts:34-53](file://apps/web/lib/supabase/client.ts#L34-L53)
+- [apps/web/app/page.tsx:195-215](file://apps/web/app/page.tsx#L195-L215)
 
 ## 结论
 
@@ -1127,6 +1259,7 @@ Packages --> Build
 - **主题系统**: 完整的多主题支持和响应式切换
 - **交互体验**: 统一的确认对话框组件
 - **钱包集成**: 完整的钱包上下文注入功能
+- **智能欢迎消息**: 优化的对话切换用户体验
 
 ### 功能特色
 - **智能工具调用**: AI 模型能够自动选择和执行合适的工具
@@ -1139,8 +1272,9 @@ Packages --> Build
 - **确认交互**: 统一的确认对话框提供更好的用户体验
 - **钱包感知**: AI能够感知用户钱包地址，简化余额查询流程
 - **连接管理**: 断开连接时优雅清空UI但保留云端数据
+- **智能欢迎消息**: 新对话切换时自动显示引导内容，避免残留内容干扰
 
 ### 发展前景
 该应用程序为 Web3 开发者提供了一个强大的信息查询平台，未来可以扩展更多 Web3 工具和服务，进一步提升用户体验和功能性。通过持续的优化和功能扩展，这个项目有望成为 Web3 生态系统中的重要工具。
 
-**更新** 本次更新重点集成了完整的主题系统，包括主题提供者、主题切换器和响应式主题切换；新增了确认对话框组件，提供了统一的用户确认交互体验；完善了UI组件体系，显著提升了用户交互体验和界面的专业度；实现了钱包上下文注入功能，使AI能够感知用户钱包地址，简化了余额查询等操作。
+**更新** 本次更新重点集成了完整的主题系统，包括主题提供者、主题切换器和响应式主题切换；新增了确认对话框组件，提供了统一的用户确认交互体验；完善了UI组件体系，显著提升了用户交互体验和界面的专业度；实现了钱包上下文注入功能，使AI能够感知用户钱包地址，简化了余额查询等操作；**新增了智能欢迎消息处理机制，通过优化对话切换逻辑，确保用户在切换到新对话时看到引导内容而非之前对话的残留内容，显著提升了用户体验**。

@@ -2,6 +2,7 @@
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import Image from 'next/image'
 
 interface MarkdownRendererProps {
   content: string
@@ -109,6 +110,46 @@ export default function MarkdownRenderer({ content, className = '' }: MarkdownRe
         td: ({ children }) => (
           <td className="border border-[rgb(var(--border-color))] px-3 py-2 text-sm text-[rgb(var(--text-primary))]">{children}</td>
         ),
+        // 图片 - 直接展示，不显示为链接
+        img: ({ src, alt }) => {
+          if (!src) return null
+          
+          // 如果是 logo 相关图片（或空 alt），直接展示为行内图标（与文字水平对齐）
+          if (alt?.toLowerCase().includes('logo') || alt?.toLowerCase().includes('icon') || !alt) {
+            return (
+              <span className="inline-flex items-center gap-1 align-middle" style={{ verticalAlign: 'middle' }}>
+                <span className="relative inline-block w-4 h-4 align-middle" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+                  <Image
+                    src={src}
+                    alt={alt || 'token logo'}
+                    fill
+                    className="object-contain"
+                    style={{ verticalAlign: 'middle' }}
+                    unoptimized
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                    }}
+                  />
+                </span>
+              </span>
+            )
+          }
+          
+          // 默认图片渲染
+          return (
+            <span className="inline-block">
+              <Image
+                src={src}
+                alt={alt || 'image'}
+                width={200}
+                height={200}
+                className="rounded-lg max-w-full h-auto"
+                unoptimized
+              />
+            </span>
+          )
+        },
       }}
     >
       {content}
