@@ -8,6 +8,9 @@
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
 - [apps/web/components/ChatInput.tsx](file://apps/web/components/ChatInput.tsx)
+- [apps/web/components/PromptSelector.tsx](file://apps/web/components/PromptSelector.tsx)
+- [apps/web/components/PromptSelectorModal.tsx](file://apps/web/components/PromptSelectorModal.tsx)
+- [apps/web/config/prompts.ts](file://apps/web/config/prompts.ts)
 - [apps/web/components/MessageList.tsx](file://apps/web/components/MessageList.tsx)
 - [apps/web/components/MessageItem.tsx](file://apps/web/components/MessageItem.tsx)
 - [apps/web/components/MarkdownRenderer.tsx](file://apps/web/components/MarkdownRenderer.tsx)
@@ -41,14 +44,12 @@
 
 ## 更新摘要
 **变更内容**
-- 新增完整的UI增强系统，包括ConfirmDialog组件和ThemeSwitcher组件
-- 实现全局主题系统（lib/theme架构），支持浅色、深色和跟随系统三种主题模式
-- 新增钱包上下文注入功能，实现AI对用户钱包地址的感知
-- 完善设置面板，集成主题切换功能
-- 增强UI组件体系，提升用户交互体验
-- 优化主题提供者架构，实现响应式主题切换
-- 改进连接状态管理，断开连接时清空UI但保留云端数据
-- **新增**：智能欢迎消息处理机制，优化对话切换用户体验
+- 新增完整的提示词选择系统，包括PromptSelectorModal和PromptSelector组件
+- 增强ChatInput组件，新增快捷提示词功能，支持快速选择预设提示词
+- 完善提示词模板管理系统，支持分类组织和动态加载
+- 优化用户交互体验，提供更便捷的Web3查询入口
+- 新增移动端适配的底部抽屉式提示词选择器
+- 完善Web3企业风格界面，提升整体设计专业度
 
 ## 目录
 1. [简介](#简介)
@@ -56,16 +57,17 @@
 3. [核心组件](#核心组件)
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
-6. [主题系统](#主题系统)
-7. [确认对话框组件](#确认对话框组件)
-8. [钱包上下文注入](#钱包上下文注入)
-9. [内存管理策略](#内存管理策略)
-10. [智能欢迎消息处理](#智能欢迎消息处理)
-11. [UI设计与样式](#ui设计与样式)
-12. [依赖关系分析](#依赖关系分析)
-13. [性能考虑](#性能考虑)
-14. [故障排除指南](#故障排除指南)
-15. [结论](#结论)
+6. [提示词选择系统](#提示词选择系统)
+7. [主题系统](#主题系统)
+8. [确认对话框组件](#确认对话框组件)
+9. [钱包上下文注入](#钱包上下文注入)
+10. [内存管理策略](#内存管理策略)
+11. [智能欢迎消息处理](#智能欢迎消息处理)
+12. [UI设计与样式](#ui设计与样式)
+13. [依赖关系分析](#依赖关系分析)
+14. [性能考虑](#性能考虑)
+15. [故障排除指南](#故障排除指南)
+16. [结论](#结论)
 
 ## 简介
 
@@ -83,6 +85,7 @@
 - **新增**：统一的确认对话框组件
 - **新增**：钱包上下文注入功能，实现AI对用户钱包地址的感知
 - **新增**：智能欢迎消息处理机制，优化对话切换用户体验
+- **新增**：完整的提示词选择系统，提供快捷的Web3查询入口
 
 应用采用现代化的技术栈，包括 Next.js 14、TypeScript、Tailwind CSS 和 Ethers.js，构建了一个响应式的 Web3 信息查询平台，具备企业级的设计风格和用户体验。
 
@@ -220,6 +223,8 @@ WalletContext[钱包上下文]
 RainbowKit[钱包连接]
 ConversationHistory[对话历史]
 WelcomeMessage[智能欢迎消息]
+PromptSelector[提示词选择器]
+PromptSelectorModal[提示词选择弹窗]
 </subgraph>
 subgraph "API层"
 ChatAPI[聊天API]
@@ -246,6 +251,8 @@ ChatUI --> WalletContext
 ChatUI --> RainbowKit
 ChatUI --> ConversationHistory
 ChatUI --> WelcomeMessage
+ChatUI --> PromptSelector
+ChatUI --> PromptSelectorModal
 Components --> ChatAPI
 SettingsPanel --> MemoryManager
 SettingsPanel --> ThemeSystem
@@ -256,6 +263,8 @@ ConfirmDialog --> ChatUI
 WalletContext --> ChatAPI
 RainbowKit --> WalletContext
 ConversationHistory --> WelcomeMessage
+PromptSelector --> PromptSelectorModal
+PromptSelectorModal --> ChatInput
 ChatAPI --> LLMFactory
 ChatAPI --> ToolsAPI
 ToolsAPI --> Tools
@@ -283,6 +292,7 @@ participant Dialog as 确认对话框
 participant Wallet as 钱包上下文
 participant History as 对话历史
 participant Welcome as 智能欢迎消息
+participant Prompt as 提示词系统
 participant ChatAPI as 聊天API
 participant LLM as LLM工厂
 participant ToolsAPI as 工具API
@@ -290,6 +300,8 @@ participant RPC as Ethereum RPC
 User->>UI : 输入消息
 UI->>Wallet : 注入钱包地址
 UI->>Memory : 添加用户消息
+UI->>Prompt : 处理快捷提示词
+Prompt->>UI : 设置提示词内容
 UI->>ChatAPI : POST /api/chat (含walletAddress)
 ChatAPI->>LLM : chat(messages, tools, systemPrompt)
 LLM-->>ChatAPI : AI回复 + 工具调用
@@ -324,9 +336,11 @@ classDiagram
 class ChatInput {
 +string input
 +boolean isLoading
++boolean isPromptSelectorOpen
 +onSend(message) void
 +handleSend() void
 +handleKeyDown(event) void
++handlePromptSelect(prompt) void
 +render() JSX.Element
 }
 class ChatInputProps {
@@ -334,10 +348,73 @@ class ChatInputProps {
 +boolean isLoading
 }
 ChatInput --> ChatInputProps : 接受
+ChatInput --> PromptSelectorModal : 使用
 ```
 
 **图表来源**
-- [apps/web/components/ChatInput.tsx:1-74](file://apps/web/components/ChatInput.tsx#L1-L74)
+- [apps/web/components/ChatInput.tsx:1-119](file://apps/web/components/ChatInput.tsx#L1-L119)
+
+### 提示词选择器组件
+
+**新增** 提示词选择器组件提供了分类化的提示词模板选择界面：
+
+```mermaid
+classDiagram
+class PromptSelector {
++PromptTemplate[] prompts
++onSelectPrompt(prompt) void
++getAllCategories() CategoryMeta[]
++getPromptsByCategory(category) PromptTemplate[]
++render() JSX.Element
+}
+class PromptSelectorProps {
++onSelectPrompt(prompt) void
+}
+class PromptTemplate {
++string id
++PromptCategory category
++string title
++string content
++string description
+}
+PromptSelector --> PromptSelectorProps : 接受
+PromptSelector --> PromptTemplate : 管理
+```
+
+**图表来源**
+- [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
+- [apps/web/config/prompts.ts:15-21](file://apps/web/config/prompts.ts#L15-L21)
+
+### 提示词选择器弹窗组件
+
+**新增** 提示词选择器弹窗组件提供了响应式的模态框界面：
+
+```mermaid
+classDiagram
+class PromptSelectorModal {
++boolean isOpen
++onClose() void
++onSelectPrompt(prompt) void
++handleKeyDown(e) void
++render() JSX.Element
+}
+class PromptSelectorModalProps {
++boolean isOpen
++onClose() void
++onSelectPrompt(prompt) void
+}
+class ModalAnimation {
++isOpen boolean
++animationClass string
++overlayOpacity string
+}
+PromptSelectorModal --> PromptSelectorModalProps : 接受
+PromptSelectorModal --> ModalAnimation : 应用
+PromptSelectorModal --> PromptSelector : 包含
+```
+
+**图表来源**
+- [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
 
 ### 消息列表组件
 
@@ -526,7 +603,9 @@ FinalReply --> End
 - [apps/web/app/api/chat/route.ts:150-319](file://apps/web/app/api/chat/route.ts#L150-L319)
 
 **章节来源**
-- [apps/web/components/ChatInput.tsx:1-74](file://apps/web/components/ChatInput.tsx#L1-L74)
+- [apps/web/components/ChatInput.tsx:1-119](file://apps/web/components/ChatInput.tsx#L1-L119)
+- [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
+- [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
 - [apps/web/components/MessageList.tsx:1-44](file://apps/web/components/MessageList.tsx#L1-L44)
 - [apps/web/components/MessageItem.tsx:1-152](file://apps/web/components/MessageItem.tsx#L1-L152)
 - [apps/web/components/MarkdownRenderer.tsx:1-119](file://apps/web/components/MarkdownRenderer.tsx#L1-L119)
@@ -534,6 +613,113 @@ FinalReply --> End
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
 - [apps/web/components/ConfirmDialog.tsx:1-101](file://apps/web/components/ConfirmDialog.tsx#L1-L101)
 - [apps/web/app/api/chat/route.ts:1-567](file://apps/web/app/api/chat/route.ts#L1-L567)
+
+## 提示词选择系统
+
+### 系统架构设计
+
+提示词选择系统实现了完整的Web3查询入口管理，提供了便捷的快捷操作功能：
+
+```mermaid
+classDiagram
+class PromptSelectorSystem {
++PromptTemplate[] templates
++CategoryMeta[] categories
++getPromptsByCategory(category) PromptTemplate[]
++getPromptById(id) PromptTemplate
++getAllCategories() CategoryMeta[]
++render() JSX.Element
+}
+class PromptSelector {
++PromptTemplate[] prompts
++onSelectPrompt(prompt) void
++render() JSX.Element
+}
+class PromptSelectorModal {
++boolean isOpen
++onClose() void
++onSelectPrompt(prompt) void
++handleKeyDown(e) void
++render() JSX.Element
+}
+class ChatInputEnhancement {
++handlePromptSelect(prompt) void
++setIsPromptSelectorOpen(boolean) void
++render() JSX.Element
+}
+PromptSelectorSystem --> PromptSelector : 组织
+PromptSelectorSystem --> PromptSelectorModal : 包装
+PromptSelector --> ChatInputEnhancement : 集成
+PromptSelectorModal --> ChatInputEnhancement : 触发
+```
+
+**图表来源**
+- [apps/web/config/prompts.ts:1-266](file://apps/web/config/prompts.ts#L1-L266)
+- [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
+- [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
+- [apps/web/components/ChatInput.tsx:1-119](file://apps/web/components/ChatInput.tsx#L1-L119)
+
+### 提示词模板管理
+
+系统实现了分类化的提示词模板管理，支持多种Web3查询场景：
+
+| 分类类别 | 图标 | 标签 | 描述 | 示例数量 |
+|---------|------|------|------|----------|
+| price | 📊 | 价格查询 | 查询各种加密货币实时价格 | 5个 |
+| balance | 💰 | 余额查询 | 查询钱包地址余额 | 4个 |
+| gas | ⛽ | Gas查询 | 查询链上Gas价格 | 3个 |
+| token | 🪙 | Token查询 | 查询Token元数据和余额 | 4个 |
+| transfer | 💸 | 转账操作 | 发起链上转账操作 | 3个 |
+| system | ⚙️ | 系统提示词 | AI行为定义和规则 | 1个 |
+
+### 提示词选择流程
+
+用户通过快捷提示词功能可以快速选择预设的查询模板：
+
+```mermaid
+sequenceDiagram
+participant User as 用户
+participant ChatInput as 聊天输入框
+participant PromptButton as 快捷提示词按钮
+participant Modal as 提示词弹窗
+participant Selector as 提示词选择器
+participant Template as 提示词模板
+User->>ChatInput : 点击快捷提示词按钮
+ChatInput->>PromptButton : 触发打开弹窗
+PromptButton->>Modal : 显示提示词弹窗
+Modal->>Selector : 渲染分类列表
+Selector->>Template : 展示可用模板
+User->>Template : 选择目标提示词
+Template->>ChatInput : 设置模板内容
+ChatInput->>ChatInput : 自动聚焦输入框
+```
+
+**图表来源**
+- [apps/web/components/ChatInput.tsx:30-37](file://apps/web/components/ChatInput.tsx#L30-L37)
+- [apps/web/components/PromptSelectorModal.tsx:102-104](file://apps/web/components/PromptSelectorModal.tsx#L102-L104)
+
+### 响应式设计实现
+
+提示词选择器实现了完整的响应式设计，适配桌面端和移动端：
+
+```mermaid
+stateDiagram-v2
+[*] --> DesktopView : 桌面端
+[*] --> MobileDrawer : 移动端
+DesktopView --> CenterModal : 打开弹窗
+CenterModal --> DesktopView : 关闭弹窗
+MobileDrawer --> BottomDrawer : 打开弹窗
+BottomDrawer --> MobileDrawer : 关闭弹窗
+```
+
+**图表来源**
+- [apps/web/components/PromptSelectorModal.tsx:38-74](file://apps/web/components/PromptSelectorModal.tsx#L38-L74)
+
+**章节来源**
+- [apps/web/config/prompts.ts:1-266](file://apps/web/config/prompts.ts#L1-L266)
+- [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
+- [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
+- [apps/web/components/ChatInput.tsx:1-119](file://apps/web/components/ChatInput.tsx#L1-L119)
 
 ## 主题系统
 
@@ -647,7 +833,7 @@ class ConfirmDialogProps {
 +string message
 +string confirmText
 +string cancelText
-+Variant variant
++variant Variant
 +boolean isLoading
 +onConfirm() void
 +onCancel() void
@@ -978,6 +1164,7 @@ Animations[动画效果]
 Effects[视觉效果]
 Theme[主题系统]
 Welcome[欢迎消息样式]
+Prompt[提示词样式]
 </subgraph>
 subgraph "颜色系统"
 Primary[primary: 科技蓝]
@@ -998,6 +1185,7 @@ Tailwind --> Animations
 Tailwind --> Effects
 Tailwind --> Theme
 Components --> Welcome
+Components --> Prompt
 Components --> Primary
 Components --> Web3
 Components --> Dark
@@ -1010,8 +1198,8 @@ Effects --> Selection
 ```
 
 **图表来源**
-- [apps/web/app/globals.css:1-118](file://apps/web/app/globals.css#L1-L118)
-- [apps/web/tailwind.config.ts:1-54](file://apps/web/tailwind.config.ts#L1-L54)
+- [apps/web/app/globals.css:1-189](file://apps/web/app/globals.css#L1-L189)
+- [apps/web/tailwind.config.ts:1-55](file://apps/web/tailwind.config.ts#L1-L55)
 
 ### 主题系统集成
 
@@ -1036,6 +1224,16 @@ UI-->>User : 显示更新后的界面
 - [apps/web/app/providers.tsx:45-68](file://apps/web/app/providers.tsx#L45-L68)
 - [apps/web/lib/theme/ThemeProvider.tsx:47-56](file://apps/web/lib/theme/ThemeProvider.tsx#L47-L56)
 
+### 提示词选择器样式设计
+
+**新增** 提示词选择器实现了专业的Web3企业风格设计：
+
+- **分类标题**：使用语义化图标和标签，清晰区分不同查询场景
+- **模板卡片**：采用圆角设计和悬停效果，提供直观的视觉反馈
+- **使用按钮**：隐藏在卡片右侧，悬停时才显示，保持界面简洁
+- **响应式布局**：桌面端居中弹窗，移动端底部抽屉，适配不同设备
+- **动画过渡**：平滑的打开/关闭动画，提升用户体验
+
 ### Markdown渲染样式
 
 Markdown渲染器提供了完整的语法支持和美观的样式：
@@ -1048,10 +1246,12 @@ Markdown渲染器提供了完整的语法支持和美观的样式：
 - **引用**：左侧边框和斜体样式
 
 **章节来源**
-- [apps/web/app/globals.css:1-118](file://apps/web/app/globals.css#L1-L118)
-- [apps/web/tailwind.config.ts:1-54](file://apps/web/tailwind.config.ts#L1-L54)
+- [apps/web/app/globals.css:1-189](file://apps/web/app/globals.css#L1-L189)
+- [apps/web/tailwind.config.ts:1-55](file://apps/web/tailwind.config.ts#L1-L55)
 - [apps/web/components/MarkdownRenderer.tsx:1-119](file://apps/web/components/MarkdownRenderer.tsx#L1-L119)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
+- [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
+- [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
 
 ## 依赖关系分析
 
@@ -1142,6 +1342,7 @@ Packages --> Build
 5. **主题持久化**: 使用 localStorage 减少主题切换的计算开销
 6. **钱包上下文缓存**: 使用内存变量存储当前钱包地址，避免重复验证
 7. **欢迎消息缓存**: 固定的欢迎消息模板减少重复计算
+8. **提示词模板缓存**: 分类化的提示词模板减少重复渲染
 
 ### 网络优化
 
@@ -1236,6 +1437,15 @@ Packages --> Build
 - 验证 handleSelectConversation 中的消息重置逻辑
 - 检查欢迎消息的条件判断是否正确
 
+#### 9. 提示词选择器问题
+
+**症状**: 快捷提示词按钮无效或弹窗无法打开
+**原因**: 状态管理或事件处理问题
+**解决方案**:
+- 检查 isPromptSelectorOpen 状态
+- 验证 handlePromptSelect 函数的实现
+- 确认 PromptSelectorModal 的 isOpen 属性绑定
+
 **章节来源**
 - [apps/web/app/api/chat/route.ts:360-404](file://apps/web/app/api/chat/route.ts#L360-L404)
 - [apps/web/app/api/tools/route.ts:124-133](file://apps/web/app/api/tools/route.ts#L124-L133)
@@ -1244,6 +1454,7 @@ Packages --> Build
 - [apps/web/components/ConfirmDialog.tsx:28-40](file://apps/web/components/ConfirmDialog.tsx#L28-L40)
 - [apps/web/lib/supabase/client.ts:34-53](file://apps/web/lib/supabase/client.ts#L34-L53)
 - [apps/web/app/page.tsx:195-215](file://apps/web/app/page.tsx#L195-L215)
+- [apps/web/components/PromptSelectorModal.tsx:18-33](file://apps/web/components/PromptSelectorModal.tsx#L18-L33)
 
 ## 结论
 
@@ -1260,6 +1471,7 @@ Packages --> Build
 - **交互体验**: 统一的确认对话框组件
 - **钱包集成**: 完整的钱包上下文注入功能
 - **智能欢迎消息**: 优化的对话切换用户体验
+- **提示词系统**: 完整的快捷查询入口，显著提升用户体验
 
 ### 功能特色
 - **智能工具调用**: AI 模型能够自动选择和执行合适的工具
@@ -1273,8 +1485,9 @@ Packages --> Build
 - **钱包感知**: AI能够感知用户钱包地址，简化余额查询流程
 - **连接管理**: 断开连接时优雅清空UI但保留云端数据
 - **智能欢迎消息**: 新对话切换时自动显示引导内容，避免残留内容干扰
+- **提示词选择**: 快速的Web3查询入口，提供便捷的操作体验
 
 ### 发展前景
 该应用程序为 Web3 开发者提供了一个强大的信息查询平台，未来可以扩展更多 Web3 工具和服务，进一步提升用户体验和功能性。通过持续的优化和功能扩展，这个项目有望成为 Web3 生态系统中的重要工具。
 
-**更新** 本次更新重点集成了完整的主题系统，包括主题提供者、主题切换器和响应式主题切换；新增了确认对话框组件，提供了统一的用户确认交互体验；完善了UI组件体系，显著提升了用户交互体验和界面的专业度；实现了钱包上下文注入功能，使AI能够感知用户钱包地址，简化了余额查询等操作；**新增了智能欢迎消息处理机制，通过优化对话切换逻辑，确保用户在切换到新对话时看到引导内容而非之前对话的残留内容，显著提升了用户体验**。
+**更新** 本次更新重点集成了完整的提示词选择系统，包括PromptSelectorModal和PromptSelector组件，显著增强了ChatInput组件的功能；新增了分类化的提示词模板管理，支持价格查询、余额查询、Gas查询、Token查询和转账操作等多种Web3场景；完善了移动端适配，采用底部抽屉式设计；优化了用户交互体验，提供更便捷的快捷查询入口；**新增了完整的提示词选择系统，通过分类化的模板管理和响应式设计，为用户提供了专业的企业级Web3查询体验**。

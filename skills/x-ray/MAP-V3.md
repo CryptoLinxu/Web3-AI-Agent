@@ -1,8 +1,8 @@
 # Web3 AI Agent Skill Map V3
 
-> 最后更新：2026-04-28（第六版）
-> 当前版本：v0.7.2
-> 当前阶段：P1 任务全量交付完成 → E2E 18 tests 18/18 + 浏览器验收 7/7 + RLS 升级 + 安全加固
+> 最后更新：2026-04-28（第七版）
+> 当前版本：v0.8.0
+> 当前阶段：提示词管理功能交付 + Token Logo 展示优化
 
 ## 项目状态速览
 
@@ -19,6 +19,9 @@
 | **钱包登录** | ✅ 完成 | RainbowKit + Wagmi v2，支持 MetaMask/WalletConnect |
 | **对话持久化** | ✅ 完成 | Supabase PostgreSQL，自动保存/加载 |
 | **对话历史 UI** | ✅ 完成 | 侧边栏展示、切换、删除、新建 |
+| **提示词管理** | ✅ 完成 | 配置文件 + 选择器弹窗 + 18 个提示词模板（5 分类） |
+| **Token Logo 展示** | ✅ 完成 | Markdown 图片格式 + 16x16 内联图标 + 水平对齐 |
+| **MarkdownRenderer** | ✅ 完成 | img 自定义组件，支持 Logo/图标/普通图片 |
 | **安全加固** | ✅ 完成 | RLS 策略 + 钱包地址隔离，Audit 88分 |
 | **删除弹窗** | ✅ 完成 | ConfirmDialog 自定义组件 + Loading 状态 |
 | **断开清空** | ✅ 完成 | 客户端 UI 清空 + Supabase 数据保留 |
@@ -54,7 +57,16 @@
 - ✅ **断开清空**：钱包断开时清空 UI，保留 Supabase 数据，重连自动恢复
 - ✅ **钱包上下文注入**：AI 自动感知钱包地址，查询“我的余额”时无需手动输入
 - ✅ **转账卡片**：AI 识别转账意图，生成 TransferCard 组件，支持 ETH 原生转账和 ERC20 Token 转账
-- ✅ **ERC20 余额查询**：通过 getTokenBalance 工具链上查询 USDT/USDC/DAI 等 Token 余额，使用正确精度格式化，解决 AI 幻觉问题
+- ✅ **提示词管理**：配置文件 (prompts.ts) + 选择器弹窗 (PromptSelectorModal) + 选择器组件 (PromptSelector)
+  - 18 个提示词模板，覆盖 5 个分类（价格/余额/Gas/Token/转账）
+  - 系统提示词配置化，支持随时修改
+  - 输入框左侧快捷入口按钮，右侧快捷键提示
+  - 响应式布局（桌面端居中弹窗，移动端底部抽屉）
+- ✅ **Token Logo 展示**：AI 回复中直接展示 Token Logo 图标
+  - MarkdownRenderer 自定义 img 组件
+  - 使用空 alt 文本的 Markdown 图片格式 ![](url)
+  - 16x16 图标内联展示，与文字水平对齐 (verticalAlign: middle)
+  - 系统提示词明确要求 AI 使用 Markdown 图片格式
 
 ### 项目治理
 - ✅ **Changelog 体系**：完整变更记录，AI 上下文追溯
@@ -116,6 +128,9 @@
 - ✅ [里程碑 Checklist](/docs/Web3-AI-Agent-项目里程碑-Checklist.md) - 进度跟踪
 - ✅ [docs/changelog/](/docs/changelog/README.md) - 变更历史记录
 - ✅ [docs/checklist/](/docs/checklist/PROJECT-CHECKLIST.md) - 项目清单与规划
+- ✅ [docs/prd/prompt-management.md](/docs/prd/prompt-management.md) - 提示词管理 PRD
+- ✅ [docs/req/prompt-management-tasks.md](/docs/req/prompt-management-tasks.md) - 提示词管理 REQ
+- ✅ [docs/architect/prompt-management-architecture.md](/docs/architect/prompt-management-architecture.md) - 提示词管理架构设计
 - ✅ **转账工具**：packages/web3-tools/src/transfer.ts (99行)
 - ✅ [supabase/migrations/](/supabase/migrations/) - 数据库迁移脚本 (transfer_cards 表)
 - ✅ [Skill Map](/skills/x-ray/MAP-V3.md) - 技能地图
@@ -189,8 +204,13 @@ AI-Agent/
 │       │   │   ├── TransferCard.tsx    # 转账卡片核心组件 (338行)
 │       │   │   ├── DexSwapCard.tsx     # DexSwap 卡片预留
 │       │   │   └── index.ts            # 统一导出
+│       │   ├── PromptSelector.tsx      # 提示词选择器组件
+│       │   ├── PromptSelectorModal.tsx # 提示词弹窗组件
+│       │   ├── MarkdownRenderer.tsx    # Markdown 渲染（支持 Logo）
 │       │   ├── MessageItem.tsx # 消息项（渲染卡片）
 │       │   └── ...
+│       ├── config/
+│       │   └── prompts.ts      # 提示词配置文件（18 个模板）
 │       ├── lib/
 │       │   ├── memory/         # Memory 管理模块
 │       │   ├── supabase/       # Supabase 数据访问层
@@ -254,7 +274,8 @@ AI-Agent/
 
 ## 历史状态
 
- 2026-04-28：P1 任务全量交付完成（v0.7.2）→ E2E 18 tests 18/18，RLS 升级方案（服务端 DELETE 双验证 + migration），钱包地址验证，SSR 闪烁修复，新增 9 个测试覆盖钱包/verify-ownership/转账卡片
+> 2026-04-28：提示词管理功能交付 + Token Logo 展示优化（v0.8.0）→ 配置文件 + 选择器弹窗 + 18 个提示词模板，Markdown 图片格式 Logo 展示
+> 2026-04-28：P1 任务全量交付完成（v0.7.2）→ E2E 18 tests 18/18，RLS 升级方案（服务端 DELETE 双验证 + migration），钱包地址验证，SSR 闪烁修复，新增 9 个测试覆盖钱包/verify-ownership/转账卡片
 > 2026-04-28：E2E 对话超时修复 + 浏览器验收完成（v0.7.1）→ 9/9 全部通过，对话测试 waitForTimeout→条件等待重构，浏览器验收 7/7
 > 2026-04-28：E2E 测试框架 + 文档体系完成（v0.7.0）→ Playwright chromium 9 tests 8/9 通过，API 文档 674 行，部署文档更新（Supabase），ERC20 Approve 流程验证完成，新增 changelog
 > 2026-04-28：单元测试全覆盖完成（v0.6.0）→ 31 文件 238 tests 100% 通过，测试报告+复盘文档
@@ -508,6 +529,11 @@ origin -> qa / audit / browser-verify / resolve-doc-conflicts / digest / update-
 4. **多语言支持** (`/pipeline feat`)
    - 中文、English、日本語切换
    - 预估：5-7 天
+
+5. **提示词配置优化** (`/pipeline patch`)
+   - 添加更多场景提示词模板
+   - 支持用户自定义提示词
+   - 预估：2-3 天
 
 ### ⚠️ 生产前必须完成
 

@@ -4,6 +4,9 @@
 **本文档引用的文件**
 - [MarkdownRenderer.tsx](file://apps/web/components/MarkdownRenderer.tsx)
 - [MessageItem.tsx](file://apps/web/components/MessageItem.tsx)
+- [TransferCard.tsx](file://apps/web/components/cards/TransferCard.tsx)
+- [MarkdownRenderer.test.tsx](file://apps/web/components/MarkdownRenderer.test.tsx)
+- [prompts.ts](file://apps/web/config/prompts.ts)
 - [page.tsx](file://apps/web/app/page.tsx)
 - [useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
 - [route.ts](file://apps/web/app/api/chat/route.ts)
@@ -15,15 +18,15 @@
 - [layout.tsx](file://apps/web/app/layout.tsx)
 - [ThemeContext.tsx](file://apps/web/lib/theme/ThemeContext.tsx)
 - [ThemeProvider.tsx](file://apps/web/lib/theme/ThemeProvider.tsx)
+- [test-setup.tsx](file://apps/web/test-setup.tsx)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 全面采用CSS变量系统实现主题一致性
-- 新增现代化的暗色/亮色主题支持
-- 增强的视觉效果和动画系统
-- 改进的代码块和表格样式
-- 优化的响应式设计
+- 新增Logo和图标智能处理功能，支持16x16像素内联显示
+- 改进img组件实现，增强错误处理机制
+- 优化图片加载性能，采用unoptimized策略
+- 增强Token图标展示的一致性和用户体验
 
 ## 目录
 1. [简介](#简介)
@@ -31,18 +34,19 @@
 3. [核心组件](#核心组件)
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
-6. [CSS变量系统](#css变量系统)
-7. [主题现代化](#主题现代化)
-8. [依赖关系分析](#依赖关系分析)
-9. [性能考虑](#性能考虑)
-10. [故障排除指南](#故障排除指南)
-11. [结论](#结论)
+6. [Logo和图标智能处理](#logo和图标智能处理)
+7. [CSS变量系统](#css变量系统)
+8. [主题现代化](#主题现代化)
+9. [依赖关系分析](#依赖关系分析)
+10. [性能考虑](#性能考虑)
+11. [故障排除指南](#故障排除指南)
+12. [结论](#结论)
 
 ## 简介
 
 Web3 AI Agent项目中的Markdown渲染功能是一个关键的前端组件，负责将AI助手生成的Markdown格式文本转换为美观、可读的HTML内容。该功能不仅支持标准的Markdown语法，还通过GitHub Flavored Markdown (GFM) 扩展提供了表格、任务列表等高级特性，为用户提供专业的信息展示体验。
 
-**更新** 该渲染系统现已进行全面样式现代化，采用全新的CSS变量系统实现主题一致性和更好的视觉效果。系统支持暗色/亮色双主题模式，通过[data-theme]属性实现动态主题切换，并集成了现代化的动画效果和响应式设计。
+**更新** 该渲染系统现已进行全面样式现代化，采用全新的CSS变量系统实现主题一致性和更好的视觉效果。系统支持暗色/亮色双主题模式，通过[data-theme]属性实现动态主题切换，并集成了现代化的动画效果和响应式设计。更重要的是，新增了智能的Logo和图标处理功能，能够自动识别并优化显示Token图标等小尺寸图像。
 
 ## 项目结构
 
@@ -56,48 +60,54 @@ B[MessageItem.tsx<br/>消息项组件]
 C[MessageList.tsx<br/>消息列表组件]
 D[ChatInput.tsx<br/>聊天输入组件]
 E[ThemeSwitcher.tsx<br/>主题切换器]
+F[TransferCard.tsx<br/>转账卡片组件]
 end
 subgraph "主题系统"
-F[ThemeContext.tsx<br/>主题上下文]
-G[ThemeProvider.tsx<br/>主题提供者]
-H[layout.tsx<br/>布局组件]
+G[ThemeContext.tsx<br/>主题上下文]
+H[ThemeProvider.tsx<br/>主题提供者]
+I[layout.tsx<br/>布局组件]
 end
 subgraph "样式层"
-I[globals.css<br/>全局样式]
-J[CSS变量系统]
-K[主题动画]
+J[globals.css<br/>全局样式]
+K[CSS变量系统]
+L[主题动画]
+M[图片优化系统]
 end
 subgraph "类型定义层"
-L[chat.ts<br/>消息类型定义]
-M[stream.ts<br/>流式类型定义]
-N[types.ts<br/>主题类型定义]
+N[chat.ts<br/>消息类型定义]
+O[stream.ts<br/>流式类型定义]
+P[types.ts<br/>主题类型定义]
 end
 subgraph "API层"
-O[route.ts<br/>聊天API路由]
-P[useChatStream.ts<br/>流式Hook]
+Q[route.ts<br/>聊天API路由]
+R[useChatStream.ts<br/>流式Hook]
+S[prompts.ts<br/>提示词配置]
 end
 A --> B
 B --> C
 C --> D
 A --> E
-E --> F
-F --> G
+E --> G
 G --> H
-A --> I
-I --> J
+H --> I
+A --> J
 J --> K
-A --> L
-B --> M
-P --> O
+K --> L
+A --> M
+A --> N
+B --> O
+R --> Q
+S --> A
 ```
 
 **图表来源**
-- [MarkdownRenderer.tsx:1-119](file://apps/web/components/MarkdownRenderer.tsx#L1-L119)
+- [MarkdownRenderer.tsx:1-160](file://apps/web/components/MarkdownRenderer.tsx#L1-L160)
 - [ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
 - [ThemeProvider.tsx:1-83](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L83)
+- [TransferCard.tsx:450-601](file://apps/web/components/cards/TransferCard.tsx#L450-L601)
 
 **章节来源**
-- [MarkdownRenderer.tsx:1-119](file://apps/web/components/MarkdownRenderer.tsx#L1-L119)
+- [MarkdownRenderer.tsx:1-160](file://apps/web/components/MarkdownRenderer.tsx#L1-L160)
 - [ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
 - [layout.tsx:1-38](file://apps/web/app/layout.tsx#L1-L38)
 
@@ -107,7 +117,7 @@ P --> O
 
 MarkdownRenderer是整个渲染系统的核心组件，负责将原始Markdown文本转换为结构化的HTML元素。该组件采用了高度定制化的渲染策略，针对不同Markdown元素提供了专门的样式处理。
 
-**更新** 组件现已完全集成CSS变量系统，所有颜色和样式都通过CSS变量动态调整，实现真正的主题一致性。
+**更新** 组件现已完全集成CSS变量系统，所有颜色和样式都通过CSS变量动态调整，实现真正的主题一致性。同时新增了智能的图片处理功能，能够自动识别Logo和图标并进行优化显示。
 
 #### 主要特性
 
@@ -116,13 +126,15 @@ MarkdownRenderer是整个渲染系统的核心组件，负责将原始Markdown�
 3. **现代化样式**: 支持暗色/亮色主题的完整样式覆盖
 4. **响应式表格**: 支持水平滚动的表格展示
 5. **增强的代码块**: 支持语法高亮和主题适配的代码块样式
+6. **智能图片处理**: 自动识别Logo和图标，支持16x16像素内联显示
+7. **错误处理机制**: 完善的图片加载失败处理和降级策略
 
 #### 关键实现细节
 
 组件的核心渲染逻辑基于ReactMarkdown库，通过components属性定义了每个Markdown元素的自定义渲染函数。所有样式类名都使用CSS变量，如`text-[rgb(var(--text-primary))]`和`bg-[rgb(var(--bg-tertiary))]`，确保在不同主题下自动调整颜色。
 
 **章节来源**
-- [MarkdownRenderer.tsx:11-118](file://apps/web/components/MarkdownRenderer.tsx#L11-L118)
+- [MarkdownRenderer.tsx:11-160](file://apps/web/components/MarkdownRenderer.tsx#L11-L160)
 
 ### MessageItem 组件
 
@@ -152,7 +164,7 @@ MessageItem-->>User : 显示格式化内容
 - [useChatStream.ts:167-252](file://apps/web/hooks/useChatStream.ts#L167-L252)
 
 **章节来源**
-- [MessageItem.tsx:13-151](file://apps/web/components/MessageItem.tsx#L13-L151)
+- [MessageItem.tsx:13-189](file://apps/web/components/MessageItem.tsx#L13-L189)
 
 ## 架构概览
 
@@ -188,6 +200,7 @@ subgraph "样式层"
 Tailwind[Tailwind CSS]
 CustomStyles[自定义样式]
 Animations[主题动画]
+ImageOptimization[图片优化系统]
 end
 UI --> Input
 UI --> ThemeSwitcher
@@ -205,13 +218,14 @@ ThemeContext --> CSSVariables
 CSSVariables --> Tailwind
 Tailwind --> CustomStyles
 CustomStyles --> Animations
-Animations --> UI
+CustomStyles --> ImageOptimization
+ImageOptimization --> UI
 ```
 
 **图表来源**
 - [useChatStream.ts:27-294](file://apps/web/hooks/useChatStream.ts#L27-L294)
 - [route.ts:135-405](file://apps/web/app/api/chat/route.ts#L135-L405)
-- [MarkdownRenderer.tsx:11-118](file://apps/web/components/MarkdownRenderer.tsx#L11-L118)
+- [MarkdownRenderer.tsx:11-160](file://apps/web/components/MarkdownRenderer.tsx#L11-L160)
 - [ThemeProvider.tsx:13-82](file://apps/web/lib/theme/ThemeProvider.tsx#L13-L82)
 
 ## 详细组件分析
@@ -237,7 +251,7 @@ MarkdownRendererProps --> MarkdownRenderer : "使用"
 ```
 
 **图表来源**
-- [MarkdownRenderer.tsx:6-9](file://apps/web/components/MarkdownRenderer.tsx#L6-L9)
+- [MarkdownRenderer.tsx:6-10](file://apps/web/components/MarkdownRenderer.tsx#L6-L10)
 
 #### 渲染策略分析
 
@@ -251,6 +265,8 @@ MarkdownRendererProps --> MarkdownRenderer : "使用"
 | 代码(code) | HTML代码标签 | 等宽字体，背景色 | `bg-[rgb(var(--bg-tertiary))]` | 区分内联和块级代码 |
 | 表格(table) | HTML表格标签 | 边框，圆角，滚动支持 | `border-[rgb(var(--border-color))]` | 响应式设计 |
 | 引用(blockquote) | HTML引用标签 | 左侧边框，斜体文本 | `text-[rgb(var(--text-secondary))]` | 引用色 |
+| 分割线(hr) | HTML分割线 | 透明度边框，垂直间距 | `border-[rgb(var(--border-color))]` | 主题边框颜色 |
+| 图片(img) | Next.js Image组件 | 智能处理Logo和图标 | `object-contain` | 16x16像素内联显示 |
 
 #### 样式系统集成
 
@@ -267,6 +283,7 @@ CheckElement --> |表格| TableStyle["应用表格样式<br/>- 边框<br/>- 圆�
 CheckElement --> |链接| LinkStyle["应用链接样式<br/>- 主色调<br/>- 下划线<br/>- 悬停效果<br/>- 动画过渡"]
 CheckElement --> |引用| BlockquoteStyle["应用引用样式<br/>- 左侧边框<br/>- 斜体文本<br/>- 引用色<br/>- 主题透明度"]
 CheckElement --> |分割线| HRStyle["应用分割线样式<br/>- 透明度边框<br/>- 垂直间距<br/>- 主题边框颜色"]
+CheckElement --> |图片| ImageStyle["应用图片样式<br/>- Logo智能识别<br/>- 16x16像素内联显示<br/>- 错误处理机制<br/>- 性能优化策略"]
 ParagraphStyle --> End([渲染完成])
 HeadingStyle --> End
 ListStyle --> End
@@ -275,13 +292,14 @@ TableStyle --> End
 LinkStyle --> End
 BlockquoteStyle --> End
 HRStyle --> End
+ImageStyle --> End
 ```
 
 **图表来源**
-- [MarkdownRenderer.tsx:17-111](file://apps/web/components/MarkdownRenderer.tsx#L17-L111)
+- [MarkdownRenderer.tsx:17-152](file://apps/web/components/MarkdownRenderer.tsx#L17-L152)
 
 **章节来源**
-- [MarkdownRenderer.tsx:11-118](file://apps/web/components/MarkdownRenderer.tsx#L11-L118)
+- [MarkdownRenderer.tsx:11-160](file://apps/web/components/MarkdownRenderer.tsx#L11-L160)
 
 ### MessageItem 组件与Markdown集成
 
@@ -328,6 +346,125 @@ Renderer-->>Client : 工具调用状态展示
 
 **章节来源**
 - [useChatStream.ts:120-164](file://apps/web/hooks/useChatStream.ts#L120-L164)
+
+## Logo和图标智能处理
+
+### 智能识别机制
+
+Markdown渲染器新增了智能的Logo和图标识别功能，能够自动区分不同类型的图片并进行相应的优化处理：
+
+```mermaid
+flowchart TD
+Start([收到图片标签]) --> CheckSrc{"检查src属性"}
+CheckSrc --> |存在| CheckAlt{"检查alt属性"}
+CheckSrc --> |不存在| ReturnNull[返回null]
+CheckAlt --> |包含logo| InlineIcon[内联图标显示]
+CheckAlt --> |包含icon| InlineIcon
+CheckAlt --> |为空| InlineIcon
+CheckAlt --> |其他| DefaultImage[默认图片渲染]
+InlineIcon --> SetSize[设置16x16像素尺寸]
+SetSize --> UseNextImage[使用Next.js Image组件]
+UseNextImage --> AddErrorHandling[添加错误处理]
+AddErrorHandling --> RenderInline[渲染内联显示]
+DefaultImage --> UseNextImage2[使用Next.js Image组件]
+UseNextImage2 --> SetDefaultSize[设置200x200像素]
+SetDefaultSize --> RenderDefault[渲染默认显示]
+ReturnNull --> End([结束])
+RenderInline --> End
+RenderDefault --> End
+```
+
+**图表来源**
+- [MarkdownRenderer.tsx:114-152](file://apps/web/components/MarkdownRenderer.tsx#L114-L152)
+
+### 16x16像素内联显示
+
+对于识别为Logo或图标的图片，系统采用专门的内联显示策略：
+
+#### 尺寸规格
+- **宽度**: 16像素 (`w-4`)
+- **高度**: 16像素 (`h-4`)
+- **容器**: 相对定位的内联块元素
+- **对齐**: 与文本基线对齐
+
+#### 样式特点
+- **内联Flex布局**: `inline-flex items-center gap-1`
+- **垂直对齐**: `vertical-align: middle`
+- **对象填充**: `object-contain`确保完整显示
+- **容器约束**: `relative inline-block`限制显示范围
+
+#### 错误处理机制
+
+系统实现了完善的错误处理策略，确保图片加载失败时的优雅降级：
+
+```mermaid
+stateDiagram-v2
+[*] --> 图片加载开始
+图片加载开始 --> 加载成功
+图片加载开始 --> 加载失败
+加载成功 --> 正常显示
+加载失败 --> 隐藏图片
+隐藏图片 --> 显示占位符
+正常显示 --> [*]
+显示占位符 --> [*]
+```
+
+**图表来源**
+- [MarkdownRenderer.tsx:129-133](file://apps/web/components/MarkdownRenderer.tsx#L129-L133)
+
+### 默认图片渲染策略
+
+对于非Logo和非图标的普通图片，系统采用标准的图片渲染策略：
+
+#### 尺寸规格
+- **宽度**: 200像素 (`w-50`)
+- **高度**: 200像素 (`h-50`)
+- **容器**: 内联块元素
+- **样式**: 圆角边框，最大宽度100%
+
+#### 性能优化
+- **Next.js Image优化**: 使用`unoptimized`绕过Next.js的图片优化管道
+- **CDN兼容**: 支持外部CDN资源，如CoinGecko等
+- **错误降级**: 加载失败时自动隐藏，不影响整体渲染
+
+**章节来源**
+- [MarkdownRenderer.tsx:114-152](file://apps/web/components/MarkdownRenderer.tsx#L114-L152)
+
+### Token图标展示集成
+
+Markdown渲染器的Logo智能处理功能与TransferCard组件形成了完整的Token图标展示体系：
+
+#### 配置驱动的图标获取
+
+TransferCard组件提供了Token图标获取的配置驱动方法：
+
+```mermaid
+flowchart TD
+GetTokenIcon[获取Token图标URL] --> CheckTokenConfig{检查tokenConfig}
+CheckTokenConfig --> |存在| CheckLogoUri{检查logoUri}
+CheckTokenConfig --> |不存在| UseDefaultIcon[使用默认图标]
+CheckLogoUri --> |存在| ReturnLogoUri[返回logoUri]
+CheckLogoUri --> |不存在| UseDefaultIcon
+UseDefaultIcon --> ReturnDefault[返回默认图标URL]
+ReturnLogoUri --> End([结束])
+ReturnDefault --> End
+```
+
+**图表来源**
+- [TransferCard.tsx:453-455](file://apps/web/components/cards/TransferCard.tsx#L453-L455)
+
+#### 提示词规范
+
+为了确保AI助手正确生成Logo展示，系统制定了明确的提示词规范：
+
+- **格式要求**: 使用`![](url)`语法（留空alt文本）
+- **示例**: `![](https://assets.coingecko.com/coins/images/325/small/Tether.png)`
+- **禁止格式**: `![Token Logo](url)`带alt文本的格式
+- **空值处理**: 如果logoUri为空，可以不展示Logo
+
+**章节来源**
+- [TransferCard.tsx:453-455](file://apps/web/components/cards/TransferCard.tsx#L453-L455)
+- [prompts.ts:221-225](file://apps/web/config/prompts.ts#L221-L225)
 
 ## CSS变量系统
 
@@ -377,7 +514,7 @@ F --> J
 
 **章节来源**
 - [globals.css:5-48](file://apps/web/app/globals.css#L5-L48)
-- [MarkdownRenderer.tsx:23-110](file://apps/web/components/MarkdownRenderer.tsx#L23-L110)
+- [MarkdownRenderer.tsx:23-152](file://apps/web/components/MarkdownRenderer.tsx#L23-L152)
 
 ## 主题现代化
 
@@ -426,16 +563,17 @@ graph LR
 subgraph "渲染核心"
 A[react-markdown@10.1.0]
 B[remark-gfm@4.0.1]
+C[next/image@13.4.19]
 end
 subgraph "样式系统"
-C[Tailwind CSS]
-D[CSS变量系统]
-E[主题提供者]
+D[Tailwind CSS]
+E[CSS变量系统]
+F[主题提供者]
 end
 subgraph "类型定义"
-F[@types/react@18.3.28]
-G[@types/mdast@4.0.4]
-H[主题类型定义]
+G[@types/react@18.3.28]
+H[@types/mdast@4.0.4]
+I[主题类型定义]
 end
 A --> B
 A --> C
@@ -444,6 +582,7 @@ A --> E
 A --> F
 A --> G
 A --> H
+A --> I
 ```
 
 **图表来源**
@@ -464,6 +603,8 @@ A --> H
 2. **CSS变量缓存**: CSS变量在编译时解析，运行时只需读取，减少计算开销
 3. **状态更新节流**: 使用节流机制控制频繁的状态更新，提升渲染性能
 4. **内存管理**: 合理管理流式数据的缓冲区，避免内存泄漏
+5. **图片懒加载**: 对非Logo图片采用标准的懒加载策略
+6. **Logo内联优化**: Logo图片直接内联显示，减少额外的DOM节点
 
 ### 主题切换性能
 
@@ -480,6 +621,18 @@ A --> H
 - **增量更新**: 只更新变化的部分内容，而非重新渲染整个消息列表
 - **缓冲区管理**: 合理管理SSE事件的缓冲区，确保数据完整性
 - **错误恢复**: 实现自动重试机制，提高流式连接的稳定性
+
+### 图片加载性能
+
+新增的图片智能处理功能在性能方面进行了多项优化：
+
+1. **CDN兼容**: 通过`unoptimized`属性绕过Next.js的图片优化管道，直接加载外部CDN资源
+2. **错误快速降级**: 图片加载失败时立即隐藏，避免阻塞渲染流程
+3. **内联显示优化**: Logo图片采用内联显示，减少额外的DOM层级
+4. **尺寸精确控制**: 16x16像素的精确尺寸控制，避免不必要的重排
+
+**章节来源**
+- [MarkdownRenderer.tsx:114-152](file://apps/web/components/MarkdownRenderer.tsx#L114-L152)
 
 ## 故障排除指南
 
@@ -499,6 +652,21 @@ A --> H
 2. 验证CSS变量的正确性
 3. 确认样式类名的正确性
 4. 确认Markdown内容格式
+
+#### Logo和图标显示问题
+
+**问题**: Logo或图标无法正确显示
+**可能原因**:
+- alt属性格式不正确
+- 图片URL无效或不可访问
+- CDN连接超时
+- Next.js图片优化配置问题
+
+**解决方案**:
+1. 检查alt属性是否包含'logo'或'icon'关键词
+2. 验证图片URL的有效性和可访问性
+3. 确认CDN服务的可用性
+4. 检查Next.js配置中的remotePatterns设置
 
 #### 主题切换失效
 
@@ -530,15 +698,31 @@ A --> H
 3. 调整节流参数设置
 4. 检查CSS变量解析性能
 
+#### 图片加载失败
+
+**问题**: 图片无法加载显示
+**可能原因**:
+- 网络连接问题
+- 图片URL格式错误
+- CDN服务不可用
+- CORS跨域问题
+
+**解决方案**:
+1. 检查网络连接状态
+2. 验证图片URL格式
+3. 确认CDN服务可用性
+4. 检查CORS配置
+
 **章节来源**
 - [useChatStream.ts:167-252](file://apps/web/hooks/useChatStream.ts#L167-L252)
 - [ThemeProvider.tsx:54-71](file://apps/web/lib/theme/ThemeProvider.tsx#L54-L71)
+- [MarkdownRenderer.tsx:129-133](file://apps/web/components/MarkdownRenderer.tsx#L129-L133)
 
 ## 结论
 
 Web3 AI Agent项目的Markdown渲染功能展现了现代前端开发的最佳实践。通过精心设计的组件架构、完善的类型系统、高效的流式处理机制和全面的主题现代化，该功能为用户提供了专业、流畅且美观的信息展示体验。
 
-**更新** 本次样式现代化升级使系统具备了以下显著优势：
+**更新** 本次重大功能增强使系统具备了以下显著优势：
 
 1. **技术先进性**: 采用最新的React和Next.js技术栈，配合CSS变量系统
 2. **用户体验**: 提供实时、响应式、主题一致的交互体验
@@ -546,6 +730,15 @@ Web3 AI Agent项目的Markdown渲染功能展现了现代前端开发的最佳�
 4. **扩展性**: 易于添加新的Markdown元素支持和主题变体
 5. **性能优化**: 通过CSS变量缓存、增量更新和硬件加速提升渲染效率
 6. **视觉一致性**: 全面的主题系统确保所有组件的视觉统一性
+7. **智能图片处理**: 新增的Logo和图标智能识别功能，提升了Token信息展示的专业性
+8. **错误处理机制**: 完善的图片加载失败处理，确保系统的稳定性和可靠性
+
+**新增功能亮点**:
+- **智能Logo识别**: 自动识别包含'logo'或'icon'关键词的图片并进行优化显示
+- **16x16像素内联显示**: 专为Token图标设计的精确尺寸控制
+- **错误处理机制**: 图片加载失败时的优雅降级和占位符显示
+- **CDN兼容性**: 通过`unoptimized`属性支持外部CDN资源的直接访问
+- **性能优化**: 针对不同图片类型的专门优化策略
 
 未来可以考虑的功能增强方向包括：
 - 更丰富的Markdown元素支持
@@ -553,5 +746,6 @@ Web3 AI Agent项目的Markdown渲染功能展现了现代前端开发的最佳�
 - 更好的无障碍访问支持
 - 性能监控和分析功能
 - 主题预设和个性化选项
+- 图片懒加载的进一步优化
 
 该渲染系统代表了现代Web应用开发的标准实践，为后续的功能扩展奠定了坚实的技术基础。
