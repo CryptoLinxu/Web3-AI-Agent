@@ -56,57 +56,35 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Step 1: 验证对话所有权
-    const { data: conv, error: queryError } = await supabase
+    // 直接删除对话，利用外键 ON DELETE CASCADE 自动删除消息
+    // 如果对话不属于当前钱包，affected count 为 0
+    const { data, error: deleteError } = await supabase
       .from('conversations')
-      .select('wallet_address')
+      .delete()
       .eq('id', conversationId)
+      .eq('wallet_address', walletAddress)  // 双重条件确保只能删除自己的对话
+      .select('id')
       .single()
 
-    if (queryError || !conv) {
-      return NextResponse.json(
-        { success: false, error: '对话不存在' },
-        { status: 404 }
-      )
-    }
-
-    if (conv.wallet_address !== walletAddress) {
-      console.warn('[delete-conversation] 所有权验证失败:', {
-        conversationId,
-        expectedWallet: walletAddress,
-        actualWallet: conv.wallet_address,
-      })
-      return NextResponse.json(
-        { success: false, error: '无权删除此对话' },
-        { status: 403 }
-      )
-    }
-
-    // Step 2: 删除消息（外键关联，需先删）
-    const { error: deleteMessagesError } = await supabase
-      .from('messages')
-      .delete()
-      .eq('conversation_id', conversationId)
-
-    if (deleteMessagesError) {
-      console.error('[delete-conversation] 删除消息失败:', deleteMessagesError)
-      return NextResponse.json(
-        { success: false, error: '删除消息失败' },
-        { status: 500 }
-      )
-    }
-
-    // Step 3: 删除对话
-    const { error: deleteConvError } = await supabase
-      .from('conversations')
-      .delete()
-      .eq('id', conversationId)
-
-    if (deleteConvError) {
-      console.error('[delete-conversation] 删除对话失败:', deleteConvError)
+    if (deleteError) {
+      // PGRST116: 查询不到记录（对话不存在或不属于当前钱包）
+      if (deleteError.code === 'PGRST116') {
+        return NextResponse.json(
+          { success: false, error: '对话不存在或无权删除' },
+          { status: 404 }
+        )
+      }
+      console.error('[delete-conversation] 删除失败:', deleteError)
       return NextResponse.json(
         { success: false, error: '删除对话失败' },
         { status: 500 }
+      )
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        { success: false, error: '对话不存在或无权删除' },
+        { status: 404 }
       )
     }
 

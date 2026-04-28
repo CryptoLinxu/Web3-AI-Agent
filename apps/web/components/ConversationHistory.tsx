@@ -100,23 +100,7 @@ export default function ConversationHistory({
       setIsDeleting(true)
       setWalletContext(address)
       
-      // Step 1: 服务端验证所有权
-      const verifyRes = await fetch('/api/supabase/verify-ownership', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversationId: pendingDeleteId,
-          walletAddress: address,
-        }),
-      })
-      
-      const verifyData = await verifyRes.json()
-      
-      if (!verifyData.isOwner) {
-        throw new Error(verifyData.error || '无权删除此对话')
-      }
-      
-      // Step 2: 服务端删除对话
+      // 直接调用删除接口（服务端内置所有权验证）
       const deleteRes = await fetch('/api/supabase/delete-conversation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
