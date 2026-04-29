@@ -21,7 +21,7 @@ export type ETHPriceData = TokenPriceData
 export type BTCPriceData = TokenPriceData
 
 // EVM 兼容链类型
-export type EvmChainId = 'ethereum' | 'polygon' | 'bsc'
+export type EvmChainId = 'ethereum' | 'polygon' | 'bsc' | 'hardhat'
 
 // 非 EVM 链类型
 export type NonEvmChainId = 'bitcoin' | 'solana'

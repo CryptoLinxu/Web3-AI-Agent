@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount, useSendTransaction, useWriteContract, useWaitForTransactionReceipt, useBalance, useReadContract } from 'wagmi'
+import { useAccount, useChainId, useSendTransaction, useWriteContract, useWaitForTransactionReceipt, useBalance, useReadContract } from 'wagmi'
 import { parseEther, parseUnits, formatUnits, isAddress } from 'viem'
 import { TransferData, TransferStatus } from '@/types/transfer'
 import { getTokenConfig, isNativeToken } from '@/lib/tokens'
@@ -83,20 +83,28 @@ const CHAIN_CONFIGS: Record<string, {
     explorer: 'https://bscscan.com/tx/',
     nativeToken: 'BNB',
     iconColor: '#F3BA2F'
+  },
+  hardhat: {
+    name: 'Hardhat',
+    chainId: 31337,
+    explorer: '',
+    nativeToken: 'ETH',
+    iconColor: '#61EE8E'
   }
 }
 
-// 状态配置
-const STATUS_CONFIG: Record<TransferStatus, { label: string; color: string; dotColor: string }> = {
-  pending: { label: '待确认', color: 'text-orange-600', dotColor: 'bg-orange-500' },
-  approving: { label: '授权中', color: 'text-blue-600', dotColor: 'bg-blue-500' },
-  signing: { label: '确认中', color: 'text-blue-600', dotColor: 'bg-blue-500' },
-  confirmed: { label: '已确认', color: 'text-green-600', dotColor: 'bg-green-500' },
-  failed: { label: '失败', color: 'text-red-600', dotColor: 'bg-red-500' }
+// 状态配置 - 对齐 Quantum Nexus 主题
+const STATUS_CONFIG: Record<TransferStatus, { label: string; color: string; dotColor: string; ringColor: string }> = {
+  pending: { label: 'PENDING', color: 'text-amber-400', dotColor: 'bg-amber-400', ringColor: 'ring-amber-400/40' },
+  approving: { label: 'APPROVING', color: 'text-[rgb(var(--accent-cyan))]', dotColor: 'bg-[rgb(var(--accent-cyan))]', ringColor: 'ring-[rgba(var(--accent-cyan),0.4)]' },
+  signing: { label: 'SIGNING', color: 'text-[rgb(var(--accent-cyan))]', dotColor: 'bg-[rgb(var(--accent-cyan))]', ringColor: 'ring-[rgba(var(--accent-cyan),0.4)]' },
+  confirmed: { label: 'CONFIRMED', color: 'text-emerald-400', dotColor: 'bg-emerald-400', ringColor: 'ring-emerald-400/40' },
+  failed: { label: 'FAILED', color: 'text-[rgb(var(--danger))]', dotColor: 'bg-[rgb(var(--danger))]', ringColor: 'ring-[rgba(var(--danger),0.4)]' }
 }
 
 export default function TransferCard({ data, conversationId, onUpdate }: TransferCardProps) {
-  const { address, chainId } = useAccount()
+  const { address } = useAccount()
+  const chainId = useChainId()
   // 使用 data 中的状态（从数据库恢复）
   const [status, setStatus] = useState<TransferStatus>(data.status || 'pending')
   const [txHash, setTxHash] = useState<string | undefined>(data.txHash)
@@ -423,6 +431,10 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
     setError(undefined)
     setBalanceError('')
     setIsBalanceChecked(false)
+    // 同步重置数据库状态，避免刷新后错误残留
+    if (conversationId && data.id) {
+      transferService.updateTransferCardStatus(data.id, 'pending', undefined, undefined)
+    }
   }
 
   // 获取区块链浏览器链接
@@ -458,118 +470,167 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
   const displayError = error || balanceError
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5" style={{ minWidth: '300px' }}>
+    <div
+      className="relative rounded-2xl glass-panel border border-[rgba(var(--border-color))] p-5 transition-all duration-300 hover:border-[rgba(var(--accent-cyan),0.35)] hover:shadow-glow-cyan animate-scale-in overflow-hidden"
+      style={{ minWidth: '320px' }}
+    >
+      {/* 顶部渐变装饰条 */}
+      <div
+        className="absolute top-0 left-0 right-0 h-px opacity-60"
+        style={{
+          background:
+            'linear-gradient(90deg, transparent, rgba(var(--accent-cyan), 0.5), rgba(var(--accent-violet), 0.5), transparent)',
+        }}
+      />
+
       {/* 顶部: 标题 + 状态 */}
       <div className="flex items-center justify-between mb-4">
-        <span className="text-sm text-gray-500">DEX 转账</span>
-        <div className="flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full ${statusConfig.dotColor}`} />
-          <span className={`text-sm font-medium ${statusConfig.color}`}>
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-[rgb(var(--accent-cyan))]" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+          <span className="text-[11px] font-bold uppercase tracking-widest text-[rgb(var(--text-secondary))]">
+            Transfer
+          </span>
+        </div>
+        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(var(--bg-surface),0.6)] ring-1 ${statusConfig.ringColor}`}>
+          <span className={`relative flex items-center justify-center w-1.5 h-1.5`}>
+            {(status === 'pending' || status === 'approving' || status === 'signing') && (
+              <span className={`absolute inset-0 rounded-full ${statusConfig.dotColor} opacity-60 animate-ping`} />
+            )}
+            <span className={`relative w-1.5 h-1.5 rounded-full ${statusConfig.dotColor}`} />
+          </span>
+          <span className={`text-[10px] font-bold font-mono tracking-wider ${statusConfig.color}`}>
             {statusConfig.label}
           </span>
         </div>
       </div>
 
       {/* 币种 + 金额 + 网络 */}
-      <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          {/* Token Icon */}
-          <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-            <Image 
-              src={getTokenIconUrl()} 
-              alt={data.tokenSymbol}
-              width={36}
-              height={36}
-              className="w-full h-full object-cover"
-              unoptimized
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9IiNFNUU3RUIiLz48cGF0aCBkPSJNMTYgMTBWMjJNMTAgMTZIMjIiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4='
-              }}
-            />
+      <div className="flex items-center justify-between mb-5 pb-5 border-b border-[rgba(var(--border-color))]">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-brand rounded-full blur-md opacity-40" />
+            <div className="relative w-11 h-11 rounded-full bg-[rgba(var(--bg-surface),0.9)] border border-[rgba(var(--accent-cyan),0.3)] flex items-center justify-center overflow-hidden shadow-glow-cyan">
+              <Image
+                src={getTokenIconUrl()}
+                alt={data.tokenSymbol}
+                width={40}
+                height={40}
+                className="w-full h-full object-cover"
+                unoptimized
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9IiNFNUU3RUIiLz48cGF0aCBkPSJNMTYgMTBWMjJNMTAgMTZIMjIiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4='
+                }}
+              />
+            </div>
           </div>
           <div>
-            <span className="text-lg font-bold text-gray-900">{data.tokenSymbol}</span>
-            <div className="text-xs text-gray-500 -mt-0.5">{CHAIN_CONFIGS[data.chain]?.name || data.chain}</div>
+            <div className="text-lg font-bold text-[rgb(var(--text-primary))] leading-tight">
+              {data.tokenSymbol}
+            </div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-[rgb(var(--text-muted))]">
+              {CHAIN_CONFIGS[data.chain]?.name || data.chain}
+            </div>
           </div>
         </div>
-        <span className="text-2xl font-bold text-gray-900">{data.amount}</span>
-      </div>
-
-      {/* 发送地址 */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-500">发送地址</span>
-          <span className="text-sm text-gray-900 font-mono font-medium">{shortenAddress(data.from)}</span>
+        <div className="text-right">
+          <div className="text-2xl font-bold text-gradient leading-tight">
+            {data.amount}
+          </div>
+          <div className="text-[10px] font-mono uppercase tracking-wider text-[rgb(var(--text-muted))]">
+            Amount
+          </div>
         </div>
       </div>
 
-      {/* 接收地址 */}
-      <div className="mb-4">
+      {/* 地址信息 */}
+      <div className="space-y-2.5 mb-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-500">接收地址</span>
-          <span className="text-sm text-gray-900 font-mono font-medium">{shortenAddress(data.to)}</span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[rgb(var(--text-muted))]">From</span>
+          <span className="text-xs text-[rgb(var(--text-primary))] font-mono font-medium">
+            {shortenAddress(data.from)}
+          </span>
         </div>
-      </div>
-
-      {/* 交易哈希 (仅成功后显示) */}
-      {status === 'confirmed' && txHash && (
-        <div className="mb-4">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-[rgb(var(--text-muted))]">To</span>
+          <span className="text-xs text-[rgb(var(--text-primary))] font-mono font-medium">
+            {shortenAddress(data.to)}
+          </span>
+        </div>
+        {status === 'confirmed' && txHash && (
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">交易哈希</span>
-            <span className="text-sm text-gray-900 font-mono font-medium">{shortenAddress(txHash)}</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[rgb(var(--text-muted))]">TxHash</span>
+            <span className="text-xs text-[rgb(var(--accent-cyan))] font-mono font-medium">
+              {shortenAddress(txHash)}
+            </span>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 错误提示 */}
       {displayError && (
-        <div className="mb-4 p-2 bg-red-50 rounded-xl flex items-start gap-2">
-          <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+        <div className="mb-4 p-3 rounded-xl bg-[rgba(var(--danger),0.08)] border border-[rgba(var(--danger),0.3)] flex items-start gap-2 animate-slide-up">
+          <svg className="w-4 h-4 text-[rgb(var(--danger))] flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
           </svg>
-          <span className="text-sm text-red-600">{displayError}</span>
+          <span className="text-xs text-[rgb(var(--danger))] leading-relaxed">{displayError}</span>
         </div>
       )}
 
-      {/* 底部按钮 - 授权按钮：余额不足不影响，只需要 Gas */}
+      {/* 授权按钮 */}
       {status === 'pending' && !isNative && needsApproval && (
         <button
           onClick={handleConfirm}
           disabled={isSigning}
-          className="w-full h-10 bg-blue-600 text-white font-semibold text-base rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          className="btn-primary w-full h-11 !rounded-xl"
         >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
           授权 {data.tokenSymbol}
         </button>
       )}
 
-      {/* 底部按钮 - 转账按钮：需要检查余额 */}
+      {/* 转账按钮 */}
       {status === 'pending' && (isNative || !needsApproval) && (
         <button
           onClick={handleConfirm}
           disabled={!!displayError || isSigning}
-          className="w-full h-10 bg-black text-white font-semibold text-base rounded-xl hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          className="btn-primary w-full h-11 !rounded-xl"
         >
-          {isSigning ? '签名中...' : !isNative ? '确认转账' : '确认'}
+          {!isSigning && (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          )}
+          {isSigning ? '签名中...' : !isNative ? '确认转账' : '确认发送'}
         </button>
       )}
 
       {status === 'approving' && (
         <button
           disabled
-          className="w-full h-10 bg-gray-300 text-gray-500 font-semibold text-base rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full h-11 bg-[rgba(var(--bg-surface),0.6)] border border-[rgba(var(--accent-cyan),0.3)] text-[rgb(var(--accent-cyan))] font-semibold text-sm rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
         >
-          <div className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
-          授权中...
+          <div className="relative w-4 h-4">
+            <div className="absolute inset-0 rounded-full border-2 border-[rgba(var(--accent-cyan),0.2)]" />
+            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[rgb(var(--accent-cyan))] animate-spin" />
+          </div>
+          <span className="font-mono uppercase tracking-wider text-xs">Approving...</span>
         </button>
       )}
 
       {status === 'signing' && (
         <button
           disabled
-          className="w-full h-10 bg-gray-300 text-gray-500 font-semibold text-base rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full h-11 bg-[rgba(var(--bg-surface),0.6)] border border-[rgba(var(--accent-cyan),0.3)] text-[rgb(var(--accent-cyan))] font-semibold text-sm rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
         >
-          <div className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
-          签名中...
+          <div className="relative w-4 h-4">
+            <div className="absolute inset-0 rounded-full border-2 border-[rgba(var(--accent-cyan),0.2)]" />
+            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[rgb(var(--accent-cyan))] animate-spin" />
+          </div>
+          <span className="font-mono uppercase tracking-wider text-xs">Signing...</span>
         </button>
       )}
 
@@ -578,20 +639,23 @@ export default function TransferCard({ data, conversationId, onUpdate }: Transfe
           href={getExplorerUrl()}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full h-10 bg-blue-50 text-blue-600 font-semibold text-base rounded-xl hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
+          className="group w-full h-11 rounded-xl bg-gradient-to-r from-emerald-500/15 to-emerald-400/10 border border-emerald-400/40 text-emerald-400 font-semibold text-sm hover:bg-emerald-400/20 hover:border-emerald-400/60 transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
-          查看交易
+          查看交易详情
         </a>
       )}
 
       {status === 'failed' && (
         <button
           onClick={handleRetry}
-          className="w-full h-10 bg-black text-white font-semibold text-base rounded-xl hover:bg-gray-800 transition-colors"
+          className="btn-primary w-full h-11 !rounded-xl"
         >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
           重试
         </button>
       )}

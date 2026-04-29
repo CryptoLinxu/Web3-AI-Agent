@@ -1,14 +1,30 @@
 // 转账工具函数
 
-import { createPublicClient, http, parseEther, formatEther, type Chain } from 'viem'
+import { createPublicClient, http, parseEther, formatEther, type Chain, defineChain } from 'viem'
 import { mainnet, polygon, bsc } from 'viem/chains'
 import { ToolResult, EvmChainId, ChainConfig } from './types'
 import { getChainConfig } from './chains'
 
+// 定义 Hardhat 链
+const hardhatChain = defineChain({
+  id: 31337,
+  name: 'Hardhat',
+  nativeCurrency: {
+    name: 'ETH',
+    symbol: 'ETH',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: { http: ['http://127.0.0.1:8545'] },
+    public: { http: ['http://127.0.0.1:8545'] },
+  },
+})
+
 const CHAIN_MAP: Record<EvmChainId, Chain> = {
   ethereum: mainnet,
   polygon: polygon,
-  bsc: bsc
+  bsc: bsc,
+  hardhat: hardhatChain,
 }
 
 /**
