@@ -37,6 +37,7 @@
 - [apps/web/package.json](file://apps/web/package.json)
 - [apps/web/next.config.js](file://apps/web/next.config.js)
 - [apps/web/postcss.config.js](file://apps/web/postcss.config.js)
+- [apps/web/public/favicon.ico](file://apps/web/public/favicon.ico)
 - [package.json](file://package.json)
 - [turbo.json](file://turbo.json)
 - [pnpm-workspace.yaml](file://pnpm-workspace.yaml)
@@ -50,6 +51,14 @@
 - 优化用户交互体验，提供更便捷的Web3查询入口
 - 新增移动端适配的底部抽屉式提示词选择器
 - 完善Web3企业风格界面，提升整体设计专业度
+- **新增**：完整的Markdown语法渲染支持，增强消息内容展示
+- **新增**：内存策略管理设置面板，提供更灵活的上下文管理
+- **新增**：Web3企业风格的现代化UI设计，采用深色主题和科技蓝色调
+- **新增**：完整的主题系统支持，包括浅色、深色和跟随系统主题
+- **新增**：统一的确认对话框组件，提供一致的用户交互体验
+- **新增**：钱包上下文注入功能，实现AI对用户钱包地址的感知
+- **新增**：智能欢迎消息处理机制，优化对话切换用户体验
+- **新增**：favicon配置，提升应用的品牌识别度
 
 ## 目录
 1. [简介](#简介)
@@ -86,6 +95,7 @@
 - **新增**：钱包上下文注入功能，实现AI对用户钱包地址的感知
 - **新增**：智能欢迎消息处理机制，优化对话切换用户体验
 - **新增**：完整的提示词选择系统，提供快捷的Web3查询入口
+- **新增**：favicon配置，提升应用的品牌识别度
 
 应用采用现代化的技术栈，包括 Next.js 14、TypeScript、Tailwind CSS 和 Ethers.js，构建了一个响应式的 Web3 信息查询平台，具备企业级的设计风格和用户体验。
 
@@ -109,7 +119,8 @@ Hooks[hooks/]
 Lib[lib/]
 Types[types/]
 Config[配置文件]
-end
+Public[public/]
+</subgraph>
 end
 subgraph "包层 (packages)"
 AIConfig[packages/ai-config]
@@ -132,6 +143,7 @@ WebApp --> Hooks
 WebApp --> Lib
 WebApp --> Types
 WebApp --> Config
+WebApp --> Public
 ```
 
 **图表来源**
@@ -148,7 +160,7 @@ WebApp --> Config
 
 ### 应用布局组件
 
-应用布局组件负责设置全局元数据和字体配置：
+应用布局组件负责设置全局元数据和字体配置，现已集成了favicon配置：
 
 ```mermaid
 classDiagram
@@ -164,7 +176,7 @@ RootLayout --> LayoutProps : 接受
 ```
 
 **图表来源**
-- [apps/web/app/layout.tsx:1-38](file://apps/web/app/layout.tsx#L1-L38)
+- [apps/web/app/layout.tsx:1-64](file://apps/web/app/layout.tsx#L1-L64)
 
 ### 主页面组件
 
@@ -200,7 +212,7 @@ Home --> MemoryManager : 使用
 - [apps/web/types/chat.ts:1-29](file://apps/web/types/chat.ts#L1-L29)
 
 **章节来源**
-- [apps/web/app/layout.tsx:1-38](file://apps/web/app/layout.tsx#L1-L38)
+- [apps/web/app/layout.tsx:1-64](file://apps/web/app/layout.tsx#L1-L64)
 - [apps/web/app/page.tsx:1-423](file://apps/web/app/page.tsx#L1-L423)
 - [apps/web/types/chat.ts:1-29](file://apps/web/types/chat.ts#L1-L29)
 
@@ -467,7 +479,7 @@ MessageItem --> Message : 渲染
 ```
 
 **图表来源**
-- [apps/web/components/MessageItem.tsx:1-152](file://apps/web/components/MessageItem.tsx#L1-L152)
+- [apps/web/components/MessageItem.tsx:1-189](file://apps/web/components/MessageItem.tsx#L1-L189)
 - [apps/web/types/chat.ts:1-29](file://apps/web/types/chat.ts#L1-L29)
 
 ### Markdown渲染器组件
@@ -489,7 +501,7 @@ MarkdownRenderer --> MarkdownRendererProps : 接受
 ```
 
 **图表来源**
-- [apps/web/components/MarkdownRenderer.tsx:1-119](file://apps/web/components/MarkdownRenderer.tsx#L1-L119)
+- [apps/web/components/MarkdownRenderer.tsx:1-160](file://apps/web/components/MarkdownRenderer.tsx#L1-L160)
 
 ### 设置面板组件
 
@@ -607,8 +619,8 @@ FinalReply --> End
 - [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
 - [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
 - [apps/web/components/MessageList.tsx:1-44](file://apps/web/components/MessageList.tsx#L1-L44)
-- [apps/web/components/MessageItem.tsx:1-152](file://apps/web/components/MessageItem.tsx#L1-L152)
-- [apps/web/components/MarkdownRenderer.tsx:1-119](file://apps/web/components/MarkdownRenderer.tsx#L1-L119)
+- [apps/web/components/MessageItem.tsx:1-189](file://apps/web/components/MessageItem.tsx#L1-L189)
+- [apps/web/components/MarkdownRenderer.tsx:1-160](file://apps/web/components/MarkdownRenderer.tsx#L1-L160)
 - [apps/web/components/SettingsPanel.tsx:1-231](file://apps/web/components/SettingsPanel.tsx#L1-L231)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
 - [apps/web/components/ConfirmDialog.tsx:1-101](file://apps/web/components/ConfirmDialog.tsx#L1-L101)
@@ -762,7 +774,7 @@ ThemeSwitcher --> ThemeTypes : 使用
 ```
 
 **图表来源**
-- [apps/web/lib/theme/ThemeProvider.tsx:1-83](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L83)
+- [apps/web/lib/theme/ThemeProvider.tsx:1-110](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L110)
 - [apps/web/lib/theme/ThemeContext.tsx:1-21](file://apps/web/lib/theme/ThemeContext.tsx#L1-L21)
 - [apps/web/lib/theme/types.ts:1-10](file://apps/web/lib/theme/types.ts#L1-L10)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
@@ -801,7 +813,7 @@ DOM-->>User : 应用新主题
 - [apps/web/lib/theme/ThemeProvider.tsx:47-56](file://apps/web/lib/theme/ThemeProvider.tsx#L47-L56)
 
 **章节来源**
-- [apps/web/lib/theme/ThemeProvider.tsx:1-83](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L83)
+- [apps/web/lib/theme/ThemeProvider.tsx:1-110](file://apps/web/lib/theme/ThemeProvider.tsx#L1-L110)
 - [apps/web/lib/theme/ThemeContext.tsx:1-21](file://apps/web/lib/theme/ThemeContext.tsx#L1-L21)
 - [apps/web/lib/theme/types.ts:1-10](file://apps/web/lib/theme/types.ts#L1-L10)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
@@ -1244,14 +1256,26 @@ Markdown渲染器提供了完整的语法支持和美观的样式：
 - **表格**：响应式表格，支持滚动
 - **链接**：悬停效果和下划线动画
 - **引用**：左侧边框和斜体样式
+- **图片处理**：特殊处理token logo图片，支持内联显示
+
+### Favicon配置
+
+**新增** 应用程序现在包含了完整的favicon配置，提升了品牌识别度：
+
+- **多格式支持**：支持.ico、.png、apple-touch-icon等多种格式
+- **响应式图标**：针对不同设备和浏览器优化
+- **品牌一致性**：与整体UI设计风格保持一致
+- **加载优化**：通过layout.tsx中的metadata配置实现快速加载
 
 **章节来源**
 - [apps/web/app/globals.css:1-189](file://apps/web/app/globals.css#L1-L189)
 - [apps/web/tailwind.config.ts:1-55](file://apps/web/tailwind.config.ts#L1-L55)
-- [apps/web/components/MarkdownRenderer.tsx:1-119](file://apps/web/components/MarkdownRenderer.tsx#L1-L119)
+- [apps/web/components/MarkdownRenderer.tsx:1-160](file://apps/web/components/MarkdownRenderer.tsx#L1-L160)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
 - [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
 - [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
+- [apps/web/app/layout.tsx:12-20](file://apps/web/app/layout.tsx#L12-L20)
+- [apps/web/public/favicon.ico](file://apps/web/public/favicon.ico)
 
 ## 依赖关系分析
 
@@ -1308,11 +1332,11 @@ Build[build任务]
 Dev[dev任务]
 Lint[lint任务]
 TypeCheck[type-check任务]
-</subgraph>
+</subgraph
 subgraph "工作空间"
 Apps[apps/*]
 Packages[packages/*]
-</subgraph>
+</subgraph
 Build --> Dev
 Dev --> Lint
 Lint --> TypeCheck
@@ -1343,6 +1367,8 @@ Packages --> Build
 6. **钱包上下文缓存**: 使用内存变量存储当前钱包地址，避免重复验证
 7. **欢迎消息缓存**: 固定的欢迎消息模板减少重复计算
 8. **提示词模板缓存**: 分类化的提示词模板减少重复渲染
+9. **Markdown渲染缓存**: react-markdown的高效渲染引擎
+10. **favicon缓存**: 通过浏览器缓存机制提升加载速度
 
 ### 网络优化
 
@@ -1446,6 +1472,24 @@ Packages --> Build
 - 验证 handlePromptSelect 函数的实现
 - 确认 PromptSelectorModal 的 isOpen 属性绑定
 
+#### 10. Markdown渲染问题
+
+**症状**: Markdown内容显示异常或样式错乱
+**原因**: react-markdown版本兼容性或样式冲突
+**解决方案**:
+- 检查react-markdown和remark-gfm的版本兼容性
+- 验证自定义组件样式的正确性
+- 确认主题切换对渲染器的影响
+
+#### 11. Favicon加载问题
+
+**症状**: 网站图标显示异常或加载失败
+**原因**: favicon路径配置错误或缓存问题
+**解决方案**:
+- 检查favicon.ico文件的存在性和路径
+- 验证layout.tsx中的metadata配置
+- 清除浏览器缓存重新加载
+
 **章节来源**
 - [apps/web/app/api/chat/route.ts:360-404](file://apps/web/app/api/chat/route.ts#L360-L404)
 - [apps/web/app/api/tools/route.ts:124-133](file://apps/web/app/api/tools/route.ts#L124-L133)
@@ -1455,6 +1499,8 @@ Packages --> Build
 - [apps/web/lib/supabase/client.ts:34-53](file://apps/web/lib/supabase/client.ts#L34-L53)
 - [apps/web/app/page.tsx:195-215](file://apps/web/app/page.tsx#L195-L215)
 - [apps/web/components/PromptSelectorModal.tsx:18-33](file://apps/web/components/PromptSelectorModal.tsx#L18-L33)
+- [apps/web/components/MarkdownRenderer.tsx:114-152](file://apps/web/components/MarkdownRenderer.tsx#L114-L152)
+- [apps/web/app/layout.tsx:15-19](file://apps/web/app/layout.tsx#L15-L19)
 
 ## 结论
 
@@ -1472,6 +1518,8 @@ Packages --> Build
 - **钱包集成**: 完整的钱包上下文注入功能
 - **智能欢迎消息**: 优化的对话切换用户体验
 - **提示词系统**: 完整的快捷查询入口，显著提升用户体验
+- **Markdown渲染**: 增强的消息内容展示功能
+- **favicon配置**: 提升应用的品牌识别度
 
 ### 功能特色
 - **智能工具调用**: AI 模型能够自动选择和执行合适的工具
@@ -1486,8 +1534,9 @@ Packages --> Build
 - **连接管理**: 断开连接时优雅清空UI但保留云端数据
 - **智能欢迎消息**: 新对话切换时自动显示引导内容，避免残留内容干扰
 - **提示词选择**: 快速的Web3查询入口，提供便捷的操作体验
+- **品牌标识**: 完整的favicon配置，提升用户体验的一致性
 
 ### 发展前景
 该应用程序为 Web3 开发者提供了一个强大的信息查询平台，未来可以扩展更多 Web3 工具和服务，进一步提升用户体验和功能性。通过持续的优化和功能扩展，这个项目有望成为 Web3 生态系统中的重要工具。
 
-**更新** 本次更新重点集成了完整的提示词选择系统，包括PromptSelectorModal和PromptSelector组件，显著增强了ChatInput组件的功能；新增了分类化的提示词模板管理，支持价格查询、余额查询、Gas查询、Token查询和转账操作等多种Web3场景；完善了移动端适配，采用底部抽屉式设计；优化了用户交互体验，提供更便捷的快捷查询入口；**新增了完整的提示词选择系统，通过分类化的模板管理和响应式设计，为用户提供了专业的企业级Web3查询体验**。
+**更新** 本次更新重点集成了完整的提示词选择系统，包括PromptSelectorModal和PromptSelector组件，显著增强了ChatInput组件的功能；新增了分类化的提示词模板管理，支持价格查询、余额查询、Gas查询、Token查询和转账操作等多种Web3场景；完善了移动端适配，采用底部抽屉式设计；优化了用户交互体验，提供更便捷的快捷查询入口；**新增了完整的提示词选择系统，通过分类化的模板管理和响应式设计，为用户提供了专业的企业级Web3查询体验**。同时，改进了Markdown渲染功能，增强了消息内容的展示效果，并完善了favicon配置，提升了应用的品牌识别度和用户体验一致性。
