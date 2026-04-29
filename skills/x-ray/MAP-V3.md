@@ -1,8 +1,8 @@
 # Web3 AI Agent Skill Map V3
 
-> 最后更新：2026-04-28（第七版）
-> 当前版本：v0.8.0
-> 当前阶段：提示词管理功能交付 + Token Logo 展示优化
+> 最后更新：2026-04-29（第八版）
+> 当前版本：v0.9.0
+> 当前阶段：Hardhat 本地网络支持
 
 ## 项目状态速览
 
@@ -39,6 +39,7 @@
 | **RLS 升级方案** | ✅ 完成 | 服务端 DELETE 验证 + ownership API + migration |
 | **地址验证** | ✅ 完成 | route.ts + client.ts 双重正则验证 |
 | **SSR 闪烁** | ✅ 完成 | layout.tsx 内联脚本同步初始化 |
+| **Hardhat 本地网络** | ✅ 完成 | chainId 31337，RainbowKit 切换，web3-tools 支持，钱包签名交易 |
 
 ## 已完成能力清单
 
@@ -102,7 +103,7 @@
 - ✅ **断开连接优化**：客户端 UI 清空 + 欢迎消息
 - ⚠️ **SSR 主题闪烁**：刷新页面短暂看到默认主题（~100ms，P3 优化项）
 
-### 工程能力 (v0.6.0)
+### 工程能力 (v0.9.0)
 - ✅ **Monorepo**：pnpm workspace + turbo 构建
 - ✅ **类型安全**：TypeScript 全项目覆盖
 - ✅ **配置管理**：环境变量驱动模型切换
@@ -111,6 +112,8 @@
 - ✅ **流式接口**：`chatStream()` 方法 + SSE/JSON 双模式响应
 - ✅ **前端 SSE 消费**：ReadableStream + 事件解析 + 节流更新
 - ✅ **链抽象层**：ChainConfig + ChainAdapter 接口，EVM 链统一处理
+- ✅ **多链支持**：Ethereum、Polygon、BSC、Hardhat (chainId 31337)
+- ✅ **本地开发网络**：Hardhat 支持，钱包连接/转账/余额查询
 - ✅ **主题系统架构**：lib/theme/ 完整架构（types, Context, Provider）
 - ✅ **卡片组件架构**：apps/web/components/cards/ 独立目录，支持可扩展卡片类型 (TransferCard, DexSwapCard)
 - ✅ **单元测试体系**：Vitest v3.2.4 monorepo workspace
@@ -274,6 +277,7 @@ AI-Agent/
 
 ## 历史状态
 
+> 2026-04-29：Hardhat 本地网络支持交付（v0.9.0）→ chainId 31337，RainbowKit 网络切换，web3-tools 余额查询/转账支持，TransferCard 展示，74 tests 全部通过
 > 2026-04-28：提示词管理功能交付 + Token Logo 展示优化（v0.8.0）→ 配置文件 + 选择器弹窗 + 18 个提示词模板，Markdown 图片格式 Logo 展示
 > 2026-04-28：P1 任务全量交付完成（v0.7.2）→ E2E 18 tests 18/18，RLS 升级方案（服务端 DELETE 双验证 + migration），钱包地址验证，SSR 闪烁修复，新增 9 个测试覆盖钱包/verify-ownership/转账卡片
 > 2026-04-28：E2E 对话超时修复 + 浏览器验收完成（v0.7.1）→ 9/9 全部通过，对话测试 waitForTimeout→条件等待重构，浏览器验收 7/7
