@@ -23,6 +23,25 @@ function verifyWalletContext(walletAddress: string): void {
 }
 
 /**
+ * 获取钱包的最新对话（不创建）
+ */
+export async function getLatestConversation(
+  walletAddress: string
+): Promise<string | null> {
+  verifyWalletContext(walletAddress)
+  
+  const { data: existingConv } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('wallet_address', walletAddress)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  return (existingConv as any)?.id || null
+}
+
+/**
  * 获取或创建当前钱包的最新对话
  */
 export async function getOrCreateConversation(

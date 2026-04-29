@@ -14,6 +14,7 @@ import { SlidingWindowMemory } from '@/lib/memory/SlidingWindowMemory'
 import type { MemoryManager } from '@/lib/memory/types'
 import * as conversationService from '@/lib/supabase/conversations'
 import { setWalletContext, clearWalletContext } from '@/lib/supabase/client'
+import { supabase } from '@/lib/supabase/client'
 
 type MemoryStrategy = 'l3-compression' | 'l2-sliding-window'
 
@@ -96,16 +97,33 @@ export default function Home() {
   const loadConversationHistory = async (walletAddress: string) => {
     try {
       setIsSyncing(true)
-      const convId = await conversationService.getOrCreateConversation(walletAddress)
-      setConversationId(convId)
+      
+      // 只查询最新对话，不创建
+      const convId = await conversationService.getLatestConversation(walletAddress)
+      
+      if (convId) {
+        // 有历史对话，加载
+        setConversationId(convId)
+        const historyMessages = await conversationService.loadMessages(convId)
 
-      const historyMessages = await conversationService.loadMessages(convId)
-
-      if (historyMessages.length > 0) {
-        memoryManager.clear()
-        historyMessages.forEach(msg => memoryManager.addMessage(msg))
-        setMessages(historyMessages)
+        if (historyMessages.length > 0) {
+          memoryManager.clear()
+          historyMessages.forEach(msg => memoryManager.addMessage(msg))
+          setMessages(historyMessages)
+        } else {
+          // 对话存在但无消息，显示欢迎页
+          setMessages([
+            {
+              id: 'welcome',
+              role: 'assistant',
+              content: WELCOME_CONTENT,
+              timestamp: Date.now(),
+            },
+          ])
+        }
       } else {
+        // 无历史对话，不创建，conversationId 保持 null
+        setConversationId(null)
         setMessages([
           {
             id: 'welcome',
@@ -117,6 +135,15 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Failed to load conversation history:', error)
+      setConversationId(null)
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: WELCOME_CONTENT,
+          timestamp: Date.now(),
+        },
+      ])
     } finally {
       setIsSyncing(false)
     }
@@ -190,7 +217,7 @@ export default function Home() {
   }
 
   const handleSelectConversation = (id: string, loadedMessages: Message[]) => {
-    setConversationId(id)
+    setConversationId(id || null) // 空字符串转为 null
     memoryManager.clear()
 
     if (loadedMessages.length > 0) {
@@ -233,12 +260,39 @@ export default function Home() {
     const isFirstMessage = messages.length <= 1 ||
       (messages.length === 2 && messages[0]?.id === 'welcome')
 
-    if (isFirstMessage && conversationId && isConnected) {
+    // 用于保存消息的 conversationId（可能是新创建的）
+    let activeConvId = conversationId
+
+    // 如果是首次对话且 conversationId 为空，先创建对话
+    if (isFirstMessage && !conversationId && isConnected && address) {
       try {
         const title = conversationService.generateConversationTitle(content)
-        await conversationService.updateConversationTitle(conversationId, title)
+        const newConvId = await conversationService.createNewConversation(address, title)
+        setConversationId(newConvId)
+        activeConvId = newConvId // 直接使用新创建的 ID
+        
+        // 通知历史列表更新
+        window.dispatchEvent(new CustomEvent('conversation-created', {
+          detail: {
+            id: newConvId,
+            title,
+            updated_at: new Date().toISOString(),
+            message_count: 1,
+          }
+        }))
+      } catch (error) {
+        console.error('Failed to create conversation:', error)
+        // 创建失败不阻断对话，只是不保存
+      }
+    }
+
+    // 更新标题逻辑（只在已有 conversationId 时）
+    if (isFirstMessage && activeConvId && isConnected) {
+      try {
+        const title = conversationService.generateConversationTitle(content)
+        await conversationService.updateConversationTitle(activeConvId, title)
         window.dispatchEvent(new CustomEvent('conversation-title-updated', {
-          detail: { id: conversationId, title }
+          detail: { id: activeConvId, title }
         }))
       } catch (error) {
         console.error('Failed to update conversation title:', error)
@@ -297,8 +351,39 @@ export default function Home() {
         )
       )
 
-      const allMessages = memoryManager.getMessages()
-      saveMessagesToCloud(allMessages)
+      // 使用 activeConvId 确保消息保存到正确的对话
+      if (activeConvId && isConnected) {
+        const allMessages = memoryManager.getMessages()
+        try {
+          await conversationService.saveMessages(activeConvId, allMessages)
+
+          if (address) {
+            const transferMessages = allMessages.filter(m => m.transferData && m.role === 'assistant')
+
+            for (const msg of transferMessages) {
+              if (msg.transferData) {
+                try {
+                  const { createTransferCard } = await import('@/lib/supabase/transfers')
+                  const cardId = await createTransferCard({
+                    conversationId: activeConvId,
+                    messageId: msg.id,
+                    fromAddress: msg.transferData!.from,
+                    toAddress: msg.transferData!.to,
+                    tokenSymbol: msg.transferData!.tokenSymbol,
+                    tokenAddress: msg.transferData!.tokenAddress,
+                    amount: msg.transferData!.amount,
+                    chain: msg.transferData!.chain
+                  })
+                } catch (err) {
+                  console.error('Failed to save transfer card:', err)
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to save messages to cloud:', error)
+        }
+      }
     } catch (error) {
       const errorMessage: Message = {
         id: assistantMessageId,
