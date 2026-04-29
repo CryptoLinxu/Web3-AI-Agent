@@ -11,7 +11,7 @@ interface UseChatStreamReturn {
   error: string | null
   toolCalls: ToolCallUIState[]
   transferData?: TransferData  // 转账卡片数据
-  sendMessage: (messages: Array<{ role: string; content: string }>, walletAddress?: string) => Promise<{ content: string; toolCalls: ToolCallUIState[]; transferData?: TransferData }>
+  sendMessage: (messages: Array<{ role: string; content: string }>, walletAddress?: string, chainId?: number) => Promise<{ content: string; toolCalls: ToolCallUIState[]; transferData?: TransferData }>
   abort: () => void
 }
 
@@ -181,7 +181,7 @@ export function useChatStream(): UseChatStreamReturn {
   }, [throttledUpdateContent])
 
   // 发送消息
-  const sendMessage = useCallback(async (messages: Array<{ role: string; content: string }>, walletAddress?: string): Promise<{ content: string; toolCalls: ToolCallUIState[]; transferData?: TransferData }> => {
+  const sendMessage = useCallback(async (messages: Array<{ role: string; content: string }>, walletAddress?: string, chainId?: number): Promise<{ content: string; toolCalls: ToolCallUIState[]; transferData?: TransferData }> => {
     // 重置状态
     setIsStreaming(true)
     setContent('')
@@ -216,7 +216,7 @@ export function useChatStream(): UseChatStreamReturn {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream',
           },
-          body: JSON.stringify({ messages, walletAddress }),
+          body: JSON.stringify({ messages, walletAddress, chainId }),
           signal: controller?.signal,
         })
 

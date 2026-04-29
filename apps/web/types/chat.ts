@@ -23,6 +23,7 @@ export interface ChatRequest {
     content: string
   }>
   walletAddress?: string // 当前登录的钱包地址（可选）
+  chainId?: number // 当前选择的链 ID（可选）
 }
 
 export interface ChatResponse {

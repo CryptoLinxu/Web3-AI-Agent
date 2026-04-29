@@ -157,19 +157,43 @@ const tools: Tool[] = [
   },
 ]
 
-// 动态生成 system prompt（带钱包上下文）
-function createSystemPrompt(walletAddress?: string): string {
-  if (!walletAddress) {
+// 动态生成 system prompt（带钱包和网络上下文）
+function createSystemPrompt(walletAddress?: string, chainId?: number): string {
+  if (!walletAddress && !chainId) {
     return SYSTEM_PROMPT_BASE
   }
 
-  // 注入钱包上下文
+  const contextParts: string[] = []
+
+  if (walletAddress) {
+    contextParts.push(`- 用户已连接钱包，地址为：${walletAddress}`)
+    contextParts.push(`- 当用户查询"我的余额"或"我的钱包"时，使用此地址`)
+    contextParts.push(`- 如果用户未指定地址，默认使用此地址查询余额`)
+  }
+
+  if (chainId) {
+    const chainName = getChainNameById(chainId)
+    contextParts.push(`- 用户当前所在网络：${chainName} (ChainId: ${chainId})`)
+    contextParts.push(`- 用户执行的链上操作默认使用此网络`)
+  }
+
+  // 注入上下文
   return `${SYSTEM_PROMPT_BASE}
 
 ## 当前用户信息
-- 用户已连接钱包，地址为：${walletAddress}
-- 当用户查询"我的余额"或"我的钱包"时，使用此地址
-- 如果用户未指定地址，默认使用此地址查询余额`
+${contextParts.join('\n')}`
+}
+
+/**
+ * ChainId 转链名称
+ */
+function getChainNameById(chainId: number): string {
+  const chainMap: Record<number, string> = {
+    1: 'Ethereum',
+    137: 'Polygon',
+    56: 'BSC',
+  }
+  return chainMap[chainId] || `Unknown (ChainId: ${chainId})`
 }
 
 /**
@@ -182,7 +206,7 @@ function isValidEthereumAddress(address: string): boolean {
 export async function POST(request: NextRequest) {
   try {
     const body: ChatRequest = await request.json()
-    const { messages, walletAddress } = body
+    const { messages, walletAddress, chainId } = body
 
     // 验证钱包地址格式（如果提供）
     if (walletAddress && !isValidEthereumAddress(walletAddress)) {
@@ -199,8 +223,8 @@ export async function POST(request: NextRequest) {
     // 获取 LLM 提供商
     const provider = LLMFactory.getProvider()
 
-    // 动态生成 system prompt（带钱包上下文）
-    const systemPrompt = createSystemPrompt(walletAddress)
+    // 动态生成 system prompt（带钱包和网络上下文）
+    const systemPrompt = createSystemPrompt(walletAddress, chainId)
 
     // 转换消息格式
     const chatMessages: Message[] = [

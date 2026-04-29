@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useAccount } from 'wagmi'
+import { useAccount, useChainId } from 'wagmi'
 import ChatInput from '@/components/ChatInput'
 import MessageList from '@/components/MessageList'
 import SettingsPanel from '@/components/SettingsPanel'
@@ -31,6 +31,7 @@ const WELCOME_CONTENT = `你好！我是 **Web3 AI Agent** 🌐
 export default function Home() {
   // 钱包状态
   const { address, isConnected } = useAccount()
+  const chainId = useChainId() // 获取当前链 ID
 
   // Supabase 同步状态
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -264,7 +265,8 @@ export default function Home() {
           role: m.role,
           content: m.content,
         })),
-        isConnected && address ? address : undefined
+        isConnected && address ? address : undefined,
+        chainId  // 传递当前链 ID
       )
 
       const assistantMessage: Message = {
