@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { PromptTemplate } from '@/config/prompts'
 import PromptSelector from './PromptSelector'
 
@@ -15,7 +15,16 @@ export default function PromptSelectorModal({
   onClose,
   onSelectPrompt,
 }: PromptSelectorModalProps) {
-  // ESC 键关闭
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      requestAnimationFrame(() => setMounted(true))
+    } else {
+      setMounted(false)
+    }
+  }, [isOpen])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -36,70 +45,68 @@ export default function PromptSelectorModal({
 
   return (
     <div
-      className={`
-        fixed z-50
-        // 桌面端：居中弹窗
-        md:inset-0 md:flex md:items-center md:justify-center md:p-4
-        // 移动端：底部抽屉
-        inset-x-0 bottom-0 p-4
-      `}
+      className="fixed z-[55] md:inset-0 md:flex md:items-center md:justify-center md:p-4 inset-x-0 bottom-0 p-4"
     >
-      {/* 遮罩层 */}
+      {/* 遮罩 */}
       <div
-        className={`
-          absolute inset-0 bg-black/50
-          transition-opacity duration-300 ease-out
-          ${isOpen ? 'opacity-100' : 'opacity-0'}
-        `}
+        className={`absolute inset-0 bg-black/65 backdrop-blur-md transition-opacity duration-300 ${
+          mounted ? 'opacity-100' : 'opacity-0'
+        }`}
         onClick={onClose}
       />
 
-      {/* 弹窗内容 */}
+      {/* 弹窗 */}
       <div
-        className={`
-          relative z-10 w-full
-          // 桌面端样式
-          md:max-w-2xl md:max-h-[80vh] md:rounded-2xl
-          // 移动端样式
-          max-h-[90vh] rounded-t-2xl
-          // 通用样式
-          bg-[rgb(var(--bg-primary))]
-          shadow-2xl
-          transition-all duration-300 ease-out
-          ${isOpen
+        className={`relative z-10 w-full md:max-w-2xl md:max-h-[82vh] md:rounded-2xl max-h-[90vh] rounded-t-2xl glass-panel border border-[rgba(var(--border-color))] shadow-2xl overflow-hidden transition-all duration-400 ${
+          mounted
             ? 'opacity-100 scale-100 translate-y-0'
-            : 'opacity-0 scale-95 translate-y-4'
-          }
-        `}
+            : 'opacity-0 md:scale-95 md:translate-y-2 translate-y-8'
+        }`}
+        style={{ transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
       >
+        {/* 顶部渐变光带 */}
+        <div
+          className="absolute top-0 left-0 right-0 h-px opacity-80"
+          style={{
+            background:
+              'linear-gradient(90deg, transparent, rgba(var(--accent-cyan), 0.6), rgba(var(--accent-violet), 0.6), transparent)',
+          }}
+        />
+
         {/* 标题栏 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[rgb(var(--border-color))]">
-          <h2 className="text-lg font-semibold text-[rgb(var(--text-primary))]">
-            提示词模板
-          </h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(var(--border-color))]">
+          <div className="flex items-center gap-3">
+            <div className="relative w-9 h-9">
+              <div className="absolute inset-0 bg-gradient-brand rounded-xl blur-md opacity-50" />
+              <div className="relative w-full h-full rounded-xl bg-gradient-brand flex items-center justify-center shadow-neon">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-gradient tracking-tight">
+                提示词模板
+              </h2>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-[rgb(var(--text-muted))] mt-0.5">
+                Quick Prompts
+              </p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-[rgb(var(--bg-tertiary))] transition-colors"
+            className="btn-ghost w-9 h-9 !p-0 group"
             title="关闭"
+            aria-label="关闭"
           >
-            <svg
-              className="w-5 h-5 text-[rgb(var(--text-muted))]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* 内容区（可滚动） */}
-        <div className="overflow-y-auto max-h-[calc(80vh-60px)] md:max-h-[calc(80vh-73px)] p-6">
+        {/* 内容区 */}
+        <div className="overflow-y-auto max-h-[calc(90vh-72px)] md:max-h-[calc(82vh-72px)] p-6">
           <PromptSelector onSelectPrompt={onSelectPrompt} />
         </div>
       </div>

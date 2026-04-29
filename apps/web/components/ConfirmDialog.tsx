@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 interface ConfirmDialogProps {
   isOpen: boolean
@@ -25,7 +25,16 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  // ESC 键关闭
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      requestAnimationFrame(() => setMounted(true))
+    } else {
+      setMounted(false)
+    }
+  }, [isOpen])
+
   useEffect(() => {
     if (!isOpen) return
 
@@ -41,54 +50,93 @@ export function ConfirmDialog({
 
   if (!isOpen) return null
 
-  // 根据 variant 设置按钮样式
-  const confirmButtonStyles = {
-    danger: 'bg-red-600 hover:bg-red-700 text-white',
-    warning: 'bg-yellow-600 hover:bg-yellow-700 text-white',
-    info: 'bg-purple-600 hover:bg-purple-700 text-white',
+  const variantConfig = {
+    danger: {
+      iconBg: 'bg-[rgba(var(--danger),0.15)]',
+      iconColor: 'text-[rgb(var(--danger))]',
+      iconRing: 'ring-[rgba(var(--danger),0.3)]',
+      confirmBtn:
+        'bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 shadow-[0_4px_20px_rgba(239,68,68,0.35)] hover:shadow-[0_8px_30px_rgba(239,68,68,0.5)]',
+    },
+    warning: {
+      iconBg: 'bg-[rgba(var(--warning),0.15)]',
+      iconColor: 'text-[rgb(var(--warning))]',
+      iconRing: 'ring-[rgba(var(--warning),0.3)]',
+      confirmBtn:
+        'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-[0_4px_20px_rgba(251,191,36,0.35)]',
+    },
+    info: {
+      iconBg: 'bg-gradient-brand-soft',
+      iconColor: 'text-[rgb(var(--accent-cyan))]',
+      iconRing: 'ring-[rgba(var(--accent-cyan),0.3)]',
+      confirmBtn: 'btn-primary',
+    },
   }
+
+  const config = variantConfig[variant]
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       onClick={onCancel}
     >
-      {/* 遮罩层 */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-
-      {/* 弹窗内容 */}
+      {/* 遮罩 */}
       <div
-        className="relative z-10 w-full max-w-md mx-4 bg-[rgb(var(--bg-primary))] border border-[rgb(var(--border-color))] rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200"
+        className={`absolute inset-0 bg-black/65 backdrop-blur-md transition-opacity duration-300 ${
+          mounted ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
+
+      {/* 弹窗 */}
+      <div
+        className={`relative z-10 w-full max-w-md glass-panel rounded-2xl border border-[rgba(var(--border-color))] shadow-2xl overflow-hidden transition-all duration-300 ${
+          mounted ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
+        }`}
+        style={{ transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 标题 */}
-        <div className="px-6 pt-6 pb-4">
-          <h3 className="text-lg font-semibold text-[rgb(var(--text-primary))]">{title}</h3>
+        {/* 顶部光带 */}
+        <div
+          className="absolute top-0 left-0 right-0 h-px opacity-70"
+          style={{
+            background:
+              'linear-gradient(90deg, transparent, rgba(var(--accent-cyan), 0.6), rgba(var(--accent-violet), 0.6), transparent)',
+          }}
+        />
+
+        {/* 图标 + 标题 */}
+        <div className="px-6 pt-6 pb-4 flex items-start gap-4">
+          <div className={`flex-shrink-0 w-11 h-11 rounded-xl ${config.iconBg} ring-1 ${config.iconRing} flex items-center justify-center`}>
+            <svg className={`w-5 h-5 ${config.iconColor}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div className="flex-1 pt-0.5">
+            <h3 className="text-base font-bold text-[rgb(var(--text-primary))]">{title}</h3>
+            <p className="text-sm text-[rgb(var(--text-secondary))] leading-relaxed mt-1.5">
+              {message}
+            </p>
+          </div>
         </div>
 
-        {/* 消息 */}
-        <div className="px-6 pb-6">
-          <p className="text-[rgb(var(--text-secondary))] text-sm leading-relaxed">{message}</p>
-        </div>
-
-        {/* 按钮 */}
-        <div className="px-6 pb-6 flex justify-end gap-3">
+        {/* 按钮区 */}
+        <div className="px-6 pb-6 flex justify-end gap-2.5">
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="px-4 py-2 rounded-lg bg-[rgb(var(--bg-tertiary))] text-[rgb(var(--text-secondary))] hover:bg-[rgb(var(--bg-secondary))] transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-5 py-2.5 rounded-xl glass-subtle border border-[rgba(var(--border-color))] text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] hover:border-[rgba(var(--accent-violet),0.3)] transition-all duration-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.03] active:scale-95"
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${confirmButtonStyles[variant]}`}
+            className={`relative px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.03] active:scale-95 overflow-hidden ${config.confirmBtn}`}
           >
             {isLoading && (
-              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" />
+                <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
             )}
             {isLoading ? '处理中...' : confirmText}

@@ -50,7 +50,7 @@
 
 **为什么重要？**
 - API 按 Token 收费（输入 + 输出）
-- 模型有最大 Token 限制（如 qwen-turbo 最多 8192 Token）
+- 模型有最大 Token 限制（如 qwen3.5-27b 最多 8192 Token）
 - Token 数量影响速度和成本
 
 #### 1.2.2 Prompt（提示词）
@@ -142,7 +142,7 @@ async chat(messages: Message[], options?: ChatOptions): Promise<ChatResponse> {
 ```
 总费用 = (输入 Token 数 × 输入单价) + (输出 Token 数 × 输出单价)
 
-例子：qwen-turbo
+例子：qwen3.5-27b
 - 输入：¥0.008 / 1000 Token
 - 输出：¥0.02 / 1000 Token
 
@@ -165,7 +165,7 @@ curl -Uri "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions" `
     "Content-Type" = "application/json"
   } `
   -Body '{
-    "model": "qwen-turbo",
+    "model": "qwen3.5-27b",
     "messages": [
       {"role": "system", "content": "你是 AI 专家"},
       {"role": "user", "content": "用一句话解释什么是 Token"}
@@ -196,7 +196,7 @@ curl -Uri "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions" `
 ```bash
 # 发送长消息，观察 Token 数量
 curl -Uri "..." -Body '{
-  "model": "qwen-turbo",
+  "model": "qwen3.5-27b",
   "messages": [
     {"role": "user", "content": "请详细解释人工智能的发展历史，至少 500 字"}
   ]
@@ -1552,7 +1552,7 @@ ${context}
   
   // 2.4 AI 生成回答
   const response = await openai.chat.completions.create({
-    model: 'qwen-turbo',
+    model: 'qwen3.5-27b',
     messages: [{ role: 'user', content: prompt }],
   })
   
@@ -1627,7 +1627,7 @@ ${context}
 │         ↓                                             │
 │  ┌─────────────┐                                     │
 │  │ LLM API     │ 模型调用（神经网络推理）               │
-│  │ (qwen-turbo)│                                     │
+│  │ (qwen3.5-27b)│                                     │
 │  └──────┬──────┘                                     │
 │         ↓                                             │
 │  ┌─────────────┐                                     │

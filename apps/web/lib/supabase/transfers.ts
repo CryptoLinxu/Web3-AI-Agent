@@ -64,9 +64,8 @@ export async function updateTransferCardStatus(
     updateData.tx_hash = txHash
   }
 
-  if (errorMessage !== undefined) {
-    updateData.error_message = errorMessage
-  }
+  // 非失败状态时，始终显式清除旧错误消息（防止上次失败的错误残留）
+  updateData.error_message = status !== 'failed' ? null : (errorMessage ?? null)
 
   const { error } = await supabase
     .from('transfer_cards')

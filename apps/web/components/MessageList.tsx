@@ -11,12 +11,12 @@ interface MessageListProps {
   streamingMessageId?: string | null
   isStreaming?: boolean
   streamingToolCalls?: ToolCallUIState[]
-  conversationId?: string  // 传递给 TransferCard
+  conversationId?: string
 }
 
-export default function MessageList({ 
-  messages, 
-  isLoading, 
+export default function MessageList({
+  messages,
+  isLoading,
   streamingMessageId,
   isStreaming,
   streamingToolCalls,
@@ -24,7 +24,6 @@ export default function MessageList({
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // 自动滚动到底部
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -36,25 +35,36 @@ export default function MessageList({
       ref={scrollRef}
       className="h-full overflow-y-auto"
     >
-      <div className="px-[10%] py-4 space-y-4">
+      <div className="px-4 sm:px-8 lg:px-[10%] py-6 space-y-5">
         {messages.map((message) => (
-          <MessageItem 
-            key={message.id} 
+          <MessageItem
+            key={message.id}
             message={message}
             isStreaming={isStreaming && message.id === streamingMessageId}
             toolCalls={message.id === streamingMessageId ? streamingToolCalls : undefined}
             conversationId={conversationId}
           />
         ))}
-        
+
         {isLoading && (
-          <div className="flex items-center gap-2 text-gray-400 py-2">
-            <div className="flex gap-1">
-              <span className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-              <span className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-              <span className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+          <div className="flex items-center gap-3 pl-12 py-2 animate-slide-up">
+            <div className="flex gap-1.5">
+              <span
+                className="w-2 h-2 rounded-full bg-gradient-brand animate-bounce"
+                style={{ animationDelay: '0ms' }}
+              />
+              <span
+                className="w-2 h-2 rounded-full bg-gradient-brand animate-bounce"
+                style={{ animationDelay: '150ms' }}
+              />
+              <span
+                className="w-2 h-2 rounded-full bg-gradient-brand animate-bounce"
+                style={{ animationDelay: '300ms' }}
+              />
             </div>
-            <span className="text-sm">AI 正在思考...</span>
+            <span className="text-xs text-[rgb(var(--text-muted))] font-mono uppercase tracking-wider">
+              AI thinking…
+            </span>
           </div>
         )}
       </div>
