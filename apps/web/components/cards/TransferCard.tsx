@@ -83,13 +83,6 @@ const CHAIN_CONFIGS: Record<string, {
     explorer: 'https://bscscan.com/tx/',
     nativeToken: 'BNB',
     iconColor: '#F3BA2F'
-  },
-  hardhat: {
-    name: 'Hardhat',
-    chainId: 31337,
-    explorer: '',
-    nativeToken: 'ETH',
-    iconColor: '#61EE8E'
   }
 }
 

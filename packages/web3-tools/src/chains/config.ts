@@ -16,9 +16,6 @@ const DEFAULT_RPC_URLS: Record<EvmChainId, string[]> = {
     process.env.BSC_RPC_URL || 'https://bsc-dataseed.binance.org',
     'https://rpc.ankr.com/bsc',
   ],
-  hardhat: [
-    process.env.HARDHAT_RPC_URL || 'http://127.0.0.1:8545',
-  ],
 }
 
 // 链配置注册表
@@ -46,14 +43,6 @@ export const CHAIN_CONFIGS: Record<EvmChainId, ChainConfig> = {
     chainId: 56,
     rpcUrls: DEFAULT_RPC_URLS.bsc,
     explorerUrl: 'https://bscscan.com',
-  },
-  hardhat: {
-    id: 'hardhat',
-    name: 'Hardhat',
-    nativeToken: 'ETH',
-    chainId: 31337,
-    rpcUrls: DEFAULT_RPC_URLS.hardhat,
-    explorerUrl: '', // 本地网络无浏览器
   },
 }
 
