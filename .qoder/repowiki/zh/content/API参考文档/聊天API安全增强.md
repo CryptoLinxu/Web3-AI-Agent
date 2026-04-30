@@ -9,18 +9,26 @@
 - [apps/web/hooks/useChatStream.ts](file://apps/web/hooks/useChatStream.ts)
 - [apps/web/components/ChatInput.tsx](file://apps/web/components/ChatInput.tsx)
 - [apps/web/components/ConversationHistory.tsx](file://apps/web/components/ConversationHistory.tsx)
+- [apps/web/components/cards/TransferCard.tsx](file://apps/web/components/cards/TransferCard.tsx)
+- [apps/web/config/prompts.ts](file://apps/web/config/prompts.ts)
+- [apps/web/lib/supabase/transfers.ts](file://apps/web/lib/supabase/transfers.ts)
+- [apps/web/types/transfer.ts](file://apps/web/types/transfer.ts)
 - [apps/web/types/chat.ts](file://apps/web/types/chat.ts)
 - [apps/web/types/stream.ts](file://apps/web/types/stream.ts)
 - [apps/web/package.json](file://apps/web/package.json)
 - [apps/web/app/layout.tsx](file://apps/web/app/layout.tsx)
 - [docs/DEPLOYMENT.md](file://docs/DEPLOYMENT.md)
+- [supabase/migrations/create_transfer_cards.sql](file://supabase/migrations/create_transfer_cards.sql)
+- [supabase/migrations/fix_transfer_cards_rls.sql](file://supabase/migrations/fix_transfer_cards_rls.sql)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 新增钱包地址格式验证功能，通过`isValidEthereumAddress()`函数在聊天API路由中实现地址验证
-- 增强了输入数据验证和清理机制，防止无效地址注入系统提示词
-- 完善了安全边界控制，确保只有格式正确的钱包地址才能触发相关功能
+- 新增网络上下文信息集成，支持`chainId`参数动态生成系统提示词
+- 集成系统提示生成能力，从route.ts迁移到独立的提示词配置文件
+- 优化转账卡片状态管理，实现完整的数据库同步机制
+- 增强地址验证功能，在多个API中实现严格的钱包地址格式验证
+- 完善安全边界控制，确保只有格式正确的钱包地址才能触发相关功能
 
 ## 目录
 1. [简介](#简介)
@@ -28,7 +36,7 @@
 3. [核心组件](#核心组件)
 4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
-6. [依赖关系分析](#依赖关系分析)
+6. [依赖关系分析](#依赖关系-analysis)
 7. [性能考虑](#性能考虑)
 8. [故障排除指南](#故障排除指南)
 9. [结论](#结论)
@@ -37,7 +45,7 @@
 
 这是一个基于Next.js构建的Web3 AI Agent聊天系统，专注于提供安全的聊天API服务。该系统集成了AI模型、Web3工具集成、流式响应处理和完整的对话管理功能。本文档重点分析聊天API的安全增强机制，包括身份验证、授权控制、数据验证和传输安全等方面。
 
-**更新** 新增钱包地址格式验证功能，通过正则表达式确保输入的以太坊地址符合标准格式（0x开头的42字符十六进制），防止恶意地址注入系统提示词。
+**更新** 新增网络上下文信息集成，支持`chainId`参数动态生成系统提示词；集成系统提示生成能力，从route.ts迁移到独立的提示词配置文件；优化转账卡片状态管理，实现完整的数据库同步机制。
 
 ## 项目结构
 
@@ -51,34 +59,42 @@ API[app/api]
 Components[components]
 Hooks[hooks]
 Types[types]
+Config[config]
+Lib[lib]
 end
 subgraph "核心功能"
 ChatAPI[聊天API]
 SupabaseAPI[Supabase API]
 ToolsAPI[工具API]
 UIComponents[UI组件]
+TransferCards[转账卡片]
 end
 subgraph "安全机制"
 Auth[身份验证]
 Authorization[授权控制]
 Validation[数据验证]
 Encryption[传输加密]
+AddressValidator[地址验证器]
+NetworkContext[网络上下文]
 end
 Web --> API
 Web --> Components
 Web --> Hooks
 Web --> Types
+Web --> Config
+Web --> Lib
 API --> ChatAPI
 API --> SupabaseAPI
 API --> ToolsAPI
 ChatAPI --> Auth
 SupabaseAPI --> Authorization
 ToolsAPI --> Validation
+TransferCards --> NetworkContext
 ```
 
 **图表来源**
-- [apps/web/app/api/chat/route.ts:1-567](file://apps/web/app/api/chat/route.ts#L1-L567)
-- [apps/web/app/api/supabase/verify-ownership/route.ts:1-95](file://apps/web/app/api/supabase/verify-ownership/route.ts#L1-L95)
+- [apps/web/app/api/chat/route.ts:160-197](file://apps/web/app/api/chat/route.ts#L160-L197)
+- [apps/web/config/prompts.ts:175-225](file://apps/web/config/prompts.ts#L175-L225)
 
 **章节来源**
 - [apps/web/package.json:1-51](file://apps/web/package.json#L1-L51)
@@ -90,7 +106,49 @@ ToolsAPI --> Validation
 
 聊天API是整个系统的核心，负责处理用户消息、调用AI模型、执行Web3工具以及管理流式响应。
 
-**更新** 新增钱包地址格式验证功能，在处理聊天请求时对可选的`walletAddress`参数进行严格验证，确保地址格式正确后再注入到系统提示词中。
+**更新** 新增网络上下文信息集成，在处理聊天请求时对可选的`walletAddress`和`chainId`参数进行严格验证，确保地址格式正确后再注入到系统提示词中。
+
+### 系统提示词管理
+
+**新增功能** 系统提示词从route.ts迁移到独立的配置文件，提供更好的可维护性和扩展性：
+
+```mermaid
+flowchart TD
+Start([系统启动]) --> LoadConfig["加载提示词配置"]
+LoadConfig --> ParseTemplates["解析提示词模板"]
+ParseTemplates --> GeneratePrompt["生成系统提示词"]
+GeneratePrompt --> InjectContext["注入网络上下文"]
+InjectContext --> ReturnPrompt["返回完整提示词"]
+```
+
+**图表来源**
+- [apps/web/config/prompts.ts:175-225](file://apps/web/config/prompts.ts#L175-L225)
+- [apps/web/app/api/chat/route.ts:160-197](file://apps/web/app/api/chat/route.ts#L160-L197)
+
+### 转账卡片状态管理
+
+**新增功能** 完整的转账卡片状态管理系统，包括创建、更新、加载和查找功能：
+
+```mermaid
+sequenceDiagram
+participant Client as 客户端
+participant API as 聊天API
+participant DB as 数据库
+participant Frontend as 前端
+Client->>API : createTransferCard()
+API->>DB : upsert转账记录
+DB-->>API : 返回记录ID
+API-->>Client : transferData
+Client->>Frontend : 渲染转账卡片
+Frontend->>DB : 监听状态变化
+DB-->>Frontend : 状态更新事件
+Frontend->>DB : updateTransferCardStatus()
+DB-->>Frontend : 确认状态更新
+```
+
+**图表来源**
+- [apps/web/lib/supabase/transfers.ts:20-47](file://apps/web/lib/supabase/transfers.ts#L20-L47)
+- [apps/web/lib/supabase/transfers.ts:52-79](file://apps/web/lib/supabase/transfers.ts#L52-L79)
 
 ### Supabase安全API
 
@@ -115,21 +173,26 @@ subgraph "客户端层"
 Browser[浏览器]
 ReactApp[React应用]
 ChatInput[聊天输入组件]
+TransferCard[转账卡片组件]
 end
 subgraph "API网关层"
 ChatAPI[聊天API路由]
 SupabaseAPI[Supabase API路由]
 ToolsAPI[工具API路由]
+PromptAPI[提示词API路由]
 end
 subgraph "业务逻辑层"
 LLMProvider[LLM提供者]
 ToolExecutor[工具执行器]
 MessageProcessor[消息处理器]
+TransferManager[转账管理器]
+PromptManager[提示词管理器]
 end
 subgraph "数据存储层"
 SupabaseDB[Supabase数据库]
-ConversationTable[对话表]
-MessagesTable[消息表]
+TransferCards[转账卡片表]
+Conversations[对话表]
+Messages[消息表]
 end
 subgraph "安全控制层"
 AuthValidator[身份验证器]
@@ -137,20 +200,28 @@ PermissionChecker[权限检查器]
 DataValidator[数据验证器]
 RateLimiter[速率限制器]
 AddressValidator[地址验证器]
+NetworkContextValidator[网络上下文验证器]
 end
 Browser --> ReactApp
 ReactApp --> ChatInput
+ReactApp --> TransferCard
 ChatInput --> ChatAPI
+TransferCard --> TransferManager
 ChatAPI --> AddressValidator
+ChatAPI --> NetworkContextValidator
 ChatAPI --> LLMProvider
 ChatAPI --> ToolExecutor
+ChatAPI --> PromptManager
 ChatAPI --> SupabaseAPI
 SupabaseAPI --> PermissionChecker
 PermissionChecker --> DataValidator
 ToolExecutor --> DataValidator
+TransferManager --> DataValidator
+PromptManager --> NetworkContextValidator
 LLMProvider --> RateLimiter
-SupabaseDB --> ConversationTable
-SupabaseDB --> MessagesTable
+SupabaseDB --> TransferCards
+SupabaseDB --> Conversations
+SupabaseDB --> Messages
 ```
 
 **图表来源**
@@ -161,23 +232,26 @@ SupabaseDB --> MessagesTable
 
 ### 聊天API安全增强
 
-#### 钱包地址格式验证
+#### 网络上下文信息集成
 
-**新增功能** 系统在处理聊天请求时新增了钱包地址格式验证机制：
+**新增功能** 系统在处理聊天请求时新增了网络上下文信息集成：
 
 ```mermaid
 sequenceDiagram
 participant Client as 客户端
 participant ChatAPI as 聊天API
 participant Validator as 地址验证器
-participant SystemPrompt as 系统提示词生成器
+participant NetworkValidator as 网络验证器
+participant PromptManager as 提示词管理器
 participant LLM as LLM提供者
-Client->>ChatAPI : POST /api/chat (walletAddress?)
+Client->>ChatAPI : POST /api/chat (walletAddress?, chainId?)
 ChatAPI->>Validator : isValidEthereumAddress(walletAddress)
 Validator-->>ChatAPI : 验证结果 (true/false)
+ChatAPI->>NetworkValidator : 验证chainId
+NetworkValidator-->>ChatAPI : 验证结果 (true/false)
 alt 地址有效或未提供
-ChatAPI->>SystemPrompt : 生成系统提示词
-SystemPrompt-->>ChatAPI : 提示词内容
+ChatAPI->>PromptManager : createSystemPrompt(walletAddress, chainId)
+PromptManager-->>ChatAPI : 生成的系统提示词
 ChatAPI->>LLM : 处理聊天请求
 LLM-->>ChatAPI : AI响应
 ChatAPI-->>Client : 结果响应
@@ -188,12 +262,61 @@ end
 
 **图表来源**
 - [apps/web/app/api/chat/route.ts:226-245](file://apps/web/app/api/chat/route.ts#L226-L245)
+- [apps/web/app/api/chat/route.ts:160-197](file://apps/web/app/api/chat/route.ts#L160-L197)
 
-验证规则：
-- 必须以`0x`开头的十六进制字符串
-- 总长度必须为42个字符（0x + 40个十六进制字符）
-- 只允许`a-fA-F0-9`字符
-- 例如：`0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18`
+网络上下文验证规则：
+- `chainId`必须是有效的区块链ID（1=Ethereum, 137=Polygon, 56=BSC）
+- 如果提供`chainId`，系统会在提示词中注入网络信息
+- 支持动态链名称映射和链ID验证
+
+#### 系统提示生成能力提升
+
+**新增功能** 系统提示词从route.ts迁移到独立的配置文件：
+
+```mermaid
+flowchart TD
+Start([请求系统提示词]) --> CheckParams["检查参数<br/>- walletAddress<br/>- chainId"]
+CheckParams --> BuildContext["构建上下文部分"]
+BuildContext --> GenerateBase["生成基础提示词"]
+GenerateBase --> InjectContext["注入用户信息和网络上下文"]
+InjectContext --> ReturnPrompt["返回完整提示词"]
+```
+
+**图表来源**
+- [apps/web/config/prompts.ts:175-225](file://apps/web/config/prompts.ts#L175-L225)
+- [apps/web/app/api/chat/route.ts:160-197](file://apps/web/app/api/chat/route.ts#L160-L197)
+
+系统提示词包含以下上下文信息：
+- 用户钱包地址信息（如果提供）
+- 当前网络信息（链ID和链名称）
+- 默认的AI行为准则和安全边界
+
+#### 转账卡片状态管理
+
+**新增功能** 完整的转账卡片状态管理系统：
+
+```mermaid
+stateDiagram-v2
+[*] --> Pending : 创建转账卡片
+Pending --> Approving : 需要授权(ERC20)
+Pending --> Signing : 直接转账(原生币)
+Approving --> Signing : 授权成功
+Approving --> Failed : 授权失败
+Signing --> Confirmed : 交易确认
+Signing --> Failed : 交易失败
+Confirmed --> [*]
+Failed --> [*]
+```
+
+**图表来源**
+- [apps/web/types/transfer.ts:3-5](file://apps/web/types/transfer.ts#L3-L5)
+- [apps/web/lib/supabase/transfers.ts:52-79](file://apps/web/lib/supabase/transfers.ts#L52-L79)
+
+转账卡片状态管理特性：
+- 支持五种状态：pending、approving、signing、confirmed、failed
+- 自动状态转换和错误处理
+- 数据库同步和事务一致性保证
+- 实时状态更新和用户界面同步
 
 #### 身份验证机制
 
@@ -234,8 +357,9 @@ end
 | 对话ID格式 | 非空字符串 | `verify-ownership` | 400错误响应 |
 | 链ID枚举 | 限定的区块链名称 | 工具定义 | 400错误响应 |
 | 参数完整性 | 必需字段检查 | 工具调用 | 400错误响应 |
+| 网络上下文 | 有效的chainId | `getChainNameById` | 400错误响应 |
 
-**更新** 新增钱包地址格式验证，防止无效地址注入系统提示词，确保只有符合以太坊标准地址格式的输入才能触发相关功能。
+**更新** 新增网络上下文验证，确保`chainId`参数的有效性；新增系统提示词配置管理，提供更好的可维护性。
 
 **章节来源**
 - [apps/web/app/api/chat/route.ts:226-245](file://apps/web/app/api/chat/route.ts#L226-L245)
@@ -337,6 +461,37 @@ Hook-->>Client : 实时更新UI
 **章节来源**
 - [apps/web/app/api/tools/route.ts:10-65](file://apps/web/app/api/tools/route.ts#L10-L65)
 
+### 转账卡片组件
+
+#### 前端状态管理
+
+**新增功能** 转账卡片组件实现了完整的前端状态管理：
+
+```mermaid
+stateDiagram-v2
+[*] --> Pending : 初始化
+Pending --> Approving : 需要授权
+Pending --> Signing : 直接转账
+Approving --> Pending : 授权完成
+Approving --> Failed : 授权失败
+Signing --> Confirmed : 交易成功
+Signing --> Failed : 交易失败
+Confirmed --> [*]
+Failed --> Pending : 重试
+```
+
+**图表来源**
+- [apps/web/components/cards/TransferCard.tsx:91-96](file://apps/web/components/cards/TransferCard.tsx#L91-L96)
+
+转账卡片组件特性：
+- 支持ETH原生转账和ERC20代币转账
+- 自动检测授权需求和余额检查
+- 实时状态更新和错误处理
+- 区块链浏览器链接集成
+
+**章节来源**
+- [apps/web/components/cards/TransferCard.tsx:98-658](file://apps/web/components/cards/TransferCard.tsx#L98-L658)
+
 ## 依赖关系分析
 
 ### 核心依赖关系
@@ -348,16 +503,20 @@ Supabase[Supabase JS SDK]
 Wagmi[Wagmi]
 RainbowKit[RainbowKit]
 Ethers[Ethers.js]
+OpenAI[OpenAI SDK]
 end
 subgraph "内部包"
 AIConfig[ai-config]
 Web3Tools[web3-tools]
+PromptConfig[prompt-config]
+TransferManager[transfer-manager]
 end
 subgraph "应用层"
 ChatAPI[聊天API]
 SupabaseAPI[Supabase API]
 ToolsAPI[工具API]
 UIComponents[UI组件]
+TransferCards[转账卡片]
 end
 Supabase --> ChatAPI
 Wagmi --> UIComponents
@@ -365,9 +524,13 @@ RainbowKit --> UIComponents
 Ethers --> Web3Tools
 AIConfig --> ChatAPI
 Web3Tools --> ToolsAPI
+PromptConfig --> ChatAPI
+TransferManager --> TransferCards
 ChatAPI --> SupabaseAPI
 ChatAPI --> ToolsAPI
+ChatAPI --> TransferCards
 UIComponents --> ChatAPI
+TransferCards --> Supabase
 ```
 
 **图表来源**
@@ -382,8 +545,10 @@ UIComponents --> ChatAPI
 3. **传输安全**：HTTPS加密和SSE安全传输
 4. **速率限制**：Nginx配置实现API速率限制
 5. **地址验证**：正则表达式验证确保地址格式正确
+6. **网络上下文验证**：链ID验证确保网络信息正确
+7. **提示词管理**：集中化的提示词配置提高安全性
 
-**更新** 新增地址验证依赖，确保所有涉及钱包地址的输入都经过严格验证。
+**更新** 新增网络上下文验证和提示词管理依赖，确保系统提示词的安全性和一致性。
 
 **章节来源**
 - [docs/DEPLOYMENT.md:615-746](file://docs/DEPLOYMENT.md#L615-L746)
@@ -418,6 +583,17 @@ ClearBuffers --> End([结束])
 **图表来源**
 - [apps/web/hooks/useChatStream.ts:277-291](file://apps/web/hooks/useChatStream.ts#L277-L291)
 
+### 数据库优化
+
+转账卡片数据库操作优化：
+- 使用`upsert`避免重复插入
+- 状态字段默认值确保一致性
+- 索引优化查询性能
+- RLS策略确保数据隔离
+
+**章节来源**
+- [apps/web/lib/supabase/transfers.ts:20-47](file://apps/web/lib/supabase/transfers.ts#L20-L47)
+
 ## 故障排除指南
 
 ### 常见错误类型
@@ -427,11 +603,13 @@ ClearBuffers --> End([结束])
 | 配置错误 | 503 | LLM配置缺失 | 检查环境变量 |
 | 参数错误 | 400 | 输入参数无效 | 验证数据格式 |
 | 钱包地址格式错误 | 400 | 无效的钱包地址格式 | 使用标准以太坊地址格式 |
+| 网络上下文错误 | 400 | 无效的chainId | 使用有效的区块链ID |
 | 权限错误 | 403 | 无权访问资源 | 检查所有权验证 |
 | 服务器错误 | 500 | 服务器内部异常 | 查看日志文件 |
 | 超时错误 | 408 | 请求超时 | 检查网络连接 |
+| 转账状态错误 | 400/500 | 转账状态更新失败 | 检查数据库连接 |
 
-**更新** 新增钱包地址格式错误类型，当用户提供格式不正确的钱包地址时会返回400错误。
+**更新** 新增网络上下文错误和转账状态错误类型，当用户提供格式不正确的网络信息或转账状态更新失败时会返回相应的错误。
 
 ### 调试技巧
 
@@ -440,6 +618,8 @@ ClearBuffers --> End([结束])
 3. **验证环境变量**：确保所有必需的环境变量已正确配置
 4. **测试工具调用**：单独测试各个工具API的可用性
 5. **验证地址格式**：使用正则表达式验证钱包地址格式
+6. **检查网络上下文**：验证chainId参数的有效性
+7. **监控转账状态**：使用数据库工具检查转账状态同步
 
 **章节来源**
 - [apps/web/app/api/chat/route.ts:521-565](file://apps/web/app/api/chat/route.ts#L521-L565)
@@ -455,7 +635,10 @@ ClearBuffers --> End([结束])
 4. **传输安全保障**：SSE流式传输和HTTPS加密确保通信安全
 5. **性能优化**：智能的流式处理和内存管理提升用户体验
 6. **地址格式验证**：新增的钱包地址格式验证功能，防止无效地址注入系统提示词
+7. **网络上下文集成**：支持链ID验证和动态系统提示词生成
+8. **系统提示词管理**：集中化的提示词配置提高可维护性和安全性
+9. **转账卡片状态管理**：完整的数据库同步机制确保状态一致性
 
-**更新** 新增的钱包地址格式验证功能通过`isValidEthereumAddress()`函数确保所有输入的以太坊地址都符合标准格式，有效防止了恶意地址注入和系统提示词污染，提升了系统的整体安全性。
+**更新** 新增的网络上下文信息集成功能通过`chainId`参数动态生成系统提示词，提升了AI助手对用户当前网络环境的理解能力；系统提示词管理从route.ts迁移到独立配置文件，提供了更好的可维护性和扩展性；转账卡片状态管理实现了完整的数据库同步机制，确保用户界面和数据库状态的一致性。
 
 该系统为Web3应用的聊天功能提供了坚实的安全基础，建议在生产环境中结合文档中的部署指南进一步强化安全配置。
