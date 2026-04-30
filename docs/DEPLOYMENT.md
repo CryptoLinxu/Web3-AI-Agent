@@ -76,12 +76,25 @@ git push -u origin main
 4. 点击 **Import**
 
 #### 3. 配置构建设置
+
+**重要：在 Vercel 项目设置中配置以下参数**（不是在 vercel.json 中）：
+
 ```
 Framework Preset: Next.js
 Root Directory: apps/web
 Build Command: cd ../.. && pnpm install && pnpm build --filter=@web3-ai-agent/web
 Output Directory: .next
+Install Command: pnpm install
 ```
+
+**或者**，如果你想使用根目录的 `vercel.json` 自动配置，请确保：
+- Root Directory 保持为空（默认值）
+- Vercel 会自动读取 `vercel.json` 中的配置
+- 但推荐使用上面的手动配置方式，更清晰可控
+
+**常见错误**：
+- ❌ 错误：同时设置 Root Directory 和 vercel.json 中的 outputDirectory 会导致路径重复
+- ✅ 正确：只在 Vercel 控制台配置，或只在 vercel.json 配置，不要同时配置
 
 #### 4. 配置环境变量
 在 Vercel 项目设置中添加以下环境变量：
@@ -105,8 +118,10 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
 # 应用配置
 APP_VERSION=0.2.0
 
-# 代理配置（国内服务器需要）
-HTTPS_PROXY=http://your-proxy-server:port
+# 注意：代理配置（HTTP_PROXY/HTTPS_PROXY）仅用于本地开发
+# Vercel 等海外平台不需要配置代理
+# 如果部署到国内服务器，才需要添加以下配置：
+# HTTPS_PROXY=http://your-proxy-server:port
 ```
 
 #### 5. 部署
