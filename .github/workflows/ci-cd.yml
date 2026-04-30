@@ -41,7 +41,7 @@ jobs:
         run: pnpm lint
       
       - name: Run unit tests
-        run: cd apps/web && pnpm test
+        run: pnpm test
 
   # 任务 2: 部署到 Vercel（仅 main 分支）
   deploy:
