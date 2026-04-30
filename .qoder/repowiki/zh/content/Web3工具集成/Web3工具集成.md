@@ -34,17 +34,26 @@
 - [docs/changelog/2026-04-20-feat-web3-tools-refactor.md](file://docs/changelog/2026-04-20-feat-web3-tools-refactor.md)
 - [docs/changelog/2026-04-22-feat-multichain-web3-tools.md](file://docs/changelog/2026-04-22-feat-multichain-web3-tools.md)
 - [docs/changelog/2026-04-24-feat-web3-transfer-card.md](file://docs/changelog/2026-04-24-feat-web3-transfer-card.md)
+- [apps/web/vitest.config.ts](file://apps/web/vitest.config.ts)
+- [packages/web3-tools/vitest.config.ts](file://packages/web3-tools/vitest.config.ts)
+- [vitest.workspace.ts](file://vitest.workspace.ts)
+- [apps/web/test-setup.tsx](file://apps/web/test-setup.tsx)
+- [apps/web/components/ChatInput.test.tsx](file://apps/web/components/ChatInput.test.tsx)
+- [apps/web/app/api/tools/route.test.ts](file://apps/web/app/api/tools/route.test.ts)
+- [apps/web/lib/supabase/client.test.ts](file://apps/web/lib/supabase/client.test.ts)
+- [apps/web/lib/memory/SlidingWindowMemory.test.ts](file://apps/web/lib/memory/SlidingWindowMemory.test.ts)
+- [packages/ai-config/src/__tests__/config.test.ts](file://packages/ai-config/src/__tests__/config.test.ts)
+- [docs/changelog/2026-04-28-feat-unit-test-coverage.md](file://docs/changelog/2026-04-28-feat-unit-test-coverage.md)
+- [docs/test-report.md](file://docs/test-report.md)
 </cite>
 
 ## 更新摘要
 **变更内容**
-- 新增转账卡片工具，支持ETH原生转账和ERC20 Token转账
-- 新增DEX交换工具卡片预留，支持后续DEX Swap功能实现
-- 新增多链支持扩展，支持以太坊、Polygon、BNB Smart Chain链
-- 新增转账工具函数，支持Gas估算和地址验证
-- 新增转账卡片组件，支持实时状态跟踪和区块链浏览器链接
-- 新增数据库表结构，支持转账卡片的持久化存储
-- 新增Token配置管理，支持多链Token元数据查询
+- 测试框架现代化：从 jsdom 迁移到 happy-dom 作为主要 DOM 测试环境
+- 改进测试基础设施：统一使用 Vitest v3.2.4，支持 monorepo workspace
+- 优化测试性能：happy-dom 提供更快的 DOM 模拟和更好的 Node.js 兼容性
+- 完善测试配置：apps/web 使用 happy-dom 环境，packages 使用 node 环境
+- 增强测试稳定性：改进 mock 策略和测试设置文件
 
 ## 目录
 1. [简介](#简介)
@@ -53,16 +62,19 @@
 4. [架构总览](#架构总览)
 5. [详细组件分析](#详细组件分析)
 6. [API接口文档](#api接口文档)
-7. [依赖分析](#依赖分析)
-8. [性能考虑](#性能考虑)
-9. [故障排查指南](#故障排查指南)
-10. [结论](#结论)
-11. [附录](#附录)
+7. [测试框架现代化](#测试框架现代化)
+8. [依赖分析](#依赖分析)
+9. [性能考虑](#性能考虑)
+10. [故障排查指南](#故障排查指南)
+11. [结论](#结论)
+12. [附录](#附录)
 
 ## 简介
 本文件面向Web3开发者，系统化阐述AI-Agent项目的Web3工具集成方案。项目已从概念设计升级为完整实现，包含多币种价格查询、钱包余额查询、Gas价格查询、Token查询、转账卡片工具等核心功能，以及完整的工具抽象层设计。围绕"工具抽象层、工具调用接口、数据格式化与错误处理策略"，结合MVP阶段的五大核心工具进行设计与实现指导；并提供扩展机制、API接口文档、性能优化与故障恢复建议，帮助团队在可控风险边界内构建可演进的Web3数据服务能力。
 
 **更新** 项目现已重构为多链架构支持，统一使用getTokenPrice工具支持ETH、BTC、SOL、MATIC、BNB等多种加密货币的价格查询，替代了原有的独立ETH和BTC价格查询工具，增强了Web3工具包的功能完整性和统一性。新增转账卡片工具，支持ETH原生转账和ERC20 Token转账，提供完整的转账生命周期管理。新增DEX交换工具卡片预留，为后续DEX Swap功能实现奠定基础。新增Token查询工具，支持EVM链Token元数据查询，包括合约地址、精度、Logo等信息。新增多链架构支持，包括EVM链适配器、比特币适配器、Solana适配器，以及统一的链配置管理。
+
+**更新** 测试框架已完成现代化升级，从 jsdom 迁移到 happy-dom 作为主要 DOM 测试环境，显著提升测试性能和稳定性。统一使用 Vitest v3.2.4，支持 monorepo workspace，优化了测试配置和 mock 策略。
 
 ## 项目结构
 该项目采用"技能系统（Skill System）+ 工具层 + API层 + UI组件层"的分层组织方式，现已升级为monorepo架构：
@@ -575,6 +587,146 @@ ShowError --> Failed["状态变为failed"]
 **章节来源**
 - [apps/web/app/api/chat/route.ts:77-219](file://apps/web/app/api/chat/route.ts#L77-L219)
 
+## 测试框架现代化
+
+### 测试环境升级
+项目已完成从 jsdom 到 happy-dom 的测试环境迁移，显著提升测试性能和稳定性：
+
+**测试框架版本**
+- Vitest v3.2.4：现代化测试框架，支持 TypeScript 和 JSX
+- happy-dom 20.9.0：快速 DOM 模拟，支持 Node.js 20+
+- Monorepo workspace：统一管理多个测试配置
+
+**环境配置差异**
+- apps/web：使用 happy-dom 环境，支持 DOM API 和浏览器特性
+- packages/ai-config：使用 node 环境，适合纯 Node.js 测试
+- packages/web3-tools：使用 node 环境，专注于工具函数测试
+
+### 测试配置优化
+**Vitest Workspace 配置**
+```typescript
+// vitest.workspace.ts
+export default defineWorkspace([
+  'apps/web/vitest.config.ts',
+  'packages/ai-config/vitest.config.ts', 
+  'packages/web3-tools/vitest.config.ts',
+])
+```
+
+**apps/web 测试配置**
+```typescript
+// apps/web/vitest.config.ts
+export default defineConfig({
+  test: {
+    environment: 'happy-dom',  // 从 jsdom 升级到 happy-dom
+    setupFiles: ['./test-setup.tsx'],
+    include: ['lib/**/*.test.ts', 'components/**/*.test.tsx'],
+  },
+})
+```
+
+**测试设置文件**
+```typescript
+// apps/web/test-setup.tsx
+import '@testing-library/jest-dom'
+import { vi } from 'vitest'
+
+// Mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+})
+```
+
+### 测试性能提升
+**happy-dom 优势**
+- 更快的 DOM 操作速度
+- 更好的 Node.js 兼容性
+- 更小的内存占用
+- 更好的 TypeScript 支持
+
+**测试执行优化**
+- 并行测试执行
+- 改进的 mock 策略
+- 优化的测试覆盖率收集
+
+### 测试策略改进
+**组件测试策略**
+```typescript
+// 使用 @testing-library/react + user-event
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+
+// 用户交互测试
+it('点击按钮应切换主题', async () => {
+  const user = userEvent.setup()
+  renderWithProvider(<ThemeSwitcher />)
+  await user.click(screen.getByText('浅色'))
+  expect(screen.getByText('浅色').closest('button')).toHaveClass('border-primary-500')
+})
+```
+
+**Hook 测试策略**
+```typescript
+import { renderHook, act } from '@testing-library/react'
+
+describe('useChatStream', () => {
+  it('sendMessage 成功应返回内容', async () => {
+    // Mock fetch 返回 ReadableStream
+    mockFetch.mockResolvedValue({ ok: true, body: mockStream })
+    
+    const { result } = renderHook(() => useChatStream())
+    
+    let response: any
+    await act(async () => {
+      response = await result.current!.sendMessage([{ role: 'user', content: 'Hi' }])
+    })
+    
+    expect(response.content).toBe('Hello')
+  })
+})
+```
+
+### Mock 策略优化
+**vi.hoisted() 提前声明**
+```typescript
+// 用于提前声明变量，解决 hoisting 陷阱
+vi.hoisted(() => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
+})
+```
+
+**链式调用 Mock**
+```typescript
+// Supabase 链式调用需要完整 mock 每一层
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: mockCreateClient,
+}))
+```
+
+**章节来源**
+- [apps/web/vitest.config.ts:1-22](file://apps/web/vitest.config.ts#L1-L22)
+- [packages/web3-tools/vitest.config.ts:1-10](file://packages/web3-tools/vitest.config.ts#L1-L10)
+- [vitest.workspace.ts:1-8](file://vitest.workspace.ts#L1-L8)
+- [apps/web/test-setup.tsx:1-47](file://apps/web/test-setup.tsx#L1-L47)
+- [apps/web/components/ChatInput.test.tsx:1-59](file://apps/web/components/ChatInput.test.tsx#L1-L59)
+- [apps/web/app/api/tools/route.test.ts:1-130](file://apps/web/app/api/tools/route.test.ts#L1-L130)
+- [apps/web/lib/supabase/client.test.ts:1-86](file://apps/web/lib/supabase/client.test.ts#L1-L86)
+- [apps/web/lib/memory/SlidingWindowMemory.test.ts:1-91](file://apps/web/lib/memory/SlidingWindowMemory.test.ts#L1-L91)
+- [packages/ai-config/src/__tests__/config.test.ts:1-138](file://packages/ai-config/src/__tests__/config.test.ts#L1-L138)
+- [docs/changelog/2026-04-28-feat-unit-test-coverage.md:19-63](file://docs/changelog/2026-04-28-feat-unit-test-coverage.md#L19-L63)
+- [docs/test-report.md:95-159](file://docs/test-report.md#L95-L159)
+
 ## 依赖分析
 - 技能系统与工具层的耦合关系
   - 技能系统负责任务路由与流程编排，工具层提供数据能力
@@ -591,7 +743,7 @@ ShowError --> Failed["状态变为failed"]
   - viem：以太坊客户端库，支持地址验证和交易构建
   - next/image：图像处理库，支持外部图片加载
 
-**更新** 依赖管理已迁移到monorepo模式，使用pnpm workspace进行包管理。多币种价格查询工具与钱包余额查询工具共享相同的外部依赖，包括ethers、node-fetch、https-proxy-agent等。新增链适配器依赖，包括不同链的特定API库。新增Token查询工具依赖Token注册表。新增转账工具依赖viem和wagmi库。
+**更新** 依赖管理已迁移到monorepo模式，使用pnpm workspace进行包管理。多币种价格查询工具与钱包余额查询工具共享相同的外部依赖，包括ethers、node-fetch、https-proxy-agent等。新增链适配器依赖，包括不同链的特定API库。新增Token查询工具依赖Token注册表。新增转账工具依赖viem和wagmi库。新增测试框架依赖，包括 happy-dom 和 @testing-library/react。
 
 ```mermaid
 graph LR
@@ -609,19 +761,25 @@ subgraph "Monorepo包管理"
 PKG["@web3-ai-agent/web3-tools<br/>pnpm workspace:*"] --> DEPS["ethers/node-fetch/https-proxy-agent/viem/wagmi"]
 APP["@web3-ai-agent/web<br/>workspace:*"] --> PKG
 END
+subgraph "测试框架"
+TEST["Vitest v3.2.4"] --> HAPPYDOM["happy-dom 20.9.0"]
+TEST --> LIB["@testing-library/react"]
+TEST --> USEREVENT["@testing-library/user-event"]
+END
 ```
 
 **图表来源**
 - [skills/x-ray/SKILL.md:1-224](file://skills/x-ray/SKILL.md#L1-L224)
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md:1-719](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md#L1-L719)
 - [packages/web3-tools/package.json:1-25](file://packages/web3-tools/package.json#L1-L25)
-- [apps/web/package.json:1-36](file://apps/web/package.json#L1-L36)
+- [apps/web/package.json:1-56](file://apps/web/package.json#L1-L56)
+- [apps/web/vitest.config.ts:1-22](file://apps/web/vitest.config.ts#L1-L22)
 
 **章节来源**
 - [skills/x-ray/SKILL.md:1-224](file://skills/x-ray/SKILL.md#L1-L224)
 - [skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md:1-719](file://skills/x-ray/SKILL-SYSTEM-DESIGN-V3.md#L1-L719)
 - [packages/web3-tools/package.json:1-25](file://packages/web3-tools/package.json#L1-L25)
-- [apps/web/package.json:1-36](file://apps/web/package.json#L1-L36)
+- [apps/web/package.json:1-56](file://apps/web/package.json#L1-L56)
 
 ## 性能考虑
 - 缓存策略
@@ -648,7 +806,7 @@ END
   - RPC调用使用ethers提供的超时机制
   - 转账操作的超时控制和重试机制
 
-**更新** 多币种价格查询系统同样适用统一的缓存策略，支持多种加密货币的统一缓存管理。新增Token查询工具的缓存策略，Token元数据按Token符号和链维度缓存。新增多链架构的性能考虑，包括不同链的缓存策略和并发控制。新增转账卡片的性能考虑，包括状态缓存和实时更新机制。
+**更新** 多币种价格查询系统同样适用统一的缓存策略，支持多种加密货币的统一缓存管理。新增Token查询工具的缓存策略，Token元数据按Token符号和链维度缓存。新增多链架构的性能考虑，包括不同链的缓存策略和并发控制。新增转账卡片的性能考虑，包括状态缓存和实时更新机制。新增测试框架性能优化，happy-dom 提供更快的 DOM 操作速度。
 
 ## 故障排查指南
 - 常见问题与处理
@@ -676,7 +834,7 @@ END
   - 验证链配置和RPC节点可用性
   - 检查钱包连接状态和账户余额
 
-**更新** 新增多链架构的故障排查指南，包括链配置检查、地址格式验证和多链状态监控。新增Token查询工具的故障排查，包括Token注册表验证和查询参数检查。新增转账卡片的故障排查，包括余额检查、Gas估算、地址验证和链匹配检查。
+**更新** 新增多链架构的故障排查指南，包括链配置检查、地址格式验证和多链状态监控。新增Token查询工具的故障排查，包括Token注册表验证和查询参数检查。新增转账卡片的故障排查，包括余额检查、Gas估算、地址验证和链匹配检查。新增测试框架故障排查，包括 happy-dom 环境配置和 mock 策略验证。
 
 **章节来源**
 - [Web3-AI-Agent-PRD-MVP.md:174-197](file://docs/Web3-AI-Agent-PRD-MVP.md#L174-L197)
@@ -685,6 +843,8 @@ END
 本方案以"技能系统路由 + 工具层抽象 + API层 + UI组件层 + 外部数据源"为核心，围绕MVP五大工具构建了可演进的Web3数据服务能力。通过标准化接口、统一错误处理与降级策略，以及可插拔的扩展机制，团队可在可控风险边界内持续迭代，逐步完善多链支持、转账功能与高级能力。
 
 **更新** 架构重构完成后，系统采用monorepo包管理模式，工具实现更加模块化和可维护。新增的多币种价格查询系统显著增强了系统的功能完整性和统一性，统一使用getTokenPrice工具支持ETH、BTC、SOL、MATIC、BNB等多种加密货币的价格查询，替代了原有的独立工具，同时保持了原有的代理支持、多数据源容错和超时处理等功能。新增转账卡片工具，支持ETH原生转账和ERC20 Token转账，提供完整的转账生命周期管理。新增DEX交换工具卡片预留，为后续DEX Swap功能实现奠定基础。新增Token查询工具，支持EVM链Token元数据查询，包括合约地址、精度、Logo等信息。新增多链架构支持，包括EVM链适配器、比特币适配器、Solana适配器，以及统一的链配置管理，进一步提升了系统的扩展性和实用性。
+
+**更新** 测试框架现代化升级完成后，系统具备了更强大的测试能力和更高的测试效率。从 jsdom 迁移到 happy-dom 显著提升了测试性能，统一的 Vitest 配置支持 monorepo 环境，改进的 mock 策略和测试设置文件确保了测试的稳定性和可靠性。完整的测试覆盖体系为项目的持续发展提供了坚实的质量保障。
 
 ## 附录
 
@@ -721,7 +881,7 @@ END
   - HTTP请求超时：10秒
   - RPC调用超时：由ethers库处理
 
-**更新** 多币种价格查询工具同样支持代理配置和超时处理，新增Solana RPC节点配置。多链架构支持不同的RPC节点配置。新增Token查询工具的环境变量配置。新增转账工具的环境变量配置。
+**更新** 多币种价格查询工具同样支持代理配置和超时处理，新增Solana RPC节点配置。多链架构支持不同的RPC节点配置。新增Token查询工具的环境变量配置。新增转账工具的环境变量配置。新增测试框架环境变量配置。
 
 **章节来源**
 - [packages/web3-tools/src/chains/config.ts:6-19](file://packages/web3-tools/src/chains/config.ts#L6-L19)
@@ -781,3 +941,21 @@ END
 **章节来源**
 - [apps/web/app/api/chat/route.ts:77-219](file://apps/web/app/api/chat/route.ts#L77-L219)
 - [apps/web/app/page.tsx:42-105](file://apps/web/app/page.tsx#L42-L105)
+
+### 测试框架配置
+**Vitest 配置概览**
+- 主配置文件：vitest.workspace.ts
+- 应用配置：apps/web/vitest.config.ts
+- 包配置：packages/web3-tools/vitest.config.ts
+- 测试设置：apps/web/test-setup.tsx
+
+**测试环境差异**
+- apps/web：happy-dom 环境，支持 DOM API
+- packages/ai-config：node 环境，纯 Node.js 测试
+- packages/web3-tools：node 环境，工具函数测试
+
+**章节来源**
+- [vitest.workspace.ts:1-8](file://vitest.workspace.ts#L1-L8)
+- [apps/web/vitest.config.ts:1-22](file://apps/web/vitest.config.ts#L1-L22)
+- [packages/web3-tools/vitest.config.ts:1-10](file://packages/web3-tools/vitest.config.ts#L1-L10)
+- [apps/web/test-setup.tsx:1-47](file://apps/web/test-setup.tsx#L1-L47)
