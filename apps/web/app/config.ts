@@ -1,6 +1,6 @@
 import { createConfig, http, cookieStorage, createStorage } from 'wagmi'
-import { mainnet, polygon, bsc } from 'wagmi/chains'
 import { injected } from 'wagmi/connectors'
+import { mainnet, polygon, bsc } from 'wagmi/chains'
 import { connectorsForWallets } from '@rainbow-me/rainbowkit'
 import {
   metaMaskWallet,
@@ -17,48 +17,41 @@ import {
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'your-project-id'
 
 // 自定义钱包列表配置
-const connectors = connectorsForWallets(
-  [
-    {
-      groupName: '推荐钱包',
-      wallets: [
-        metaMaskWallet,      // MetaMask（最流行）
-        walletConnectWallet, // WalletConnect（扫码通用）
-        coinbaseWallet,      // Coinbase/Base（智能钱包）
-      ],
-    },
-    {
-      groupName: '其他钱包',
-      wallets: [
-        okxWallet,           // OKX（国内常用）
-        binanceWallet,       // Binance
-        rabbyWallet,         // Rabby（多链支持）
-        phantomWallet,       // Phantom
-        trustWallet,         // Trust Wallet
-        injectedWallet,      // 其他注入钱包
-      ],
-    },
-  ],
+const walletList = [
   {
-    appName: 'Web3 AI Agent',
-    projectId,
-  }
-)
+    groupName: '推荐钱包',
+    wallets: [
+      metaMaskWallet,      // MetaMask（最流行）
+      walletConnectWallet, // WalletConnect（扫码通用）
+      coinbaseWallet,      // Coinbase/Base（智能钱包）
+    ],
+  },
+  {
+    groupName: '其他钱包',
+    wallets: [
+      okxWallet,           // OKX（国内常用）
+      binanceWallet,       // Binance
+      rabbyWallet,         // Rabby（多链支持）
+      phantomWallet,       // Phantom
+      trustWallet,         // Trust Wallet
+      injectedWallet,      // 其他注入钱包
+    ],
+  },
+]
 
 export function getConfig() {
+  // SSR 阶段使用基础 wagmi 配置，避免 indexedDB 访问
   return createConfig({
     chains: [mainnet, polygon, bsc],
-    ssr: true, // 开启 SSR 支持，允许客户端 hydration 恢复状态
+    ssr: true,
     connectors: [
-      // SSR 阶段只创建 injected connector
-      // walletConnect 在 SSR 会访问 indexedDB，所以只在客户端初始化
       injected({ shimDisconnect: true }),
     ],
     storage: createStorage({
-      storage: cookieStorage, // 使用 cookie 持久化，支持 SSR 传递状态
+      storage: cookieStorage,
     }),
     transports: {
-      [mainnet.id]: http('https://eth.llamarpc.com'),  // 支持 CORS 的公共 RPC
+      [mainnet.id]: http('https://eth.llamarpc.com'),
       [polygon.id]: http('https://polygon.llamarpc.com'),
       [bsc.id]: http('https://bsc.llamarpc.com'),
     },
@@ -68,19 +61,24 @@ export function getConfig() {
 // 客户端完整配置（包含所有钱包选项）
 export function getFullConfig() {
   if (typeof window === 'undefined') {
-    // SSR 阶段返回基础配置
     return getConfig()
   }
+
+  // 客户端使用 RainbowKit 的 connectorsForWallets
+  const connectors = connectorsForWallets(walletList, {
+    appName: 'Web3 AI Agent',
+    projectId,
+  })
 
   return createConfig({
     chains: [mainnet, polygon, bsc],
     ssr: true,
-    connectors,  // 使用自定义钱包列表
+    connectors,
     storage: createStorage({
       storage: cookieStorage,
     }),
     transports: {
-      [mainnet.id]: http('https://eth.llamarpc.com'),  // 支持 CORS 的公共 RPC
+      [mainnet.id]: http('https://eth.llamarpc.com'),
       [polygon.id]: http('https://polygon.llamarpc.com'),
       [bsc.id]: http('https://bsc.llamarpc.com'),
     },
