@@ -6,15 +6,18 @@
 - [Vercel部署FAQ.md](file://docs/Vercel部署FAQ.md)
 - [apps/web/package.json](file://apps/web/package.json)
 - [apps/web/next.config.js](file://apps/web/next.config.js)
-- [apps/web/tailwind.config.ts](file://apps/web/tailwind.config.ts)
-- [apps/web/postcss.config.js](file://apps/web/postcss.config.js)
+- [apps/web/tsconfig.json](file://apps/web/tsconfig.json)
 - [pnpm-workspace.yaml](file://pnpm-workspace.yaml)
 - [turbo.json](file://turbo.json)
-- [apps/web/app/layout.tsx](file://apps/web/app/layout.tsx)
-- [apps/web/app/config.ts](file://apps/web/app/config.ts)
-- [apps/web/lib/supabase/client.ts](file://apps/web/lib/supabase/client.ts)
-- [apps/web/lib/memory/config.ts](file://apps/web/lib/memory/config.ts)
+- [pnpm-lock.yaml](file://pnpm-lock.yaml)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 新增jsdom版本管理章节，反映依赖管理优化
+- 更新依赖树重构相关内容，解决ERR_REQUIRE_ESM错误
+- 增强monorepo依赖管理最佳实践指导
+- 完善ESM模块兼容性配置说明
 
 ## 目录
 1. [简介](#简介)
@@ -33,6 +36,8 @@
 
 该项目采用现代化的技术栈：Next.js 14 + Tailwind CSS + Web3（wagmi/ethers），使用pnpm workspace和Turborepo进行monorepo管理，部署在Vercel平台上。
 
+**更新** 新增jsdom版本管理和依赖树重构相关内容，重点关注ESM模块兼容性问题的解决。
+
 ## 项目结构
 
 项目采用monorepo架构，主要包含以下关键组件：
@@ -44,18 +49,17 @@ Root[根目录]
 VercelJSON[vercel.json]
 PnpmWorkspace[pnpm-workspace.yaml]
 Turbo[turbo.json]
+PnpmLock[pnpm-lock.yaml]
 end
 subgraph "应用层 - apps/web"
 WebApp[Web应用]
 PackageJSON[package.json]
 NextConfig[next.config.js]
-Layout[layout.tsx]
-Config[config.ts]
+TSConfig[tsconfig.json]
 end
-subgraph "样式系统"
-Tailwind[tailwind.config.ts]
-PostCSS[postcss.config.js]
-Globals[globals.css]
+subgraph "工作区包"
+AIConfig[packages/ai-config]
+Web3Tools[packages/web3-tools]
 end
 subgraph "外部服务"
 Supabase[Supabase数据库]
@@ -63,12 +67,12 @@ WalletConnect[WalletConnect]
 RPC[RPC节点]
 end
 Root --> WebApp
+Root --> PnpmLock
 WebApp --> PackageJSON
 WebApp --> NextConfig
-WebApp --> Layout
-WebApp --> Config
-WebApp --> Tailwind
-WebApp --> PostCSS
+WebApp --> TSConfig
+WebApp --> AIConfig
+WebApp --> Web3Tools
 WebApp --> Supabase
 WebApp --> WalletConnect
 WebApp --> RPC
@@ -78,6 +82,7 @@ WebApp --> RPC
 - [vercel.json:1-11](file://vercel.json#L1-L11)
 - [pnpm-workspace.yaml:1-4](file://pnpm-workspace.yaml#L1-L4)
 - [turbo.json:1-25](file://turbo.json#L1-L25)
+- [pnpm-lock.yaml:1-200](file://pnpm-lock.yaml#L1-L200)
 
 **章节来源**
 - [vercel.json:1-11](file://vercel.json#L1-L11)
@@ -103,6 +108,15 @@ Web应用使用Next.js 14.2.0，配置了AI SDK流式响应支持和图像优化
 - **图像优化**: 放行Coingecko和JsDelivr域名
 - **环境变量**: 公开APP_NAME和APP_VERSION
 
+### TypeScript配置
+
+项目采用现代TypeScript配置，支持ESM模块解析：
+
+- **模块系统**: esnext
+- **模块解析**: bundler
+- **ESM兼容**: esModuleInterop: true
+- **路径映射**: @/* 通配符支持
+
 ### 样式系统
 
 项目采用Tailwind CSS作为主要样式框架，配置了丰富的颜色系统和动画效果：
@@ -114,7 +128,7 @@ Web应用使用Next.js 14.2.0，配置了AI SDK流式响应支持和图像优化
 **章节来源**
 - [vercel.json:1-11](file://vercel.json#L1-L11)
 - [apps/web/next.config.js:1-30](file://apps/web/next.config.js#L1-L30)
-- [apps/web/tailwind.config.ts:1-99](file://apps/web/tailwind.config.ts#L1-L99)
+- [apps/web/tsconfig.json:1-30](file://apps/web/tsconfig.json#L1-L30)
 
 ## 架构概览
 
@@ -302,6 +316,63 @@ buildCommand中重复执行install
 **章节来源**
 - [Vercel部署FAQ.md:262-286](file://docs/Vercel部署FAQ.md#L262-L286)
 
+### 问题七：jsdom版本管理与ESM兼容性
+
+#### 现象描述
+构建过程中出现ERR_REQUIRE_ESM错误，特别是在测试环境中
+
+#### 根本原因
+jsdom版本与当前Node.js版本不兼容，导致ESM模块解析失败
+
+#### 解决方案
+通过jsdom版本降级和依赖树重构解决ESM兼容性问题
+
+```mermaid
+flowchart TD
+ESMError[ERR_REQUIRE_ESM错误] --> NodeVersion{Node.js版本}
+NodeVersion --> |不兼容| JsdomVersion{jsdom版本}
+JsdomVersion --> |过高| DowngradeJsdom[降级jsdom版本]
+DowngradeJsdom --> UpdateLockfile[更新pnpm-lock.yaml]
+UpdateLockfile --> ReinstallDeps[重新安装依赖]
+ReinstallDeps --> FixESM[修复ESM兼容性]
+FixESM --> BuildSuccess[构建成功]
+```
+
+**图表来源**
+- [apps/web/package.json:47](file://apps/web/package.json#L47)
+- [pnpm-lock.yaml:7874-7908](file://pnpm-lock.yaml#L7874-L7908)
+
+**章节来源**
+- [apps/web/package.json:47](file://apps/web/package.json#L47)
+- [pnpm-lock.yaml:7874-7908](file://pnpm-lock.yaml#L7874-L7908)
+
+### 问题八：依赖树重构优化
+
+#### 现象描述
+构建时间过长，内存占用过高
+
+#### 根本原因
+依赖树中存在重复和冲突的包版本
+
+#### 解决方案
+通过依赖树重构优化包管理
+
+```mermaid
+flowchart TD
+ComplexDeps[复杂的依赖树] --> AnalyzeDeps[分析依赖关系]
+AnalyzeDeps --> RemoveDuplicates[移除重复依赖]
+RemoveDuplicates --> OptimizeVersions[优化版本冲突]
+OptimizeVersions --> UpdateLockfile[更新锁文件]
+UpdateLockfile --> CleanInstall[清理并重新安装]
+CleanInstall --> ReducedBuildTime[减少构建时间]
+```
+
+**图表来源**
+- [pnpm-lock.yaml:1-200](file://pnpm-lock.yaml#L1-L200)
+
+**章节来源**
+- [pnpm-lock.yaml:1-200](file://pnpm-lock.yaml#L1-L200)
+
 ## 依赖关系分析
 
 项目依赖关系复杂，涉及多个层面的依赖管理：
@@ -324,10 +395,15 @@ subgraph "开发时依赖"
 TypeScript[typescript ^5]
 ESLint[@types/react ^18.2.0]
 TestingLib[@testing-library/react ^16.3.2]
+Jsdom[jsdom ^28.1.0]
 end
 subgraph "工作区包"
 AIConfig[@web3-ai-agent/ai-config]
 Web3Tools[@web3-ai-agent/web3-tools]
+end
+subgraph "ESM兼容性"
+ESModule[ESM模块支持]
+NodeCompat[Node.js兼容性]
 end
 React --> NextJS
 Wagmi --> Ethers
@@ -336,6 +412,8 @@ Tailwind --> PostCSS
 PostCSS --> Autoprefixer
 AIConfig --> NextJS
 Web3Tools --> NextJS
+Jsdom --> ESM兼容性
+ESM兼容性 --> NodeCompat
 ```
 
 **图表来源**
@@ -354,6 +432,7 @@ Web3Tools --> NextJS
    - 将构建时必需的依赖移至dependencies
    - 避免在buildCommand中重复执行pnpm install
    - 使用frozen-lockfile确保构建一致性
+   - **新增** 通过jsdom版本降级解决ESM兼容性问题
 
 2. **样式系统优化**
    - Tailwind CSS提供按需样式生成
@@ -365,11 +444,17 @@ Web3Tools --> NextJS
    - Next.js内置构建缓存
    - Vercel平台级缓存优化
 
+4. **ESM模块优化**
+   - **新增** 确保所有开发依赖支持ESM格式
+   - **新增** 配置正确的模块解析策略
+   - **新增** 优化TypeScript编译配置
+
 ### 部署性能指标
 
 - **首次构建时间**: 受依赖数量和大小影响
 - **增量构建时间**: 使用Turborepo缓存显著提升
 - **运行时性能**: Tailwind CSS类名压缩和Tree Shaking
+- **ESM兼容性**: 通过版本降级和配置优化提升稳定性
 
 ## 故障排除指南
 
@@ -384,6 +469,8 @@ Web3Tools --> NextJS
 | 路径解析失败 | `Module not found: @/components/...` | Tailwind问题导致的级联错误 | 修复Tailwind配置 |
 | 配置冲突 | Vercel UI设置不生效 | vercel.json优先级更高 | 使用单一配置源 |
 | 重复安装 | `pnpm install && pnpm build` | buildCommand包含install | 简化为`pnpm build` |
+| **新增** ESM错误 | `ERR_REQUIRE_ESM` | jsdom版本不兼容 | 降级jsdom版本 |
+| **新增** 依赖冲突 | 构建缓慢/内存不足 | 依赖树复杂 | 重构依赖树 |
 
 #### 诊断流程
 
@@ -394,12 +481,15 @@ CheckLogs --> ErrorType{识别错误类型}
 ErrorType --> |依赖问题| CheckDeps[检查依赖配置]
 ErrorType --> |配置问题| CheckConfig[检查配置文件]
 ErrorType --> |路径问题| CheckPath[检查路径配置]
+ErrorType --> |ESM问题| CheckESM[检查ESM兼容性]
 CheckDeps --> FixDeps[修复依赖问题]
 CheckConfig --> FixConfig[修复配置问题]
 CheckPath --> FixPath[修复路径问题]
+CheckESM --> FixESM[修复ESM问题]
 FixDeps --> TestBuild[测试构建]
 FixConfig --> TestBuild
 FixPath --> TestBuild
+FixESM --> TestBuild
 TestBuild --> Success[构建成功]
 TestBuild --> FailAgain[仍需排查]
 FailAgain --> CheckLogs
@@ -411,16 +501,23 @@ FailAgain --> CheckLogs
    - 所有构建时依赖必须在dependencies中声明
    - 严格遵循`pnpm install`后同步更新锁文件
    - 在项目根目录执行所有pnpm操作
+   - **新增** 定期检查和更新开发依赖版本
 
 2. **配置管理规范**
    - 优先使用vercel.json进行配置
    - 避免在Vercel UI中重复配置相同项
    - 确保Root Directory指向正确的应用目录
 
-3. **监控与维护**
+3. **ESM兼容性管理**
+   - **新增** 确保所有测试依赖支持ESM格式
+   - **新增** 配置正确的TypeScript模块解析
+   - **新增** 定期检查Node.js版本兼容性
+
+4. **监控与维护**
    - 定期检查依赖版本更新
    - 监控构建时间和成功率
    - 建立标准化的部署检查清单
+   - **新增** 监控ESM模块加载性能
 
 **章节来源**
 - [Vercel部署FAQ.md:288-367](file://docs/Vercel部署FAQ.md#L288-L367)
@@ -434,5 +531,8 @@ Vercel部署失败的本质并非代码问题，而是依赖管理与构建配�
 3. **清晰的配置管理**: 使用单一配置源（vercel.json或Vercel UI）
 4. **合理的项目结构**: 正确设置Root Directory指向应用目录
 5. **标准化的工作流程**: 在项目根目录执行pnpm操作
+6. ****新增** ESM兼容性管理**: 确保开发依赖与Node.js版本兼容
+
+**更新** 本次更新特别强调了jsdom版本管理和依赖树重构的重要性，通过降级jsdom版本和优化依赖关系，有效解决了ERR_REQUIRE_ESM错误问题，提高了部署稳定性。
 
 这些实践不仅适用于当前项目，也为其他类似的技术栈组合提供了可复用的部署经验。通过建立完善的部署规范和监控机制，可以显著提高部署成功率和团队协作效率。

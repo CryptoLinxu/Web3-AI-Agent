@@ -12,9 +12,10 @@
 - [apps/web/next.config.js](file://apps/web/next.config.js)
 - [apps/web/vitest.config.ts](file://apps/web/vitest.config.ts)
 - [vitest.workspace.ts](file://vitest.workspace.ts)
-- [e2e/basic.spec.ts](file://e2e/basic.spec.ts)
-- [e2e/chat.spec.ts](file://e2e/chat.spec.ts)
-- [e2e/api.spec.ts](file://e2e/api.spec.ts)
+- [apps/web/test-setup.tsx](file://apps/web/test-setup.tsx)
+- [apps/web/components/ChatInput.test.tsx](file://apps/web/components/ChatInput.test.tsx)
+- [apps/web/lib/theme/ThemeContext.test.tsx](file://apps/web/lib/theme/ThemeContext.test.tsx)
+- [apps/web/hooks/useChatStream.test.ts](file://apps/web/hooks/useChatStream.test.ts)
 - [docs/CI-CD-SETUP-GUIDE.md](file://docs/CI-CD-SETUP-GUIDE.md)
 - [docs/DEPLOYMENT.md](file://docs/DEPLOYMENT.md)
 - [README.md](file://README.md)
@@ -28,7 +29,9 @@
 - 更新 Vercel 配置文件，优化构建流程
 - 增强构建命令和安装命令的配置
 - 完善部署流程的环境变量配置说明
-- **新增** Vitest版本降级说明，从3.2.4降至3.1.0以解决Linux CI环境中ESM/CommonJS兼容性问题
+- **更新** 将测试环境从jsdom切换到happy-dom，解决ESM/CommonJS兼容性问题
+- **更新** Vitest版本固定为3.1.0，避免Linux CI环境中ERR_REQUIRE_ESM错误
+- **更新** 增强测试配置，支持ESM模块系统和现代JavaScript特性
 
 ## 目录
 1. [项目简介](#项目简介)
@@ -174,7 +177,7 @@ GHA->>QA : 执行代码质量检查
 QA->>QA : pnpm type-check
 QA->>QA : pnpm lint
 QA->>Test : 运行单元测试
-Test->>Test : Vitest测试套件
+Test->>Test : Vitest测试套件(happy-dom)
 Test->>GHA : 返回测试结果
 GHA->>Dev : 发送通知
 ```
@@ -314,7 +317,7 @@ UnitTest[单元测试] --> IntegrationTest[集成测试]
 IntegrationTest --> E2ETest[E2E测试]
 end
 subgraph "测试工具"
-Vitest[Vitest] --> ReactTesting[React Testing Library]
+Vitest[Vitest 3.1.0] --> ReactTesting[React Testing Library]
 Playwright[Playwright] --> BrowserTest[浏览器测试]
 end
 subgraph "测试覆盖"
@@ -337,11 +340,13 @@ E2ETest --> BasicTest
 
 ### 测试配置详解
 
+**更新** 测试环境已从jsdom切换到happy-dom，提供更好的ESM/CommonJS兼容性
+
 ```mermaid
 classDiagram
 class VitestConfig {
 +esbuild : jsx automatic
-+test : jsdom环境
++test : happy-dom环境
 +setupFiles : test-setup.tsx
 +include : 多个测试目录
 }
@@ -355,10 +360,13 @@ class PlaywrightConfig {
 +webServer : pnpm dev
 }
 class TestSuites {
-+basic.spec.ts : 基础功能
-+chat.spec.ts : 对话功能
-+api.spec.ts : API接口
-+transfer.spec.ts : 转账功能
++ChatInput.test.tsx : 聊天输入组件
++ThemeContext.test.tsx : 主题上下文测试
++useChatStream.test.ts : 流式聊天钩子
++basic.spec.ts : 基础功能测试
++chat.spec.ts : 对话功能测试
++api.spec.ts : API接口测试
++transfer.spec.ts : 转账功能测试
 }
 VitestConfig --> TestSuites : "单元测试配置"
 PlaywrightConfig --> TestSuites : "E2E测试配置"
@@ -372,7 +380,9 @@ PlaywrightConfig --> TestSuites : "E2E测试配置"
 
 **更新** 为了解决Linux CI环境中ESM/CommonJS兼容性问题，项目已将Vitest版本从3.2.4降级至3.1.0，避免ERR_REQUIRE_ESM错误
 
-项目采用统一的Vitest配置，支持ESM模块系统和JSX自动导入：
+**更新** 测试环境已从jsdom切换到happy-dom，提供更好的DOM模拟和ESM兼容性
+
+项目采用统一的Vitest配置，支持ESM模块系统和现代JavaScript特性：
 
 ```mermaid
 classDiagram
@@ -383,7 +393,7 @@ class VitestWorkspace {
 }
 class VitestConfig {
 +esbuild : jsx automatic
-+test : jsdom环境
++test : happy-dom环境
 +setupFiles : test-setup.tsx
 +resolve.alias : @, @web3-ai-agent/ai-config
 +resolve.alias : @web3-ai-agent/web3-tools
@@ -406,9 +416,6 @@ VitestConfig --> TestSetup : "全局测试设置"
 **章节来源**
 - [apps/web/vitest.config.ts:1-23](file://apps/web/vitest.config.ts#L1-L23)
 - [playwright.config.ts:1-79](file://playwright.config.ts#L1-L79)
-- [e2e/basic.spec.ts:1-39](file://e2e/basic.spec.ts#L1-L39)
-- [e2e/chat.spec.ts:1-82](file://e2e/chat.spec.ts#L1-L82)
-- [e2e/api.spec.ts:1-163](file://e2e/api.spec.ts#L1-L163)
 - [vitest.workspace.ts:1-8](file://vitest.workspace.ts#L1-L8)
 - [apps/web/test-setup.tsx:1-47](file://apps/web/test-setup.tsx#L1-L47)
 
@@ -440,6 +447,7 @@ subgraph "开发工具"
 Turbo[turbo] --> PNPM[pnpm]
 ESLint[ESLint] --> Prettier[Prettier]
 Vitest[Vitest 3.1.0] --> Playwright[Playwright]
+HappyDOM[happy-dom] --> Vitest[测试环境]
 End
 RootPkg --> WebApp
 WebApp --> Web3Tools
@@ -538,13 +546,16 @@ Check3 --> |否| Check4{TailwindCSS依赖问题?}
 Check4 --> |是| Fix4[检查.npmrc配置]
 Check4 --> |否| Check5{Vitest版本兼容性问题?}
 Check5 --> |是| Fix5[确认Vitest 3.1.0配置]
-Check5 --> |否| Fix6[检查网络连接和权限]
+Check5 --> |否| Check6{ESM/CJS模块冲突?}
+Check6 --> |是| Fix6[验证happy-dom配置]
+Check6 --> |否| Fix7[检查网络连接和权限]
 Fix1 --> Verify[重新运行工作流]
 Fix2 --> Verify
 Fix3 --> Verify
 Fix4 --> Verify
 Fix5 --> Verify
 Fix6 --> Verify
+Fix7 --> Verify
 ```
 
 ### 问题排查步骤
@@ -565,9 +576,15 @@ Fix6 --> Verify
    - 检查CDN缓存状态
 
 4. **测试问题解决**
-   - **新增** 验证Vitest版本为3.1.0，避免ESM/CommonJS兼容性问题
+   - **更新** 验证Vitest版本为3.1.0，避免ESM/CommonJS兼容性问题
+   - **更新** 确认测试环境使用happy-dom而非jsdom
    - 检查测试配置文件路径和别名设置
    - 确认测试环境模拟配置正确
+
+5. **模块系统冲突解决**
+   - **新增** 验证ESM模块导入语法
+   - **新增** 检查CommonJS与ESM混合使用的兼容性
+   - **新增** 确认package.json中的module字段配置
 
 **章节来源**
 - [docs/CI-CD-SETUP-GUIDE.md:153-177](file://docs/CI-CD-SETUP-GUIDE.md#L153-L177)
@@ -632,18 +649,33 @@ RuntimeAlert --> Webhook
 
 ### Vitest版本管理最佳实践
 
-**更新** 关于Vitest版本降级的注意事项
+**更新** 关于Vitest版本降级和测试环境切换的注意事项
 
-为确保Linux CI环境的稳定性，项目已将Vitest版本固定为3.1.0，这是为了解决ESM/CommonJS兼容性问题而做出的重要调整：
+为确保Linux CI环境的稳定性，项目已将Vitest版本固定为3.1.0，并将测试环境从jsdom切换到happy-dom，这是为了解决ESM/CommonJS兼容性问题而做出的重要调整：
 
 - **版本选择**：Vitest 3.1.0版本在Linux环境中表现更加稳定
 - **兼容性保障**：避免ERR_REQUIRE_ESM错误，确保测试在CI/CD环境中正常运行
+- **环境优化**：happy-dom提供更好的DOM模拟和ESM兼容性
 - **向后兼容**：该版本仍支持现代JavaScript特性，满足项目测试需求
 - **未来升级策略**：将持续监控Vitest新版本，一旦ESM/CommonJS兼容性问题得到解决，将考虑升级到更高版本
+
+### 测试环境配置最佳实践
+
+**更新** 测试环境从jsdom到happy-dom的迁移说明
+
+项目已完成从jsdom到happy-dom的测试环境迁移，这一变更带来了以下改进：
+
+- **ESM兼容性**：happy-dom对ESM模块系统的支持更好
+- **DOM模拟**：提供更完整的DOM API支持
+- **性能提升**：相比jsdom具有更好的性能表现
+- **稳定性**：在Linux CI环境中更加稳定可靠
 
 **章节来源**
 - [docs/CI-CD-SETUP-GUIDE.md:170-177](file://docs/CI-CD-SETUP-GUIDE.md#L170-L177)
 - [docs/DEPLOYMENT.md:702-791](file://docs/DEPLOYMENT.md#L702-L791)
+- [apps/web/vitest.config.ts:9-11](file://apps/web/vitest.config.ts#L9-L11)
+- [package.json:24](file://package.json#L24)
+- [apps/web/package.json:47](file://apps/web/package.json#L47)
 
 ### 环境变量配置优化
 
@@ -670,6 +702,9 @@ vercel.json文件现在包含了更精确的构建配置，包括明确的构建
 **Vitest版本降级说明**：
 为了解决Linux CI环境中ESM/CommonJS兼容性问题，项目已将Vitest版本从3.2.4降级至3.1.0。这一变更避免了ERR_REQUIRE_ESM错误，确保测试在不同操作系统环境下都能稳定运行。新的版本配置已在所有相关配置文件中更新，包括根package.json和apps/web/package.json。
 
+**测试环境切换说明**：
+为了解决JavaScript模块系统冲突问题，项目已将测试环境从jsdom切换到happy-dom。这一变更提供了更好的ESM兼容性和DOM模拟支持，避免了构建失败和测试崩溃问题。
+
 **章节来源**
 - [docs/DEPLOYMENT.md:472-484](file://docs/DEPLOYMENT.md#L472-L484)
 - [.npmrc:1-2](file://.npmrc#L1-L2)
@@ -680,3 +715,4 @@ vercel.json文件现在包含了更精确的构建配置，包括明确的构建
 - [.github/workflows/ci-cd.yml:9-11](file://.github/workflows/ci-cd.yml#L9-L11)
 - [package.json:24](file://package.json#L24)
 - [apps/web/package.json:10](file://apps/web/package.json#L10)
+- [apps/web/vitest.config.ts:9-11](file://apps/web/vitest.config.ts#L9-L11)
