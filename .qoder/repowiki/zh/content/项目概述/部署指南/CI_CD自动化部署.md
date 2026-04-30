@@ -28,6 +28,7 @@
 - 更新 Vercel 配置文件，优化构建流程
 - 增强构建命令和安装命令的配置
 - 完善部署流程的环境变量配置说明
+- **新增** Vitest版本降级说明，从3.2.4降至3.1.0以解决Linux CI环境中ESM/CommonJS兼容性问题
 
 ## 目录
 1. [项目简介](#项目简介)
@@ -367,12 +368,49 @@ PlaywrightConfig --> TestSuites : "E2E测试配置"
 - [apps/web/vitest.config.ts:1-23](file://apps/web/vitest.config.ts#L1-L23)
 - [playwright.config.ts:12-79](file://playwright.config.ts#L12-L79)
 
+### Vitest版本兼容性优化
+
+**更新** 为了解决Linux CI环境中ESM/CommonJS兼容性问题，项目已将Vitest版本从3.2.4降级至3.1.0，避免ERR_REQUIRE_ESM错误
+
+项目采用统一的Vitest配置，支持ESM模块系统和JSX自动导入：
+
+```mermaid
+classDiagram
+class VitestWorkspace {
++defineWorkspace : packages/ai-config
++defineWorkspace : packages/web3-tools
++defineWorkspace : apps/web
+}
+class VitestConfig {
++esbuild : jsx automatic
++test : jsdom环境
++setupFiles : test-setup.tsx
++resolve.alias : @, @web3-ai-agent/ai-config
++resolve.alias : @web3-ai-agent/web3-tools
+}
+class TestSetup {
++matchMedia mock : 主题测试
++next/navigation mock : 路由测试
++next/image mock : 图片组件测试
++next/headers mock : 请求头测试
+}
+VitestWorkspace --> VitestConfig : "管理测试工作区"
+VitestConfig --> TestSetup : "全局测试设置"
+```
+
+**图表来源**
+- [vitest.workspace.ts:1-8](file://vitest.workspace.ts#L1-L8)
+- [apps/web/vitest.config.ts:1-23](file://apps/web/vitest.config.ts#L1-L23)
+- [apps/web/test-setup.tsx:1-47](file://apps/web/test-setup.tsx#L1-L47)
+
 **章节来源**
 - [apps/web/vitest.config.ts:1-23](file://apps/web/vitest.config.ts#L1-L23)
 - [playwright.config.ts:1-79](file://playwright.config.ts#L1-L79)
 - [e2e/basic.spec.ts:1-39](file://e2e/basic.spec.ts#L1-L39)
 - [e2e/chat.spec.ts:1-82](file://e2e/chat.spec.ts#L1-L82)
 - [e2e/api.spec.ts:1-163](file://e2e/api.spec.ts#L1-L163)
+- [vitest.workspace.ts:1-8](file://vitest.workspace.ts#L1-L8)
+- [apps/web/test-setup.tsx:1-47](file://apps/web/test-setup.tsx#L1-L47)
 
 ## 依赖关系分析
 
@@ -401,8 +439,8 @@ end
 subgraph "开发工具"
 Turbo[turbo] --> PNPM[pnpm]
 ESLint[ESLint] --> Prettier[Prettier]
-Vitest[Vitest] --> Playwright[Playwright]
-end
+Vitest[Vitest 3.1.0] --> Playwright[Playwright]
+End
 RootPkg --> WebApp
 WebApp --> Web3Tools
 WebApp --> AIConfig
@@ -424,7 +462,7 @@ Build --> NextBuild[next build]
 NextBuild --> Dist[生成静态文件]
 end
 subgraph "测试阶段"
-UnitTest[vitest run] --> E2ETest[playwright test]
+UnitTest[vitest run 3.1.0] --> E2ETest[playwright test]
 E2ETest --> Report[HTML报告]
 end
 subgraph "部署阶段"
@@ -498,12 +536,15 @@ Check2 --> |否| Check3{测试失败?}
 Check3 --> |是| Fix3[检查测试配置和依赖]
 Check3 --> |否| Check4{TailwindCSS依赖问题?}
 Check4 --> |是| Fix4[检查.npmrc配置]
-Check4 --> |否| Fix5[检查网络连接和权限]
+Check4 --> |否| Check5{Vitest版本兼容性问题?}
+Check5 --> |是| Fix5[确认Vitest 3.1.0配置]
+Check5 --> |否| Fix6[检查网络连接和权限]
 Fix1 --> Verify[重新运行工作流]
 Fix2 --> Verify
 Fix3 --> Verify
 Fix4 --> Verify
 Fix5 --> Verify
+Fix6 --> Verify
 ```
 
 ### 问题排查步骤
@@ -522,6 +563,11 @@ Fix5 --> Verify
    - 查看Vercel部署日志
    - 验证环境变量同步
    - 检查CDN缓存状态
+
+4. **测试问题解决**
+   - **新增** 验证Vitest版本为3.1.0，避免ESM/CommonJS兼容性问题
+   - 检查测试配置文件路径和别名设置
+   - 确认测试环境模拟配置正确
 
 **章节来源**
 - [docs/CI-CD-SETUP-GUIDE.md:153-177](file://docs/CI-CD-SETUP-GUIDE.md#L153-L177)
@@ -558,7 +604,7 @@ subgraph "告警机制"
 BuildAlert[构建失败告警]
 DeployAlert[部署异常告警]
 RuntimeAlert[性能告警]
-end
+End
 subgraph "通知渠道"
 Slack[Slack通知]
 Email[邮件通知]
@@ -583,6 +629,17 @@ RuntimeAlert --> Webhook
    - 跟踪新工具和最佳实践
    - 升级依赖版本
    - 改进测试覆盖率
+
+### Vitest版本管理最佳实践
+
+**更新** 关于Vitest版本降级的注意事项
+
+为确保Linux CI环境的稳定性，项目已将Vitest版本固定为3.1.0，这是为了解决ESM/CommonJS兼容性问题而做出的重要调整：
+
+- **版本选择**：Vitest 3.1.0版本在Linux环境中表现更加稳定
+- **兼容性保障**：避免ERR_REQUIRE_ESM错误，确保测试在CI/CD环境中正常运行
+- **向后兼容**：该版本仍支持现代JavaScript特性，满足项目测试需求
+- **未来升级策略**：将持续监控Vitest新版本，一旦ESM/CommonJS兼容性问题得到解决，将考虑升级到更高版本
 
 **章节来源**
 - [docs/CI-CD-SETUP-GUIDE.md:170-177](file://docs/CI-CD-SETUP-GUIDE.md#L170-L177)
@@ -610,6 +667,9 @@ RuntimeAlert --> Webhook
 **Vercel配置优化**：
 vercel.json文件现在包含了更精确的构建配置，包括明确的构建命令和安装命令，以及Git部署启用配置。这些优化确保了部署流程的稳定性和可预测性。
 
+**Vitest版本降级说明**：
+为了解决Linux CI环境中ESM/CommonJS兼容性问题，项目已将Vitest版本从3.2.4降级至3.1.0。这一变更避免了ERR_REQUIRE_ESM错误，确保测试在不同操作系统环境下都能稳定运行。新的版本配置已在所有相关配置文件中更新，包括根package.json和apps/web/package.json。
+
 **章节来源**
 - [docs/DEPLOYMENT.md:472-484](file://docs/DEPLOYMENT.md#L472-L484)
 - [.npmrc:1-2](file://.npmrc#L1-L2)
@@ -618,3 +678,5 @@ vercel.json文件现在包含了更精确的构建配置，包括明确的构建
 - [apps/web/package.json:50-51](file://apps/web/package.json#L50-L51)
 - [vercel.json:1-11](file://vercel.json#L1-L11)
 - [.github/workflows/ci-cd.yml:9-11](file://.github/workflows/ci-cd.yml#L9-L11)
+- [package.json:24](file://package.json#L24)
+- [apps/web/package.json:10](file://apps/web/package.json#L10)

@@ -8,6 +8,7 @@
 - [apps/web/app/api/chat/route.ts](file://apps/web/app/api/chat/route.ts)
 - [apps/web/app/api/tools/route.ts](file://apps/web/app/api/tools/route.ts)
 - [apps/web/components/ChatInput.tsx](file://apps/web/components/ChatInput.tsx)
+- [apps/web/components/ChatInput.test.tsx](file://apps/web/components/ChatInput.test.tsx)
 - [apps/web/components/PromptSelector.tsx](file://apps/web/components/PromptSelector.tsx)
 - [apps/web/components/PromptSelectorModal.tsx](file://apps/web/components/PromptSelectorModal.tsx)
 - [apps/web/config/prompts.ts](file://apps/web/config/prompts.ts)
@@ -45,6 +46,7 @@
 
 ## 更新摘要
 **变更内容**
+- **ChatInput组件测试增强**：占位符文本从'询问Web3相关问题'更新为'问我任何Web3问题'，按钮查询使用明确命名避免与模板提示按钮冲突，以及改进的加载状态测试
 - CSS处理依赖（autoprefixer、postcss、tailwindcss）从开发依赖迁移到生产依赖，影响应用构建和运行时依赖
 - 新增完整的提示词选择系统，包括PromptSelectorModal和PromptSelector组件
 - 增强ChatInput组件，新增快捷提示词功能，支持快速选择预设提示词
@@ -63,22 +65,22 @@
 
 ## 目录
 1. [简介](#简介)
-2. [项目结构](#项目结构)
-3. [核心组件](#核心组件)
-4. [架构概览](#架构概览)
-5. [详细组件分析](#详细组件分析)
-6. [提示词选择系统](#提示词选择系统)
-7. [主题系统](#主题系统)
-8. [确认对话框组件](#确认对话框组件)
-9. [钱包上下文注入](#钱包上下文注入)
-10. [内存管理策略](#内存管理策略)
-11. [智能欢迎消息处理](#智能欢迎消息处理)
-12. [UI设计与样式](#ui设计与样式)
-13. [CSS处理依赖变更](#css处理依赖变更)
-14. [依赖关系分析](#依赖关系分析)
-15. [性能考虑](#性能考虑)
-16. [故障排除指南](#故障排除指南)
-17. [结论](#结论)
+2 [项目结构](#项目结构)
+3 [核心组件](#核心组件)
+4 [架构概览](#架构概览)
+5 [详细组件分析](#详细组件分析)
+6 [提示词选择系统](#提示词选择系统)
+7 [主题系统](#主题系统)
+8 [确认对话框组件](#确认对话框组件)
+9 [钱包上下文注入](#钱包上下文注入)
+10 [内存管理策略](#内存管理策略)
+11 [智能欢迎消息处理](#智能欢迎消息处理)
+12 [UI设计与样式](#ui设计与样式)
+13 [CSS处理依赖变更](#css处理依赖变更)
+14 [依赖关系分析](#依赖关系分析)
+15 [性能考虑](#性能考虑)
+16 [故障排除指南](#故障排除指南)
+17 [结论](#结论)
 
 ## 简介
 
@@ -239,21 +241,21 @@ ConversationHistory[对话历史]
 WelcomeMessage[智能欢迎消息]
 PromptSelector[提示词选择器]
 PromptSelectorModal[提示词选择弹窗]
-</subgraph>
+</subgraph
 subgraph "API层"
 ChatAPI[聊天API]
 ToolsAPI[工具API]
 HealthAPI[健康检查API]
-</subgraph>
+</subgraph
 subgraph "AI层"
 LLMFactory[LLM工厂]
 Tools[Web3工具]
 MemoryStrategies[内存策略]
-</subgraph>
+</subgraph
 subgraph "区块链层"
 EthereumRPC[Ethereum RPC]
 BlockChain[以太坊网络]
-</subgraph>
+</subgraph
 Browser --> ChatUI
 ChatUI --> Components
 ChatUI --> SettingsPanel
@@ -366,7 +368,40 @@ ChatInput --> PromptSelectorModal : 使用
 ```
 
 **图表来源**
-- [apps/web/components/ChatInput.tsx:1-119](file://apps/web/components/ChatInput.tsx#L1-L119)
+- [apps/web/components/ChatInput.tsx:1-162](file://apps/web/components/ChatInput.tsx#L1-L162)
+
+### ChatInput组件测试增强
+
+**更新** ChatInput组件测试进行了全面增强，重点关注用户体验和交互准确性：
+
+#### 占位符文本更新
+- 占位符文本从'询问Web3相关问题'更新为'问我任何Web3问题'
+- 更加友好和包容的表述，鼓励用户提出各种Web3相关问题
+
+#### 按钮查询明确命名
+- 测试中使用明确的按钮名称'发送消息'避免与模板提示按钮冲突
+- 通过精确的选择器避免误匹配到'提示词模板'按钮
+
+#### 改进的加载状态测试
+- 增加了对isLoading状态的完整覆盖测试
+- 验证输入框和按钮在加载状态下的禁用行为
+- 确保用户无法在API处理过程中提交重复请求
+
+```mermaid
+stateDiagram-v2
+[*] --> NormalState : 正常状态
+NormalState --> LoadingState : isLoading = true
+LoadingState --> NormalState : isLoading = false
+NormalState --> DisabledState : 空输入
+DisabledState --> NormalState : 输入内容
+```
+
+**图表来源**
+- [apps/web/components/ChatInput.test.tsx:48-57](file://apps/web/components/ChatInput.test.tsx#L48-L57)
+
+**章节来源**
+- [apps/web/components/ChatInput.tsx:1-162](file://apps/web/components/ChatInput.tsx#L1-L162)
+- [apps/web/components/ChatInput.test.tsx:1-59](file://apps/web/components/ChatInput.test.tsx#L1-L59)
 
 ### 提示词选择器组件
 
@@ -396,7 +431,7 @@ PromptSelector --> PromptTemplate : 管理
 ```
 
 **图表来源**
-- [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
+- [apps/web/components/PromptSelector.tsx:1-106](file://apps/web/components/PromptSelector.tsx#L1-L106)
 - [apps/web/config/prompts.ts:15-21](file://apps/web/config/prompts.ts#L15-L21)
 
 ### 提示词选择器弹窗组件
@@ -428,7 +463,7 @@ PromptSelectorModal --> PromptSelector : 包含
 ```
 
 **图表来源**
-- [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
+- [apps/web/components/PromptSelectorModal.tsx:1-116](file://apps/web/components/PromptSelectorModal.tsx#L1-L116)
 
 ### 消息列表组件
 
@@ -617,9 +652,10 @@ FinalReply --> End
 - [apps/web/app/api/chat/route.ts:150-319](file://apps/web/app/api/chat/route.ts#L150-L319)
 
 **章节来源**
-- [apps/web/components/ChatInput.tsx:1-119](file://apps/web/components/ChatInput.tsx#L1-L119)
-- [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
-- [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
+- [apps/web/components/ChatInput.tsx:1-162](file://apps/web/components/ChatInput.tsx#L1-L162)
+- [apps/web/components/ChatInput.test.tsx:1-59](file://apps/web/components/ChatInput.test.tsx#L1-L59)
+- [apps/web/components/PromptSelector.tsx:1-106](file://apps/web/components/PromptSelector.tsx#L1-L106)
+- [apps/web/components/PromptSelectorModal.tsx:1-116](file://apps/web/components/PromptSelectorModal.tsx#L1-L116)
 - [apps/web/components/MessageList.tsx:1-44](file://apps/web/components/MessageList.tsx#L1-L44)
 - [apps/web/components/MessageItem.tsx:1-189](file://apps/web/components/MessageItem.tsx#L1-L189)
 - [apps/web/components/MarkdownRenderer.tsx:1-160](file://apps/web/components/MarkdownRenderer.tsx#L1-L160)
@@ -669,9 +705,9 @@ PromptSelectorModal --> ChatInputEnhancement : 触发
 
 **图表来源**
 - [apps/web/config/prompts.ts:1-266](file://apps/web/config/prompts.ts#L1-L266)
-- [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
-- [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
-- [apps/web/components/ChatInput.tsx:1-119](file://apps/web/components/ChatInput.tsx#L1-L119)
+- [apps/web/components/PromptSelector.tsx:1-106](file://apps/web/components/PromptSelector.tsx#L1-L106)
+- [apps/web/components/PromptSelectorModal.tsx:1-116](file://apps/web/components/PromptSelectorModal.tsx#L1-L116)
+- [apps/web/components/ChatInput.tsx:1-162](file://apps/web/components/ChatInput.tsx#L1-L162)
 
 ### 提示词模板管理
 
@@ -731,9 +767,9 @@ BottomDrawer --> MobileDrawer : 关闭弹窗
 
 **章节来源**
 - [apps/web/config/prompts.ts:1-266](file://apps/web/config/prompts.ts#L1-L266)
-- [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
-- [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
-- [apps/web/components/ChatInput.tsx:1-119](file://apps/web/components/ChatInput.tsx#L1-L119)
+- [apps/web/components/PromptSelector.tsx:1-106](file://apps/web/components/PromptSelector.tsx#L1-L106)
+- [apps/web/components/PromptSelectorModal.tsx:1-116](file://apps/web/components/PromptSelectorModal.tsx#L1-L116)
+- [apps/web/components/ChatInput.tsx:1-162](file://apps/web/components/ChatInput.tsx#L1-L162)
 
 ## 主题系统
 
@@ -1179,7 +1215,7 @@ Effects[视觉效果]
 Theme[主题系统]
 Welcome[欢迎消息样式]
 Prompt[提示词样式]
-</subgraph>
+</subgraph
 subgraph "颜色系统"
 Primary[primary: 科技蓝]
 Web3[web3: 区块链品牌色]
@@ -1192,7 +1228,7 @@ Glow[glow-pulse]
 SlideIn[slide-in]
 Cursor[pulse-cursor]
 Selection[selection]
-</subgraph>
+</subgraph
 Globals --> Tailwind
 Tailwind --> Components
 Tailwind --> Animations
@@ -1274,8 +1310,8 @@ Markdown渲染器提供了完整的语法支持和美观的样式：
 - [apps/web/tailwind.config.ts:1-99](file://apps/web/tailwind.config.ts#L1-L99)
 - [apps/web/components/MarkdownRenderer.tsx:1-160](file://apps/web/components/MarkdownRenderer.tsx#L1-L160)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
-- [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
-- [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
+- [apps/web/components/PromptSelector.tsx:1-106](file://apps/web/components/PromptSelector.tsx#L1-L106)
+- [apps/web/components/PromptSelectorModal.tsx:1-116](file://apps/web/components/PromptSelectorModal.tsx#L1-L116)
 - [apps/web/app/layout.tsx:12-20](file://apps/web/app/layout.tsx#L12-L20)
 - [apps/web/public/favicon.ico](file://apps/web/public/favicon.ico)
 
@@ -1608,6 +1644,16 @@ Packages --> Build
 - 确认CSS处理依赖已正确迁移到生产依赖
 - 清理node_modules和重新安装依赖
 
+#### 13. ChatInput组件测试问题
+
+**症状**: 占位符文本不正确或按钮查询匹配失败
+**原因**: 测试用例中的选择器过于宽泛或占位符文本不匹配
+**解决方案**:
+- 更新占位符文本为'问我任何Web3问题'
+- 使用明确的按钮名称'发送消息'进行查询
+- 验证isLoading状态下的禁用行为
+- 确保输入框和按钮在加载状态下都被正确禁用
+
 **章节来源**
 - [apps/web/app/api/chat/route.ts:360-404](file://apps/web/app/api/chat/route.ts#L360-L404)
 - [apps/web/app/api/tools/route.ts:124-133](file://apps/web/app/api/tools/route.ts#L124-L133)
@@ -1620,6 +1666,7 @@ Packages --> Build
 - [apps/web/components/MarkdownRenderer.tsx:114-152](file://apps/web/components/MarkdownRenderer.tsx#L114-L152)
 - [apps/web/app/layout.tsx:15-19](file://apps/web/app/layout.tsx#L15-L19)
 - [apps/web/package.json:33-35](file://apps/web/package.json#L33-L35)
+- [apps/web/components/ChatInput.test.tsx:1-59](file://apps/web/components/ChatInput.test.tsx#L1-L59)
 
 ## 结论
 
@@ -1663,3 +1710,5 @@ Packages --> Build
 **更新** 本次更新重点集成了完整的提示词选择系统，包括PromptSelectorModal和PromptSelector组件，显著增强了ChatInput组件的功能；新增了分类化的提示词模板管理，支持价格查询、余额查询、Gas查询、Token查询和转账操作等多种Web3场景；完善了移动端适配，采用底部抽屉式设计；优化了用户交互体验，提供更便捷的快捷查询入口；**新增了完整的提示词选择系统，通过分类化的模板管理和响应式设计，为用户提供了专业的企业级Web3查询体验**。同时，改进了Markdown渲染功能，增强了消息内容的展示效果，并完善了favicon配置，提升了应用的品牌识别度和用户体验一致性。
 
 **新增** 本次更新还特别关注了CSS处理依赖的重要变更，将autoprefixer、postcss、tailwindcss从开发依赖迁移到生产依赖，这一变更显著提升了应用的构建和运行时性能，减少了运行时的CSS处理开销，增强了生产环境的稳定性，并简化了部署流程。这一变化体现了项目对性能优化和开发效率的持续改进承诺。
+
+**新增** ChatInput组件测试的增强体现了项目对用户体验细节的关注，包括占位符文本的优化、按钮查询的精确命名以及加载状态的完整测试覆盖，这些改进共同提升了应用的易用性和可靠性。
