@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd ../.. && pnpm install && pnpm build --filter=@web3-ai-agent/web",
+  "buildCommand": "pnpm install && pnpm build",
   "outputDirectory": ".next",
   "installCommand": "pnpm install",
   "framework": "nextjs",
