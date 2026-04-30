@@ -89,9 +89,10 @@ describe('ConfirmDialog', () => {
       />
     )
     
-    // 确认按钮应该是红色（danger）
+    // 确认按钮应该是红色渐变（danger）
     const confirmButton = screen.getByRole('button', { name: '确认' })
-    expect(confirmButton.className).toContain('bg-red-600')
+    expect(confirmButton.className).toContain('from-red-500')
+    expect(confirmButton.className).toContain('to-rose-500')
   })
 
   it('isLoading 时按钮应禁用并显示 loading', () => {

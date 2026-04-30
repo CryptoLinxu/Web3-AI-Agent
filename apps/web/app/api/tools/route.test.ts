@@ -23,8 +23,12 @@ describe('POST /api/tools', () => {
   it('getTokenPrice 应调用 web3-tools.getTokenPrice', async () => {
     vi.mocked(web3Tools.getTokenPrice).mockResolvedValue({
       success: true,
-      price: 3000,
-      symbol: 'ETH',
+      data: {
+        symbol: 'ETH',
+        price: 3000,
+        change24h: 0,
+        currency: 'USD',
+      },
       timestamp: new Date().toISOString(),
       source: 'CoinGecko',
     })
@@ -39,16 +43,21 @@ describe('POST /api/tools', () => {
 
     expect(web3Tools.getTokenPrice).toHaveBeenCalledWith('ETH')
     expect(data.success).toBe(true)
-    expect(data.price).toBe(3000)
+    expect(data.data.price).toBe(3000)
   })
 
   it('getBalance 应调用 web3-tools.getBalance', async () => {
     vi.mocked(web3Tools.getBalance).mockResolvedValue({
       success: true,
-      balance: '1.5',
-      symbol: 'ETH',
-      address: '0x123',
-      chain: 'ethereum',
+      data: {
+        chain: 'ethereum',
+        address: '0x123',
+        balance: '1.5',
+        unit: 'ETH',
+        decimals: 18,
+      },
+      timestamp: new Date().toISOString(),
+      source: 'Ethereum',
     })
 
     const request = createMockRequest({
@@ -66,8 +75,15 @@ describe('POST /api/tools', () => {
   it('getGasPrice 应调用 web3-tools.getGasPrice', async () => {
     vi.mocked(web3Tools.getGasPrice).mockResolvedValue({
       success: true,
-      gasPrice: '20',
-      chain: 'ethereum',
+      data: {
+        chain: 'ethereum',
+        gasPrice: '20',
+        maxFeePerGas: null,
+        maxPriorityFeePerGas: null,
+        unit: 'Gwei',
+      },
+      timestamp: new Date().toISOString(),
+      source: 'Ethereum',
     })
 
     const request = createMockRequest({

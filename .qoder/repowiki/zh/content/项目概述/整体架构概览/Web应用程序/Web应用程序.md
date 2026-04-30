@@ -45,6 +45,7 @@
 
 ## 更新摘要
 **变更内容**
+- CSS处理依赖（autoprefixer、postcss、tailwindcss）从开发依赖迁移到生产依赖，影响应用构建和运行时依赖
 - 新增完整的提示词选择系统，包括PromptSelectorModal和PromptSelector组件
 - 增强ChatInput组件，新增快捷提示词功能，支持快速选择预设提示词
 - 完善提示词模板管理系统，支持分类组织和动态加载
@@ -73,10 +74,11 @@
 10. [内存管理策略](#内存管理策略)
 11. [智能欢迎消息处理](#智能欢迎消息处理)
 12. [UI设计与样式](#ui设计与样式)
-13. [依赖关系分析](#依赖关系分析)
-14. [性能考虑](#性能考虑)
-15. [故障排除指南](#故障排除指南)
-16. [结论](#结论)
+13. [CSS处理依赖变更](#css处理依赖变更)
+14. [依赖关系分析](#依赖关系分析)
+15. [性能考虑](#性能考虑)
+16. [故障排除指南](#故障排除指南)
+17. [结论](#结论)
 
 ## 简介
 
@@ -147,12 +149,12 @@ WebApp --> Public
 ```
 
 **图表来源**
-- [package.json:1-28](file://package.json#L1-L28)
+- [package.json:1-35](file://package.json#L1-L35)
 - [turbo.json:1-21](file://turbo.json#L1-L21)
 - [pnpm-workspace.yaml:1-4](file://pnpm-workspace.yaml#L1-L4)
 
 **章节来源**
-- [package.json:1-28](file://package.json#L1-L28)
+- [package.json:1-35](file://package.json#L1-L35)
 - [turbo.json:1-21](file://turbo.json#L1-L21)
 - [pnpm-workspace.yaml:1-4](file://pnpm-workspace.yaml#L1-L4)
 
@@ -1184,7 +1186,7 @@ Web3[web3: 区块链品牌色]
 Dark[dark: 深色主题]
 Light[light: 浅色主题]
 System[system: 系统主题]
-</subgraph>
+</subgraph
 subgraph "动画系统"
 Glow[glow-pulse]
 SlideIn[slide-in]
@@ -1210,8 +1212,8 @@ Effects --> Selection
 ```
 
 **图表来源**
-- [apps/web/app/globals.css:1-189](file://apps/web/app/globals.css#L1-L189)
-- [apps/web/tailwind.config.ts:1-55](file://apps/web/tailwind.config.ts#L1-L55)
+- [apps/web/app/globals.css:1-571](file://apps/web/app/globals.css#L1-L571)
+- [apps/web/tailwind.config.ts:1-99](file://apps/web/tailwind.config.ts#L1-L99)
 
 ### 主题系统集成
 
@@ -1268,14 +1270,119 @@ Markdown渲染器提供了完整的语法支持和美观的样式：
 - **加载优化**：通过layout.tsx中的metadata配置实现快速加载
 
 **章节来源**
-- [apps/web/app/globals.css:1-189](file://apps/web/app/globals.css#L1-L189)
-- [apps/web/tailwind.config.ts:1-55](file://apps/web/tailwind.config.ts#L1-L55)
+- [apps/web/app/globals.css:1-571](file://apps/web/app/globals.css#L1-L571)
+- [apps/web/tailwind.config.ts:1-99](file://apps/web/tailwind.config.ts#L1-L99)
 - [apps/web/components/MarkdownRenderer.tsx:1-160](file://apps/web/components/MarkdownRenderer.tsx#L1-L160)
 - [apps/web/components/ThemeSwitcher.tsx:1-42](file://apps/web/components/ThemeSwitcher.tsx#L1-L42)
 - [apps/web/components/PromptSelector.tsx:1-77](file://apps/web/components/PromptSelector.tsx#L1-L77)
 - [apps/web/components/PromptSelectorModal.tsx:1-109](file://apps/web/components/PromptSelectorModal.tsx#L1-L109)
 - [apps/web/app/layout.tsx:12-20](file://apps/web/app/layout.tsx#L12-L20)
 - [apps/web/public/favicon.ico](file://apps/web/public/favicon.ico)
+
+## CSS处理依赖变更
+
+### 依赖迁移影响分析
+
+**更新** CSS处理依赖（autoprefixer、postcss、tailwindcss）已从开发依赖迁移到生产依赖，这对应用的构建和运行时依赖产生了重要影响：
+
+```mermaid
+graph TB
+subgraph "迁移前 (开发依赖)"
+DevAutoprefixer[autoprefixer]
+DevPostCSS[postcss]
+DevTailwind[tailwindcss]
+DevAutoprefixer -.-> DevPostCSS
+DevPostCSS -.-> DevTailwind
+end
+subgraph "迁移后 (生产依赖)"
+ProdAutoprefixer[autoprefixer]
+ProdPostCSS[postcss]
+ProdTailwind[tailwindcss]
+ProdAutoprefixer --> ProdPostCSS
+ProdPostCSS --> ProdTailwind
+end
+subgraph "应用影响"
+BuildProcess[构建过程]
+Runtime[运行时]
+BuildProcess --> ProdAutoprefixer
+BuildProcess --> ProdPostCSS
+BuildProcess --> ProdTailwind
+Runtime --> ProdTailwind
+end
+```
+
+**图表来源**
+- [apps/web/package.json:33-35](file://apps/web/package.json#L33-L35)
+- [apps/web/postcss.config.js:1-7](file://apps/web/postcss.config.js#L1-L7)
+
+### 构建时影响
+
+CSS处理依赖迁移到生产依赖后，对构建过程产生了以下影响：
+
+1. **构建时CSS处理**：所有CSS文件在构建时都会经过PostCSS和Autoprefixer处理
+2. **Tailwind CSS编译**：Tailwind的content扫描和CSS生成在构建时完成
+3. **样式优化**：浏览器前缀自动添加和CSS优化在构建时完成
+4. **依赖树完整性**：生产环境下的依赖树包含完整的CSS处理能力
+
+### 运行时影响
+
+迁移对运行时也产生了重要影响：
+
+1. **运行时CSS处理**：应用启动时不再需要额外的CSS处理步骤
+2. **性能提升**：减少了运行时的CSS处理开销
+3. **稳定性增强**：CSS处理逻辑更加稳定，不受开发环境影响
+4. **部署简化**：生产环境部署时不需要额外的CSS处理配置
+
+### 配置文件分析
+
+CSS处理依赖的迁移体现在以下配置文件中：
+
+```mermaid
+classDiagram
+class PostCSSConfig {
++plugins object
++tailwindcss plugin
++autoprefixer plugin
++processCSS() void
+}
+class TailwindConfig {
++darkMode string
++content array
++theme object
++extend colors
++extend animations
++extend shadows
+}
+class PackageJSON {
++dependencies object
++autoprefixer version
++postcss version
++tailwindcss version
+}
+PostCSSConfig --> TailwindConfig : 配置
+PackageJSON --> PostCSSConfig : 依赖
+PackageJSON --> TailwindConfig : 依赖
+```
+
+**图表来源**
+- [apps/web/postcss.config.js:1-7](file://apps/web/postcss.config.js#L1-L7)
+- [apps/web/tailwind.config.ts:1-99](file://apps/web/tailwind.config.ts#L1-L99)
+- [apps/web/package.json:33-35](file://apps/web/package.json#L33-L35)
+
+### 影响范围评估
+
+这次CSS处理依赖的迁移影响范围包括：
+
+- **构建脚本**：所有构建相关的脚本现在都依赖这些CSS处理工具
+- **部署流程**：生产环境部署时不再需要额外的CSS处理步骤
+- **性能监控**：运行时性能得到提升，CSS处理开销减少
+- **错误排查**：CSS相关问题的排查范围扩大到生产依赖
+- **版本兼容**：需要确保这些CSS处理工具的版本兼容性
+
+**章节来源**
+- [apps/web/package.json:33-35](file://apps/web/package.json#L33-L35)
+- [apps/web/postcss.config.js:1-7](file://apps/web/postcss.config.js#L1-L7)
+- [apps/web/tailwind.config.ts:1-99](file://apps/web/tailwind.config.ts#L1-L99)
 
 ## 依赖关系分析
 
@@ -1290,22 +1397,22 @@ Next[Next.js 14.2.0]
 React[React ^18.2.0]
 Ethers[Ethers ^6.11.0]
 AI[AI SDK ^3.0.0]
-Markdown[react-markdown ^9.0.0]
-Remark[remark-gfm ^4.0.0]
-RainbowKit[RainbowKit ^1.3.0]
-TanStackQuery[@tanstack/react-query ^5.0.0]
-Wagmi[wagmi ^1.4.0]
-</subgraph>
+Markdown[react-markdown ^10.1.0]
+Remark[remark-gfm ^4.0.1]
+RainbowKit[RainbowKit ^2.2.10]
+TanStackQuery[@tanstack/react-query ^5.99.2]
+Wagmi[wagmi ^2.19.5]
+</subgraph
 subgraph "工作区包"
 AIConfig[@web3-ai-agent/ai-config]
 Web3Tools[@web3-ai-agent/web3-tools]
-</subgraph>
+</subgraph
 subgraph "开发依赖"
 TypeScript[TypeScript ^5]
 Tailwind[Tailwind CSS ^3.4.1]
 PostCSS[PostCSS ^8.4.35]
 ESLint[ESLint ^8]
-</subgraph>
+</subgraph
 Next --> React
 Next --> AI
 Next --> Ethers
@@ -1319,7 +1426,7 @@ Next --> Wagmi
 ```
 
 **图表来源**
-- [apps/web/package.json:12-32](file://apps/web/package.json#L12-L32)
+- [apps/web/package.json:14-49](file://apps/web/package.json#L14-L49)
 
 ### Monorepo 管理
 
@@ -1349,7 +1456,7 @@ Packages --> Build
 - [pnpm-workspace.yaml:1-4](file://pnpm-workspace.yaml#L1-L4)
 
 **章节来源**
-- [apps/web/package.json:12-32](file://apps/web/package.json#L12-L32)
+- [apps/web/package.json:14-49](file://apps/web/package.json#L14-L49)
 - [turbo.json:1-21](file://turbo.json#L1-L21)
 - [pnpm-workspace.yaml:1-4](file://pnpm-workspace.yaml#L1-L4)
 
@@ -1369,6 +1476,7 @@ Packages --> Build
 8. **提示词模板缓存**: 分类化的提示词模板减少重复渲染
 9. **Markdown渲染缓存**: react-markdown的高效渲染引擎
 10. **favicon缓存**: 通过浏览器缓存机制提升加载速度
+11. **CSS处理缓存**: CSS处理依赖迁移到生产依赖后，构建时的CSS处理结果被缓存
 
 ### 网络优化
 
@@ -1490,6 +1598,16 @@ Packages --> Build
 - 验证layout.tsx中的metadata配置
 - 清除浏览器缓存重新加载
 
+#### 12. CSS处理依赖问题
+
+**症状**: 样式编译失败或CSS处理错误
+**原因**: CSS处理依赖版本不兼容或配置错误
+**解决方案**:
+- 检查autoprefixer、postcss、tailwindcss的版本兼容性
+- 验证postcss.config.js和tailwind.config.ts的配置
+- 确认CSS处理依赖已正确迁移到生产依赖
+- 清理node_modules和重新安装依赖
+
 **章节来源**
 - [apps/web/app/api/chat/route.ts:360-404](file://apps/web/app/api/chat/route.ts#L360-L404)
 - [apps/web/app/api/tools/route.ts:124-133](file://apps/web/app/api/tools/route.ts#L124-L133)
@@ -1501,6 +1619,7 @@ Packages --> Build
 - [apps/web/components/PromptSelectorModal.tsx:18-33](file://apps/web/components/PromptSelectorModal.tsx#L18-L33)
 - [apps/web/components/MarkdownRenderer.tsx:114-152](file://apps/web/components/MarkdownRenderer.tsx#L114-L152)
 - [apps/web/app/layout.tsx:15-19](file://apps/web/app/layout.tsx#L15-L19)
+- [apps/web/package.json:33-35](file://apps/web/package.json#L33-L35)
 
 ## 结论
 
@@ -1520,6 +1639,7 @@ Packages --> Build
 - **提示词系统**: 完整的快捷查询入口，显著提升用户体验
 - **Markdown渲染**: 增强的消息内容展示功能
 - **favicon配置**: 提升应用的品牌识别度
+- **CSS处理优化**: CSS处理依赖迁移到生产依赖，提升构建和运行时性能
 
 ### 功能特色
 - **智能工具调用**: AI 模型能够自动选择和执行合适的工具
@@ -1535,8 +1655,11 @@ Packages --> Build
 - **智能欢迎消息**: 新对话切换时自动显示引导内容，避免残留内容干扰
 - **提示词选择**: 快速的Web3查询入口，提供便捷的操作体验
 - **品牌标识**: 完整的favicon配置，提升用户体验的一致性
+- **CSS处理优化**: 生产环境下的CSS处理更加稳定和高效
 
 ### 发展前景
 该应用程序为 Web3 开发者提供了一个强大的信息查询平台，未来可以扩展更多 Web3 工具和服务，进一步提升用户体验和功能性。通过持续的优化和功能扩展，这个项目有望成为 Web3 生态系统中的重要工具。
 
 **更新** 本次更新重点集成了完整的提示词选择系统，包括PromptSelectorModal和PromptSelector组件，显著增强了ChatInput组件的功能；新增了分类化的提示词模板管理，支持价格查询、余额查询、Gas查询、Token查询和转账操作等多种Web3场景；完善了移动端适配，采用底部抽屉式设计；优化了用户交互体验，提供更便捷的快捷查询入口；**新增了完整的提示词选择系统，通过分类化的模板管理和响应式设计，为用户提供了专业的企业级Web3查询体验**。同时，改进了Markdown渲染功能，增强了消息内容的展示效果，并完善了favicon配置，提升了应用的品牌识别度和用户体验一致性。
+
+**新增** 本次更新还特别关注了CSS处理依赖的重要变更，将autoprefixer、postcss、tailwindcss从开发依赖迁移到生产依赖，这一变更显著提升了应用的构建和运行时性能，减少了运行时的CSS处理开销，增强了生产环境的稳定性，并简化了部署流程。这一变化体现了项目对性能优化和开发效率的持续改进承诺。

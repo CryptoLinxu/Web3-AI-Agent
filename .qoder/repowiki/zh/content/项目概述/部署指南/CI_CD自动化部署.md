@@ -24,10 +24,10 @@
 
 ## 更新摘要
 **所做更改**
-- 增强.npmrc配置说明，详细解释shamefully-hoist配置的作用和必要性
-- 更新依赖管理配置部分，强调pnpm严格模式下的依赖解析问题
-- 完善构建过程可靠性说明，包含TailwindCSS依赖提升策略
-- 增加环境变量配置优化，涵盖baseUrl相关设置
+- 新增明确的 Node.js 版本要求说明（>=18.0.0）
+- 更新 Vercel 配置文件，优化构建流程
+- 增强构建命令和安装命令的配置
+- 完善部署流程的环境变量配置说明
 
 ## 目录
 1. [项目简介](#项目简介)
@@ -70,7 +70,7 @@ Vercel[Vercel部署] --> CDN[全球CDN加速]
 CDN --> Monitor[监控告警]
 end
 subgraph "基础设施"
-Node[Node.js 18] --> PNPM[pnpm 8.15.0]
+Node[Node.js 18+] --> PNPM[pnpm 8.15.0]
 PNPM --> Turbo[Turbo构建]
 end
 GHA --> Lint
@@ -202,11 +202,11 @@ Monitor->>GHA : 部署完成通知
 
 **图表来源**
 - [.github/workflows/ci-cd.yml:71-81](file://.github/workflows/ci-cd.yml#L71-L81)
-- [vercel.json:1-12](file://vercel.json#L1-L12)
+- [vercel.json:1-11](file://vercel.json#L1-L11)
 
 **章节来源**
 - [.github/workflows/ci-cd.yml:46-82](file://.github/workflows/ci-cd.yml#L46-L82)
-- [vercel.json:1-12](file://vercel.json#L1-L12)
+- [vercel.json:1-11](file://vercel.json#L1-L11)
 
 ## 部署配置分析
 
@@ -237,7 +237,7 @@ VercelJSON --> EnvVars
 ```
 
 **图表来源**
-- [vercel.json:1-12](file://vercel.json#L1-L12)
+- [vercel.json:1-11](file://vercel.json#L1-L11)
 - [docs/CI-CD-SETUP-GUIDE.md:34-52](file://docs/CI-CD-SETUP-GUIDE.md#L34-L52)
 
 ### Next.js应用配置
@@ -295,7 +295,7 @@ PNPM --> NPMRC
 - [pnpm-workspace.yaml:1-4](file://pnpm-workspace.yaml#L1-L4)
 
 **章节来源**
-- [vercel.json:1-12](file://vercel.json#L1-L12)
+- [vercel.json:1-11](file://vercel.json#L1-L11)
 - [apps/web/next.config.js:1-30](file://apps/web/next.config.js#L1-L30)
 - [docs/CI-CD-SETUP-GUIDE.md:20-52](file://docs/CI-CD-SETUP-GUIDE.md#L20-L52)
 - [.npmrc:1-2](file://.npmrc#L1-L2)
@@ -442,7 +442,7 @@ E2ETest --> VercelDeploy
 
 **章节来源**
 - [package.json:1-35](file://package.json#L1-L35)
-- [apps/web/package.json:1-51](file://apps/web/package.json#L1-L51)
+- [apps/web/package.json:1-54](file://apps/web/package.json#L1-L54)
 - [turbo.json:1-25](file://turbo.json#L1-L25)
 
 ## 性能与优化
@@ -481,7 +481,7 @@ Compression --> ErrorRate
 ```
 
 **图表来源**
-- [vercel.json:1-12](file://vercel.json#L1-L12)
+- [vercel.json:1-11](file://vercel.json#L1-L11)
 - [apps/web/next.config.js:13-26](file://apps/web/next.config.js#L13-L26)
 
 ## 故障排除指南
@@ -509,7 +509,7 @@ Fix5 --> Verify
 ### 问题排查步骤
 
 1. **环境配置检查**
-   - 验证Node.js版本兼容性
+   - 验证Node.js版本兼容性（>=18.0.0）
    - 检查pnpm版本和缓存
    - 确认GitHub Secrets配置
 
@@ -604,7 +604,17 @@ RuntimeAlert --> Webhook
 **.npmrc配置详细说明**：
 项目通过.npmrc配置`shamefully-hoist=true`来解决pnpm严格模式下Next.js无法解析tailwindcss依赖的问题。这一配置确保了在monorepo环境中，Next.js的CSS插件能够正确找到和解析tailwindcss依赖，从而提升构建过程的可靠性。
 
+**Node.js版本要求说明**：
+项目现在要求Node.js版本为18及以上（>=18.0.0）。根目录的package.json明确声明了引擎要求，而apps/web/package.json则要求更高版本（>=18.18.0）。在CI/CD流程中，GitHub Actions工作流固定使用Node.js 18版本，确保开发、测试和部署环境的一致性。
+
+**Vercel配置优化**：
+vercel.json文件现在包含了更精确的构建配置，包括明确的构建命令和安装命令，以及Git部署启用配置。这些优化确保了部署流程的稳定性和可预测性。
+
 **章节来源**
 - [docs/DEPLOYMENT.md:472-484](file://docs/DEPLOYMENT.md#L472-L484)
 - [.npmrc:1-2](file://.npmrc#L1-L2)
 - [apps/web/.npmrc:1-2](file://apps/web/.npmrc#L1-L2)
+- [package.json:27-28](file://package.json#L27-L28)
+- [apps/web/package.json:50-51](file://apps/web/package.json#L50-L51)
+- [vercel.json:1-11](file://vercel.json#L1-L11)
+- [.github/workflows/ci-cd.yml:9-11](file://.github/workflows/ci-cd.yml#L9-L11)

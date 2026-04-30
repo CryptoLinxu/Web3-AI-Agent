@@ -20,16 +20,28 @@ describe('ThemeSwitcher', () => {
   it('当前主题应高亮', () => {
     renderWithProvider(<ThemeSwitcher />)
     
-    // 默认主题是 dark
+    // 默认主题是 dark，激活状态通过 aria-pressed 属性标识
     const darkButton = screen.getByText('深色').closest('button')
-    expect(darkButton).toHaveClass('border-primary-500')
+    expect(darkButton).toHaveAttribute('aria-pressed', 'true')
+    
+    // 其他主题应该是未激活状态
+    const lightButton = screen.getByText('浅色').closest('button')
+    expect(lightButton).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('点击主题按钮应切换主题', async () => {
     const user = userEvent.setup()
     renderWithProvider(<ThemeSwitcher />)
     
+    // 点击浅色主题
     await user.click(screen.getByText('浅色'))
-    expect(screen.getByText('浅色').closest('button')).toHaveClass('border-primary-500')
+    
+    // 浅色主题应该被激活
+    const lightButton = screen.getByText('浅色').closest('button')
+    expect(lightButton).toHaveAttribute('aria-pressed', 'true')
+    
+    // 深色主题应该变为未激活
+    const darkButton = screen.getByText('深色').closest('button')
+    expect(darkButton).toHaveAttribute('aria-pressed', 'false')
   })
 })

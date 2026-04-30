@@ -7,8 +7,8 @@ describe('ChatInput', () => {
   it('应渲染文本输入框和发送按钮', () => {
     render(<ChatInput onSend={vi.fn()} isLoading={false} />)
     
-    expect(screen.getByPlaceholderText(/询问 Web3 相关问题/)).toBeInTheDocument()
-    expect(screen.getByRole('button')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/问我任何 Web3 问题/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /发送消息/ })).toBeInTheDocument()
   })
 
   it('输入后按 Enter 应触发 onSend', async () => {
@@ -17,7 +17,7 @@ describe('ChatInput', () => {
     
     render(<ChatInput onSend={onSend} isLoading={false} />)
     
-    const textarea = screen.getByPlaceholderText(/询问 Web3 相关问题/)
+    const textarea = screen.getByPlaceholderText(/问我任何 Web3 问题/)
     await user.type(textarea, 'Hello Web3')
     await user.keyboard('{Enter}')
     
@@ -30,7 +30,7 @@ describe('ChatInput', () => {
     
     render(<ChatInput onSend={onSend} isLoading={false} />)
     
-    const textarea = screen.getByPlaceholderText(/询问 Web3 相关问题/)
+    const textarea = screen.getByPlaceholderText(/问我任何 Web3 问题/)
     await user.type(textarea, 'Hello{Shift>}{Enter}{/Shift}')
     
     expect(onSend).not.toHaveBeenCalled()
@@ -40,7 +40,8 @@ describe('ChatInput', () => {
     const onSend = vi.fn()
     render(<ChatInput onSend={onSend} isLoading={false} />)
     
-    const button = screen.getByRole('button')
+    // 使用更精确的查询，避免匹配到提示词模板按钮
+    const button = screen.getByRole('button', { name: /发送消息/ })
     expect(button).toBeDisabled()
   })
 
@@ -48,10 +49,10 @@ describe('ChatInput', () => {
     const onSend = vi.fn()
     render(<ChatInput onSend={onSend} isLoading={true} />)
     
-    const textarea = screen.getByPlaceholderText(/询问 Web3 相关问题/)
+    const textarea = screen.getByPlaceholderText(/问我任何 Web3 问题/)
     expect(textarea).toBeDisabled()
     
-    const button = screen.getByRole('button')
+    const button = screen.getByRole('button', { name: /发送消息/ })
     expect(button).toBeDisabled()
   })
 })
