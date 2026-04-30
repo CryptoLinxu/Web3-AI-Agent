@@ -77,24 +77,27 @@ git push -u origin main
 
 #### 3. 配置构建设置
 
-**重要：在 Vercel 项目设置中配置以下参数**（不是在 vercel.json 中）：
+**在 Vercel 项目设置中配置以下参数：**
 
 ```
 Framework Preset: Next.js
-Root Directory: apps/web
-Build Command: cd ../.. && pnpm install && pnpm build --filter=@web3-ai-agent/web
-Output Directory: .next
+Root Directory: apps/web                    # 指向 Next.js 应用目录
+Build Command: pnpm install && pnpm build    # 从 apps/web 构建
+Output Directory: .next                      # 构建产物目录
 Install Command: pnpm install
 ```
 
-**或者**，如果你想使用根目录的 `vercel.json` 自动配置，请确保：
-- Root Directory 保持为空（默认值）
-- Vercel 会自动读取 `vercel.json` 中的配置
-- 但推荐使用上面的手动配置方式，更清晰可控
+**必须开启（重要）**：
+- ✅ **Include files outside the root directory in the Build Step** — 此选项让根目录的 `pnpm-workspace.yaml`、`.npmrc` 等文件在构建时可用
 
-**常见错误**：
-- ❌ 错误：同时设置 Root Directory 和 vercel.json 中的 outputDirectory 会导致路径重复
-- ✅ 正确：只在 Vercel 控制台配置，或只在 vercel.json 配置，不要同时配置
+**工作原理**：
+1. Vercel 进入 `apps/web` 目录
+2. 执行 `pnpm install` — pnpm 自动向上查找 `pnpm-workspace.yaml`，安装所有 workspace 依赖
+3. 执行 `pnpm build` — 运行 `next build`，构建产物输出到 `.next`（即 `apps/web/.next`）
+4. Vercel 在 `apps/web/.next` 找到输出 ✅
+
+**关于 `.npmrc`**：
+项目根目录的 `.npmrc` 配置了 `shamefully-hoist=true`，这是为了解决 pnpm 严格模式下 Next.js 无法解析 `tailwindcss` 的依赖问题。
 
 #### 4. 配置环境变量
 在 Vercel 项目设置中添加以下环境变量：

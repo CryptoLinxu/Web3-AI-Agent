@@ -1,6 +1,6 @@
 {
-  "buildCommand": "pnpm build --filter=@web3-ai-agent/web",
-  "outputDirectory": "apps/web/.next",
+  "buildCommand": "pnpm install && pnpm build",
+  "outputDirectory": ".next",
   "installCommand": "pnpm install",
   "framework": "nextjs",
   "git": {
