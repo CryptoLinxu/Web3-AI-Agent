@@ -9,6 +9,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    deps: {
+      inline: [
+        'html-encoding-sniffer',
+        '@exodus/bytes',
+        'jsdom'
+      ],
+    },
     setupFiles: ['./test-setup.tsx'],
     include: ['lib/**/*.test.ts', 'lib/**/*.test.tsx', 'components/**/*.test.tsx', 'hooks/**/*.test.ts', 'app/api/**/*.test.ts'],
   },
