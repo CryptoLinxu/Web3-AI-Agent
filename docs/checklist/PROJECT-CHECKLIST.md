@@ -1,8 +1,8 @@
 # Web3 AI Agent 项目清单
 
-> 最后更新：2026-04-28（第六版）
-> 当前版本：v0.7.2
-> 项目阶段：P1 任务全量交付完成 → E2E 18 tests 18/18 + 浏览器验收 7/7 + RLS 升级方案 + 安全加固
+> 最后更新：2026-05-07（第七版）
+> 当前版本：v0.8.0
+> 项目阶段：Solana 多链钱包支持 + 转账适配器架构完成
 
 ## 一、已完成功能 ✅
 
@@ -32,6 +32,19 @@
   - 前后端双模式支持（JSON/SSE）
   - useChatStream Hook 管理流式状态
   - MessageItem/MessageList 流式内容展示
+
+- [x] **多链钱包支持（EVM + Solana）**（2026-05-07）
+  - 统一钱包入口：UnifiedWalletButton + UnifiedWalletModal
+  - EVM：RainbowKit v2.2.10（MetaMask, WalletConnect, Coinbase 等 9+ 钱包）
+  - Solana：@solana/wallet-adapter（Phantom, Solflare）
+  - useUnifiedWallet Hook 合并双架构状态
+  - 优先级：EVM > Solana > None
+  - 适配器模式架构：TransferAdapter 抽象接口
+  - SolanaAdapter 完整实现（支持 SOL 和 SPL Token）
+  - EVMAdapter 预留（网络配置和地址校验）
+  - AdapterFactory 工厂模式
+  - AI 意图解析：parseTransferIntent + checkNetworkConsistency
+  - 浏览器验收：10/10 全部通过
 
 #### 钱包登录与对话持久化
 - [x] **钱包登录**（2026-04-23）
@@ -193,6 +206,11 @@
   - RLS 行级安全策略（开发环境临时放开）
   - 钱包上下文验证工具函数
   - upsert 操作避免重复插入
+- [x] **地址校验工具**（2026-05-07）
+  - apps/web/utils/address-validator.ts
+  - EVM 地址：/^0x[a-fA-F0-9]{40}$/
+  - Solana 地址：/^[1-9A-HJ-NP-Za-km-z]{32,44}$/
+
 - [x] **链抽象层**（2026-04-22）
   - 链配置管理（ChainConfig）
   - 适配器模式（ChainAdapter 接口）
@@ -203,6 +221,15 @@
   - lib/theme/ThemeContext.tsx - React Context
   - lib/theme/ThemeProvider.tsx - Provider 实现
   - components/ThemeSwitcher.tsx - 主题切换组件
+- [x] **适配器模式架构**（2026-05-07）
+  - apps/web/adapters/TransferAdapter.ts - 抽象接口
+  - apps/web/adapters/solana/SolanaAdapter.ts - Solana 实现（226 行）
+  - apps/web/adapters/evm/EVMAdapter.ts - EVM 实现（82 行）
+  - apps/web/adapters/AdapterFactory.ts - 工厂模式
+  - apps/web/adapters/INTEGRATION-GUIDE.md - 集成指南
+  - 支持网络：eth-mainnet, polygon-mainnet, bsc-mainnet, solana-mainnet
+  - 单元测试：13 个用例，11 个通过
+
 - [x] **转账卡片组件**（2026-04-24）
   - apps/web/components/cards/TransferCard.tsx (338行)
   - apps/web/components/cards/DexSwapCard.tsx (预留)
@@ -543,20 +570,29 @@ graph LR
 | **钱包上下文** | ✅ AI 自动感知地址 | ✅ | 🟢 完成 |
 | **删除弹窗** | ✅ ConfirmDialog + Loading | ✅ | 🟢 完成 |
 | **转账卡片** | ✅ ETH+ERC20 转账+状态恢复 | ✅ | 🟢 完成 |
+| **多链钱包** | ✅ EVM + Solana 双架构 | ✅ | 🟢 完成 |
+| **适配器模式** | ✅ TransferAdapter + SolanaAdapter + EVMAdapter | ✅ | 🟢 完成 |
+| **AI 意图解析** | ✅ 网络识别 + 一致性校验 | ✅ | 🟢 完成 |
 | **ERC20 余额查询** | ✅ getTokenBalance 链上查询 | ✅ | 🟢 完成 |
 | **单元测试** | ✅ 238 tests 100% 通过 | ✅ | 🟢 完成 |
 | **E2E 测试** | ✅ 18 tests 18/18 通过 | 18+ | 🟢 达标 |
 
 **MVP 功能完成率计算**：
-- 必做功能：11 项（新增转账卡片）
-- 已完成：11 项（转账卡片完成）
+- 必做功能：12 项（新增多链钱包支持）
+- 已完成：12 项
 - 完成率：100%
 
 ## 八、下一步行动建议
 
 ### 🔴 立即执行（本周）
 
-1. **已完成：ERC20 Approve 完整流程** ✅
+1. **已完成：Solana 多链钱包支持** ✅
+   - 统一钱包入口，支持 EVM 和 Solana
+   - 适配器模式架构完整实现
+   - AI 意图解析和网络一致性校验
+   - 浏览器验收 10/10 通过
+
+2. **已完成：ERC20 Approve 完整流程** ✅
    - TransferCard 已实现完整授权流程，二次 allowance 校验
    - 无需额外开发
 
@@ -584,21 +620,31 @@ graph LR
 
 ### 🟡 下一步（可选）
 
-8. **Anthropic 验证**
+2. **SolanaTransferCard 组件**
+   - 原因：完整实现 Solana 转账 UI
+   - 预估：3-5 天
+   - 依赖：SolanaAdapter 已完成
+
+3. **AI 自动选择 TransferCard**
+   - 原因：根据网络类型自动选择 EVM 或 Solana 卡片
+   - 预估：2-3 天
+   - 依赖：SolanaTransferCard
+
+4. **Anthropic 验证**
    - 原因：验证多模型兼容性和工具调用链
    - 预估：1-2 天
    - 依赖：Anthropic API Key
 
-9. **CI/CD 自动化**
+5. **CI/CD 自动化**
    - 原因：自动化测试和部署
    - 预估：5-7 天
    - 工具：GitHub Actions / Vercel
 
-10. **自定义主题色**
+6. **自定义主题色**
     - 原因：支持科技蓝、加密紫等方案
     - 预估：3-5 天
 
-11. **多语言支持**
+7. **多语言支持**
     - 原因：中文、English、日本語切换
     - 预估：5-7 天
 
@@ -606,6 +652,7 @@ graph LR
 
 | 日期 | 版本 | 更新内容 | 更新人 |
 |------|------|----------|--------|
+| 2026-05-07 | v8.0 | **Solana 多链钱包支持**：统一钱包入口 + 适配器模式架构 + AI 意图解析，17 文件变更 7138 行新增，TransferAdapter/SolanaAdapter/EVMAdapter/AdapterFactory，浏览器验收 10/10 通过 | AI Agent |
 | 2026-04-28 | v7.2 | **P1 任务全量交付**：RLS 升级方案 + E2E 18 tests + 安全加固，服务端 DELETE 验证 + ownership API + migration，钱包上下文/E2E 验证/转账卡片 9 个新测试 18/18 通过 | AI Agent |
 | 2026-04-28 | v7.1 | E2E 对话超时修复 + 浏览器验收完成：9/9 全部通过，非入侵式 waitForTimeout→条件等待重构，浏览器验收 7/7 通过 | AI Agent |
 | 2026-04-28 | v7.0 | E2E 测试框架 + 文档体系完成：Playwright 9 tests 8/9 通过，API 文档 674 行，部署文档更新，ERC20 Approve 验证完成 | AI Agent |
