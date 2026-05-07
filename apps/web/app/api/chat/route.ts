@@ -117,17 +117,17 @@ const tools: Tool[] = [
     type: 'function',
     function: {
       name: 'createTransferCard',
-      description: '当用户表达转账意图时调用，生成转账卡片数据。支持 ETH 原生转账和 ERC20 Token 转账。',
+      description: '当用户表达转账意图时调用，生成转账卡片数据。支持 EVM 链（ETH、ERC20）和 Solana 链（SOL、SPL Token）。',
       parameters: {
         type: 'object',
         properties: {
           to: {
             type: 'string',
-            description: '接收地址（0x 开头的以太坊地址）',
+            description: '接收地址。EVM 链为 0x 开头的以太坊地址（42位），Solana 链为 Base58 编码地址（32-44位）',
           },
           tokenSymbol: {
             type: 'string',
-            description: 'Token 符号（ETH, USDT, USDC 等）',
+            description: 'Token 符号（EVM: ETH, USDT, USDC 等; Solana: SOL, USDT, USDC 等）',
           },
           amount: {
             type: 'string',
@@ -135,8 +135,8 @@ const tools: Tool[] = [
           },
           chain: {
             type: 'string',
-            enum: ['ethereum', 'polygon', 'bsc'],
-            description: '区块链名称',
+            enum: ['ethereum', 'polygon', 'bsc', 'solana'],
+            description: '区块链名称。EVM 链：ethereum, polygon, bsc；Solana 链：solana',
           },
         },
         required: ['to', 'tokenSymbol', 'amount', 'chain'],
@@ -197,10 +197,22 @@ function getChainNameById(chainId: number): string {
 }
 
 /**
- * 验证以太坊地址格式
+ * 验证钱包地址格式
+ * 支持 EVM (0x 开头, 42 位) 和 Solana (Base58, 32-44 位)
  */
-function isValidEthereumAddress(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address)
+function isValidWalletAddress(address: string): boolean {
+  // EVM 地址: 0x 开头 + 40 位十六进制
+  if (/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    return true
+  }
+  
+  // Solana 地址: Base58 编码, 32-44 位字符
+  // Base58 字符集: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+  if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) {
+    return true
+  }
+  
+  return false
 }
 
 export async function POST(request: NextRequest) {
@@ -209,7 +221,7 @@ export async function POST(request: NextRequest) {
     const { messages, walletAddress, chainId } = body
 
     // 验证钱包地址格式（如果提供）
-    if (walletAddress && !isValidEthereumAddress(walletAddress)) {
+    if (walletAddress && !isValidWalletAddress(walletAddress)) {
       console.warn('[route.ts] 收到无效钱包地址:', walletAddress)
       return NextResponse.json(
         {

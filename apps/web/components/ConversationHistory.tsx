@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount } from 'wagmi'
+import { useUnifiedWallet } from '@/hooks/useUnifiedWallet'
 import * as conversationService from '@/lib/supabase/conversations'
 import type { ConversationSummary } from '@/lib/supabase/conversations'
 import { setWalletContext } from '@/lib/supabase/client'
@@ -18,7 +18,7 @@ export default function ConversationHistory({
   onSelectConversation,
   onNewConversation,
 }: ConversationHistoryProps) {
-  const { address, isConnected } = useAccount()
+  const { connected, address, chain } = useUnifiedWallet()
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(true)
@@ -27,13 +27,13 @@ export default function ConversationHistory({
   const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
-    if (isConnected && address) {
+    if (connected && address) {
       setWalletContext(address)
       loadConversations(address)
     } else {
       setConversations([])
     }
-  }, [isConnected, address])
+  }, [connected, address])
 
   useEffect(() => {
     const handleNewConversation = (event: Event) => {
@@ -145,7 +145,7 @@ export default function ConversationHistory({
     return date.toLocaleDateString('zh-CN')
   }
 
-  if (!isConnected) return null
+  if (!connected) return null
 
   return (
     <>

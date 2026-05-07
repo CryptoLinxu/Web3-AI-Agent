@@ -7,7 +7,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
@@ -18,11 +19,21 @@ interface UnifiedWalletModalProps {
 
 export default function UnifiedWalletModal({ isOpen, onClose }: UnifiedWalletModalProps) {
   const [selectedChain, setSelectedChain] = useState<'evm' | 'solana' | null>(null);
+  const [mounted, setMounted] = useState(false);
   
-  if (!isOpen) return null;
+  // 确保组件在客户端挂载后再渲染 Portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={onClose}>
+  if (!isOpen || !mounted) return null;
+  
+  // 使用 Portal 将 Modal 渲染到 body，脱离 overflow-hidden 限制
+  const modalContent = (
+    <div 
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" 
+      onClick={onClose}
+    >
       <div 
         className="bg-[rgb(var(--card-bg))] border border-[rgb(var(--border-color))] rounded-2xl p-6 w-96 max-w-[90vw] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -97,4 +108,7 @@ export default function UnifiedWalletModal({ isOpen, onClose }: UnifiedWalletMod
       </div>
     </div>
   );
+  
+  // 使用 Portal 渲染到 document.body
+  return createPortal(modalContent, document.body);
 }
