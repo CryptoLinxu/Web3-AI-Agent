@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useAccount, useChainId } from 'wagmi'
+import { useUnifiedWallet } from '@/hooks/useUnifiedWallet'
 import ChatInput from '@/components/ChatInput'
 import MessageList from '@/components/MessageList'
 import SettingsPanel from '@/components/SettingsPanel'
-import WalletConnectButton from '@/components/WalletConnectButton'
+import UnifiedWalletButton from '@/components/UnifiedWalletButton'
 import ConversationHistory from '@/components/ConversationHistory'
 import { Message } from '@/types/chat'
 import { useChatStream } from '@/hooks/useChatStream'
@@ -30,9 +30,8 @@ const WELCOME_CONTENT = `你好！我是 **Web3 AI Agent** 🌐
 试试问我："ETH 现在多少钱？"`
 
 export default function Home() {
-  // 钱包状态
-  const { address, isConnected } = useAccount()
-  const chainId = useChainId() // 获取当前链 ID
+  // 钱包状态（使用统一钱包 Hook）
+  const { address, connected: isConnected, chain, chainId, networkId } = useUnifiedWallet()
 
   // Supabase 同步状态
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -492,7 +491,7 @@ export default function Home() {
             </div>
 
             {/* 钱包连接按钮 */}
-            <WalletConnectButton />
+            <UnifiedWalletButton />
 
             {/* 设置按钮 */}
             <button

@@ -1,12 +1,17 @@
 'use client'
 
 import '@rainbow-me/rainbowkit/styles.css'
+import '@solana/wallet-adapter-react-ui/styles.css'
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit'
 import { WagmiProvider, type State } from 'wagmi'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { getFullConfig } from './config'
 import { useTheme } from '@/lib/theme/ThemeContext'
+import { ConnectionProvider, WalletProvider as SolanaWalletProvider } from '@solana/wallet-adapter-react'
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui'
+import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets'
+import { SOLANA_CONFIG } from '@/config/solana-chains'
 
 export function Providers({ 
   children,
@@ -34,7 +39,10 @@ export function Providers({
     <WagmiProvider config={config} initialState={initialState}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProviderWrapper>
-          {children}
+          {/* Solana Provider 嵌套在 RainbowKit 内部 */}
+          <SolanaWalletProviders>
+            {children}
+          </SolanaWalletProviders>
         </RainbowKitProviderWrapper>
       </QueryClientProvider>
     </WagmiProvider>
@@ -71,5 +79,25 @@ function RainbowKitProviderWrapper({ children }: { children: React.ReactNode }) 
     >
       {children}
     </RainbowKitProvider>
+  )
+}
+
+// Solana 钱包 Provider 嵌套
+function SolanaWalletProviders({ children }: { children: React.ReactNode }) {
+  const endpoint = SOLANA_CONFIG.mainnet.endpoint
+  
+  const wallets = useMemo(() => [
+    new PhantomWalletAdapter(),
+    new SolflareWalletAdapter(),
+  ], [])
+
+  return (
+    <ConnectionProvider endpoint={endpoint}>
+      <SolanaWalletProvider wallets={wallets} autoConnect={false}>
+        <WalletModalProvider>
+          {children}
+        </WalletModalProvider>
+      </SolanaWalletProvider>
+    </ConnectionProvider>
   )
 }
