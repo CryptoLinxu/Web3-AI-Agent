@@ -1,103 +1,201 @@
-# TransferCard 适配器集成指南
+# TransferCard 多链集成指南
 
 ## 概述
 
-本文档说明如何将 TransferCard 从现有的 EVM 专用实现改造为支持多链适配器模式。
+本文档说明如何在项目中实现多链转账功能，支持 EVM 和 Solana 网络。
 
-## 当前架构
+## 架构设计
 
-TransferCard 目前直接使用 Wagmi hooks：
-- `useAccount` - EVM 账户
-- `useChainId` - EVM 链 ID
-- `useSendTransaction` - EVM 交易发送
-- `useWriteContract` - EVM 合约调用
+项目采用**适配器模式** + **组件分离**的设计：
+
+### EVM 网络
+- **组件**: `TransferCard` (658 行)
+- **适配器**: `EVMAdapter` (82 行，简化版)
+- **技术栈**: RainbowKit + Wagmi + Viem
+- **特点**: 需要 approve 流程（ERC20）
+
+### Solana 网络
+- **组件**: `SolanaTransferCard` (416 行)
+- **适配器**: `SolanaAdapter` (227 行，完整版)
+- **技术栈**: @solana/wallet-adapter + @solana/web3.js
+- **特点**: 无需 approve，直接转账
 
 ## 目标架构
 
-使用适配器模式，根据网络类型自动路由到对应的实现：
+使用条件渲染，根据 `chain` 字段自动选择组件：
 
 ```
 用户输入 
   → AI 意图解析 (ai-intent-parser)
-  → 网络一致性校验
-  → AdapterFactory 创建适配器
+  → 返回 TransferData (chain: 'solana' | 'ethereum' | 'polygon' | 'bsc')
+  → MessageItem 条件渲染
+    ├→ chain === 'solana' → SolanaTransferCard
+    └→ chain === 'evm' → TransferCard
   → 适配器执行转账
   → 返回结果
 ```
 
-## 集成步骤
+## MessageItem 集成
 
-### 1. 在 TransferCard 中使用统一钱包
+### 条件渲染逻辑
+
+`MessageItem.tsx` 根据 `transferData.chain` 自动选择组件：
+
+```typescript
+import { TransferCard, SolanaTransferCard } from '@/components/cards'
+
+// 转账卡片消息
+if (message.transferData) {
+  // 根据 chain 字段选择对应的卡片组件
+  const isSolana = message.transferData.chain === 'solana'
+  const CardComponent = isSolana ? SolanaTransferCard : TransferCard
+
+  return (
+    <CardComponent
+      data={message.transferData}
+      conversationId={conversationId}
+    />
+  )
+}
+```
+
+### TransferData 类型定义
+
+```typescript
+export type ChainId = 'ethereum' | 'polygon' | 'bsc' | 'solana'
+
+export interface TransferData {
+  id: string                      // 卡片 ID
+  from: string                    // 发送地址 (EVM: 0x..., Solana: Base58)
+  to: string                      // 接收地址 (EVM: 0x..., Solana: Base58)
+  tokenSymbol: string             // 'ETH', 'USDT', 'USDC', 'SOL'
+  tokenAddress?: string           // EVM: ERC20 合约地址, Solana: Mint Address
+  amount: string                  // 转账金额
+  chain: ChainId                  // 链标识
+  status: TransferStatus          // 当前状态
+  txHash?: string                 // 交易哈希 (EVM: tx hash, Solana: signature)
+  error?: string                  // 错误信息
+  estimatedGas?: string           // 预估费用
+}
+```
+
+## 核心差异对比
+
+| 特性 | TransferCard (EVM) | SolanaTransferCard (Solana) |
+|------|-------------------|---------------------------|
+| **钱包 Hook** | `useAccount`, `useChainId` | `useWallet`, `useConnection` |
+| **转账 Hook** | `useSendTransaction`, `useWriteContract` | `sendTransaction` (直接调用) |
+| **Approve 流程** | ✅ 需要（ERC20） | ❌ 不需要（SPL Token 直接转账） |
+| **余额查询** | `useBalance` hook | `connection.getBalance()` / `getTokenAccountBalance()` |
+| **地址格式** | `0x...` (42 位) | Base58 (32-44 位) |
+| **浏览器链接** | etherscan.io/polygonscan.com | solscan.io |
+| **交易确认** | `waitForTransactionReceipt` | `confirmTransaction(signature, 'confirmed')` |
+| **适配器** | EVMAdapter (简化版) | SolanaAdapter (完整版) |
+
+## 使用示例
+
+### 1. AI 生成 EVM 转账卡片
+
+```typescript
+const transferData: TransferData = {
+  id: 'transfer-123',
+  from: '0x742d35Cc6634C0532925a3b844Bc9e7595f5eE4',
+  to: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
+  tokenSymbol: 'ETH',
+  amount: '0.1',
+  chain: 'ethereum',
+  status: 'pending'
+}
+```
+
+**渲染**: `TransferCard`（EVM）
+
+### 2. AI 生成 Solana 转账卡片
+
+```typescript
+const transferData: TransferData = {
+  id: 'transfer-456',
+  from: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+  to: '2w6y4X9z1Yk3VqJ8nH7mP5bR9cT4aL6fD3eG8hK1jM0',
+  tokenSymbol: 'SOL',
+  amount: '1.5',
+  chain: 'solana',
+  status: 'pending'
+}
+```
+
+**渲染**: `SolanaTransferCard`（Solana）
+
+### 3. SPL Token 转账
+
+```typescript
+const transferData: TransferData = {
+  id: 'transfer-789',
+  from: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+  to: '2w6y4X9z1Yk3VqJ8nH7mP5bR9cT4aL6fD3eG8hK1jM0',
+  tokenSymbol: 'USDT',
+  tokenAddress: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // Solana USDT Mint
+  amount: '100',
+  chain: 'solana',
+  status: 'pending'
+}
+```
+
+**渲染**: `SolanaTransferCard`（SPL Token）
+
+## 下一步优化
+
+### 1. AI 意图识别
+
+确保 AI 能够正确识别 Solana 转账意图：
+
+```typescript
+// lib/ai-intent-parser.ts
+import { parseTransferIntent } from './ai-intent-parser'
+
+const intent = parseTransferIntent('转 1 SOL 到 xxx', 'solana')
+// → { networkId: 'solana-mainnet', tokenSymbol: 'SOL', amount: '1', chain: 'solana' }
+```
+
+### 2. 统一钱包状态管理
+
+使用 `useUnifiedWallet()` 统一管理 EVM 和 Solana 钱包状态：
 
 ```typescript
 import { useUnifiedWallet } from '@/hooks/useUnifiedWallet'
-import { AdapterFactory } from '@/adapters/AdapterFactory'
 
-function TransferCard({ data }: TransferCardProps) {
-  const { chain, address, connected, chainId, networkId } = useUnifiedWallet()
-  
-  // 根据网络类型创建适配器
-  const adapter = connected ? AdapterFactory.createAdapter(networkId || 'eth-mainnet') : null
-}
+const { 
+  chain,        // 'evm' | 'solana' | 'none'
+  address,      // 当前连接地址
+  connected,    // 是否连接
+  chainId,      // EVM chainId
+  networkId     // 网络 ID
+} = useUnifiedWallet()
 ```
 
-### 2. AI 意图解析集成
+### 3. 适配器使用
+
+在组件内创建适配器实例：
 
 ```typescript
-import { parseTransferIntent, checkNetworkConsistency } from '@/lib/ai-intent-parser'
+// SolanaTransferCard 内部
+const wallet = useWallet()
+const adapter = new SolanaAdapter(wallet)
 
-function TransferCard({ data }: TransferCardProps) {
-  const { chain, networkId } = useUnifiedWallet()
-  
-  // 解析用户输入（假设从 data.intent 获取）
-  const intent = parseTransferIntent(data.intent || '', chain)
-  
-  // 检查网络一致性
-  const consistency = checkNetworkConsistency(intent, chain, networkId || '')
-  
-  if (!consistency.isConsistent) {
-    // 显示网络不匹配错误
-    return <NetworkMismatchError message={consistency.conflictMessage} />
-  }
-}
+// EVM 转账逻辑仍在 TransferCard 组件内（wagmi hooks 限制）
 ```
 
-### 3. 余额查询适配
+### 4. Supabase 持久化
 
-**当前实现（EVM only）**：
+`transfer_cards` 表已支持 Solana（TEXT 字段）：
+
 ```typescript
-const { data: balance } = useBalance({
-  address: address,
-  token: isNativeToken(token) ? undefined : token as `0x${string}`,
-})
+await transferService.updateTransferCardStatus(
+  data.id,
+  'confirmed',
+  signature  // Solana 交易签名
+)
 ```
-
-**改造后（多链）**：
-```typescript
-const [balance, setBalance] = useState<string>('0')
-
-useEffect(() => {
-  if (!adapter || !address) return
-  
-  adapter.getBalance(address, isNativeToken(token) ? undefined : token)
-    .then(setBalance)
-    .catch(err => console.error('Failed to get balance:', err))
-}, [adapter, address, token])
-```
-
-### 4. 转账执行适配
-
-**当前实现（EVM only）**：
-```typescript
-// 原生代币
-sendTransaction({
-  to: recipientAddress as `0x${string}`,
-  value: parseEther(amount),
-})
-
-// ERC20
-writeContract({
-  address: token as `0x${string}`,
   abi: ERC20_ABI,
   functionName: 'transfer',
   args: [recipientAddress, parseUnits(amount, decimals)],

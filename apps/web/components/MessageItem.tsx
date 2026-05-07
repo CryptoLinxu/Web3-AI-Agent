@@ -3,7 +3,7 @@
 import { Message } from '@/types/chat'
 import { ToolCallUIState } from '@/types/stream'
 import MarkdownRenderer from './MarkdownRenderer'
-import { TransferCard } from '@/components/cards'
+import { TransferCard, SolanaTransferCard } from '@/components/cards'
 
 interface MessageItemProps {
   message: Message
@@ -53,6 +53,10 @@ export default function MessageItem({ message, isStreaming, toolCalls: streaming
 
   // 转账卡片消息
   if (message.transferData) {
+    // 根据 chain 字段选择对应的卡片组件
+    const isSolana = message.transferData.chain === 'solana'
+    const CardComponent = isSolana ? SolanaTransferCard : TransferCard
+
     return (
       <div className="flex justify-start group animate-slide-up">
         <div className="mr-3 mt-1">
@@ -69,7 +73,7 @@ export default function MessageItem({ message, isStreaming, toolCalls: streaming
             </span>
           </div>
 
-          <TransferCard
+          <CardComponent
             data={message.transferData}
             conversationId={conversationId}
           />
