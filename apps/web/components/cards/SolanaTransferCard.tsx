@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useConnection } from '@solana/wallet-adapter-react'
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js'
-import { getAssociatedTokenAddress, createTransferInstruction, getMint } from '@solana/spl-token'
+import { getAssociatedTokenAddress, createTransferInstruction, getMint, createAssociatedTokenAccountInstruction } from '@solana/spl-token'
 import { TransferData, TransferStatus } from '@/types/transfer'
 import { SOLANA_CONFIG, SOLANA_TOKENS } from '@/config/solana-chains'
 import { isValidSolanaAddress } from '@/utils/address-validator'
@@ -49,38 +49,58 @@ export default function SolanaTransferCard({ data, conversationId, onUpdate }: S
   // 判断是否为原生 SOL
   const isNative = data.tokenSymbol.toUpperCase() === 'SOL'
 
+  // 获取 tokenAddress（如果 data 中没有，从 SOLANA_TOKENS 中查找）
+  const tokenAddress = useMemo(() => {
+    if (isNative) return undefined
+    if (data.tokenAddress) return data.tokenAddress
+    
+    // Fallback: 从配置中查找
+    const token = SOLANA_TOKENS[data.tokenSymbol as keyof typeof SOLANA_TOKENS]
+    return token && !token.isNative ? token.mintAddress : undefined
+  }, [data.tokenAddress, data.tokenSymbol, isNative])
+
   // 获取余额
   useEffect(() => {
     if (!connected || !publicKey) return
 
     const fetchBalance = async () => {
       try {
-        const tokenAddress = isNative ? undefined : data.tokenAddress
+        console.log('[SolanaTransferCard] 查询余额:', {
+          wallet: publicKey.toBase58(),
+          tokenSymbol: data.tokenSymbol,
+          isNative,
+          tokenAddress
+        })
         
         if (!tokenAddress) {
           // SOL 余额
           const balance = await connection.getBalance(publicKey)
+          console.log('[SolanaTransferCard] SOL 余额:', balance / LAMPORTS_PER_SOL)
           setBalance((balance / LAMPORTS_PER_SOL).toString())
         } else {
           // SPL Token 余额
           const mintAddress = new PublicKey(tokenAddress)
           const associatedToken = await getAssociatedTokenAddress(mintAddress, publicKey)
           
+          console.log('[SolanaTransferCard] SPL Token 账户地址:', associatedToken.toBase58())
+          
           try {
             const tokenBalance = await connection.getTokenAccountBalance(associatedToken)
+            console.log('[SolanaTransferCard] SPL Token 余额:', tokenBalance.value.uiAmount)
             setBalance(tokenBalance.value.uiAmount?.toString() || '0')
-          } catch {
+          } catch (err: any) {
+            console.warn('[SolanaTransferCard] SPL Token 账户不存在或查询失败:', err.message)
             setBalance('0')
           }
         }
       } catch (err) {
-        console.error('Failed to get balance:', err)
+        console.error('[SolanaTransferCard] Failed to get balance:', err)
         setBalance('0')
       }
     }
 
     fetchBalance()
-  }, [connected, publicKey, connection, isNative, data.tokenAddress])
+  }, [connected, publicKey, connection, isNative, tokenAddress, data.tokenSymbol])
 
   // 检查余额
   const checkBalance = (): string | null => {
@@ -135,23 +155,44 @@ export default function SolanaTransferCard({ data, conversationId, onUpdate }: S
         )
       } else {
         // SPL Token 转账
-        if (!data.tokenAddress) {
+        if (!tokenAddress) {
           throw new Error('Token 地址缺失')
         }
 
-        const mintAddress = new PublicKey(data.tokenAddress)
+        const mintAddress = new PublicKey(tokenAddress)
         const mintInfo = await getMint(connection, mintAddress)
-        const tokenAmount = parseFloat(data.amount) * Math.pow(10, mintInfo.decimals)
+        const decimals = mintInfo.decimals
+        const tokenAmount = Math.floor(parseFloat(data.amount) * Math.pow(10, decimals))
 
         const fromTokenAccount = await getAssociatedTokenAddress(mintAddress, fromPublicKey)
         const toTokenAccount = await getAssociatedTokenAddress(mintAddress, toPublicKey)
 
-        transaction = new Transaction().add(
+        transaction = new Transaction()
+
+        // 检查接收方的 ATA 是否存在
+        console.log('[SolanaTransferCard] 检查接收方 ATA:', toTokenAccount.toBase58())
+        const toTokenAccountInfo = await connection.getAccountInfo(toTokenAccount)
+        
+        // 如果不存在，需要先创建 ATA
+        if (!toTokenAccountInfo) {
+          console.log('[SolanaTransferCard] 接收方 ATA 不存在，创建中...')
+          transaction.add(
+            createAssociatedTokenAccountInstruction(
+              fromPublicKey, // 支付租金的账户
+              toTokenAccount, // 新的 ATA 地址
+              toPublicKey, // 接收方钱包
+              mintAddress // Mint 地址
+            )
+          )
+        }
+
+        // 添加转账指令
+        transaction.add(
           createTransferInstruction(
             fromTokenAccount,
             toTokenAccount,
             fromPublicKey,
-            tokenAmount
+            BigInt(tokenAmount)
           )
         )
       }
@@ -159,11 +200,35 @@ export default function SolanaTransferCard({ data, conversationId, onUpdate }: S
       // 发送交易
       const signature = await sendTransaction(transaction, connection)
       
-      // 等待确认
-      const confirmation = await connection.confirmTransaction(signature, 'confirmed')
-
-      if (confirmation.value.err) {
-        throw new Error('交易确认失败')
+      console.log('[SolanaTransferCard] 交易已发送，等待确认...', signature)
+      
+      // 使用 HTTP 轮询确认交易（公共 RPC 不支持 WebSocket）
+      let confirmed = false
+      let retries = 0
+      const maxRetries = 30 // 最多等待 30 次
+      
+      while (!confirmed && retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000)) // 等待 1 秒
+        
+        const status = await connection.getSignatureStatus(signature)
+        
+        if (status.value) {
+          if (status.value.err) {
+            throw new Error('交易失败: ' + JSON.stringify(status.value.err))
+          }
+          
+          if (status.value.confirmationStatus === 'confirmed' || 
+              status.value.confirmationStatus === 'finalized') {
+            confirmed = true
+            console.log('[SolanaTransferCard] 交易已确认', status.value.confirmationStatus)
+          }
+        }
+        
+        retries++
+      }
+      
+      if (!confirmed) {
+        throw new Error('交易超时，未在 30 秒内确认')
       }
 
       setTxHash(signature)

@@ -4,6 +4,7 @@ import { Tool, Message, StreamChunk } from '@web3-ai-agent/ai-config'
 import { ChatRequest } from '@/types/chat'
 import { SYSTEM_PROMPT_BASE } from '@/config/prompts'
 import { getETHPrice, getBTCPrice, getWalletBalance, getGasPrice, getTokenPrice, getBalance as getMultiChainBalance, getTokenInfo, getTokenBalance, ChainId, EvmChainId } from '@web3-ai-agent/web3-tools'
+import { SOLANA_TOKENS } from '@/config/solana-chains'
 
 // 工具定义
 const tools: Tool[] = [
@@ -309,6 +310,17 @@ export async function POST(request: NextRequest) {
               )
               break
             case 'createTransferCard':
+              // 根据链和 tokenSymbol 添加 tokenAddress
+              let tokenAddress: string | undefined
+              
+              // Solana SPL Token
+              if (functionArgs.chain === 'solana') {
+                const solanaToken = SOLANA_TOKENS[functionArgs.tokenSymbol as keyof typeof SOLANA_TOKENS]
+                if (solanaToken && !solanaToken.isNative) {
+                  tokenAddress = solanaToken.mintAddress
+                }
+              }
+              
               // 返回转账卡片数据，由前端渲染
               result = {
                 success: true,
@@ -317,7 +329,8 @@ export async function POST(request: NextRequest) {
                   tokenSymbol: functionArgs.tokenSymbol,
                   amount: functionArgs.amount,
                   chain: functionArgs.chain,
-                  from: walletAddress || ''
+                  from: walletAddress || '',
+                  tokenAddress // SPL Token 的 Mint Address
                 }
               }
               break

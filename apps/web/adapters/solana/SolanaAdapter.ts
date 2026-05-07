@@ -6,7 +6,7 @@
  */
 
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getAssociatedTokenAddress, createTransferInstruction, getMint } from '@solana/spl-token';
+import { getAssociatedTokenAddress, createTransferInstruction, getMint, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import { useWallet } from '@solana/wallet-adapter-react';
 import {
   TransferAdapter,
@@ -28,7 +28,11 @@ export class SolanaAdapter extends TransferAdapter {
   constructor(wallet: ReturnType<typeof useWallet>) {
     super();
     this.wallet = wallet;
-    this.connection = new Connection(SOLANA_CONFIG.mainnet.endpoint, 'confirmed');
+    // 使用 HTTP 连接，禁用 WebSocket（公共 RPC 不支持）
+    this.connection = new Connection(SOLANA_CONFIG.mainnet.endpoint, {
+      commitment: 'confirmed',
+      wsEndpoint: undefined, // 禁用 WebSocket
+    });
   }
 
   /**
@@ -207,7 +211,26 @@ export class SolanaAdapter extends TransferAdapter {
     const fromTokenAccount = await getAssociatedTokenAddress(mint, fromPubkey);
     const toTokenAccount = await getAssociatedTokenAddress(mint, toPubkey);
 
-    const transaction = new Transaction().add(
+    const transaction = new Transaction();
+
+    // 检查接收方的 ATA 是否存在
+    const toTokenAccountInfo = await this.connection.getAccountInfo(toTokenAccount);
+    
+    // 如果不存在，需要先创建 ATA
+    if (!toTokenAccountInfo) {
+      console.log('[SolanaAdapter] 接收方 ATA 不存在，创建中...', toTokenAccount.toBase58());
+      transaction.add(
+        createAssociatedTokenAccountInstruction(
+          fromPubkey, // 支付租金的账户
+          toTokenAccount, // 新的 ATA 地址
+          toPubkey, // 接收方钱包
+          mint // Mint 地址
+        )
+      );
+    }
+
+    // 添加转账指令
+    transaction.add(
       createTransferInstruction(
         fromTokenAccount,
         toTokenAccount,

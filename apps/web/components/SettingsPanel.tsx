@@ -266,7 +266,7 @@ export default function SettingsPanel({
                         {strategy.details.map((detail) => (
                           <span
                             key={detail}
-                            className="text-[10px] text-[rgb(var(--text-muted))] font-mono"
+                            className="text-[12px] text-[rgb(var(--text-muted))]"
                           >
                             · {detail}
                           </span>
@@ -278,7 +278,7 @@ export default function SettingsPanel({
               })}
             </div>
 
-            <p className="text-[10px] text-[rgb(var(--text-muted))] opacity-70 mt-3 leading-relaxed italic">
+            <p className="text-[11px] text-[rgb(var(--text-muted))] opacity-70 mt-3 leading-relaxed italic">
               切换策略后新消息将使用新策略管理上下文，已有消息不受影响。
             </p>
           </section>
@@ -298,7 +298,7 @@ export default function SettingsPanel({
             </div>
             <div className="rounded-xl p-4 border border-dashed border-[rgba(var(--border-color))] bg-[rgba(var(--bg-surface),0.3)]">
               <p className="text-xs text-[rgb(var(--text-muted))]">
-                中文 · English · 日本語 · 한국어
+                中文 · English
               </p>
             </div>
           </section>
