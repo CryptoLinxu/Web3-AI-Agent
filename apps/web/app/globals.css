@@ -69,11 +69,13 @@
   --bg-primary: 255, 255, 255;
   --bg-secondary: 248, 250, 252;
   --bg-tertiary: 241, 245, 252;
+  --card-bg: 255, 255, 255;
 
   --accent-cyan: 8, 145, 178;
   --accent-cyan-light: 14, 165, 233;
   --accent-violet: 124, 58, 237;
   --accent-violet-light: 139, 92, 246;
+  --accent-purple: 124, 58, 237;
   --accent-color: 124, 58, 237;
   --accent-glow: 8, 145, 178;
 

@@ -6,7 +6,7 @@
 -- 1. 创建 conversations 表
 CREATE TABLE IF NOT EXISTS conversations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  wallet_address VARCHAR(42) NOT NULL,
+  wallet_address VARCHAR(44) NOT NULL,
   title VARCHAR(200) DEFAULT '新对话',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -86,5 +86,5 @@ CREATE POLICY "messages_delete_policy"
 -- 6. 添加注释
 COMMENT ON TABLE conversations IS '对话会话表，按钱包地址隔离';
 COMMENT ON TABLE messages IS '对话消息表，关联到 conversation';
-COMMENT ON COLUMN conversations.wallet_address IS '钱包地址（0x 开头 42 字符）';
+COMMENT ON COLUMN conversations.wallet_address IS '钱包地址（EVM: 0x 开头 42 字符; Solana: Base58 编码 32-44 字符）';
 COMMENT ON COLUMN messages.metadata IS '扩展字段：timestamp, toolCalls, isError 等';

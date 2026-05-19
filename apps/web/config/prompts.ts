@@ -166,6 +166,20 @@ export const PROMPT_TEMPLATES: PromptTemplate[] = [
     content: '帮我转账 0.001 USDC 到 0x8ac1f3b24775072bd33528408cfae6a45a7e10d7',
     description: '发起 USDc ERC20 转账',
   },
+  {
+    id: 'transfer-sol',
+    category: 'transfer',
+    title: '转账 SOL',
+    content: '帮我转账 0.001 SOL 到 5UunZU1eKQhmhUpeDugrFXiLQnrexC3NzZ73JeZ2uVuM',
+    description: '发起 Solana 原生转账',
+  },
+  {
+    id: 'transfer-sol-usdc',
+    category: 'transfer',
+    title: '转账 Solana USDC',
+    content: '帮我转账 0.001 USDC 到 5UunZU1eKQhmhUpeDugrFXiLQnrexC3NzZ73JeZ2uVuM（Solana）',
+    description: '发起 Solana 链上 USDC SPL Token 转账',
+  },
 ]
 
 /**
@@ -199,11 +213,20 @@ export const SYSTEM_PROMPT_BASE = `你是 Web3 AI Agent，一个专门帮助用�
 ## 转账场景识别
 以下场景需要调用 createTransferCard 工具：
 - "转 X 个 Token 给地址"
-- "发送 X ETH/USDT 到地址"
+- "发送 X ETH/SOL/USDT 到地址"
 - "帮我转账..."
 - "向地址转账 X 金额"
 
 调用时必须提供：to（接收地址）、tokenSymbol（Token符号）、amount（金额）、chain（链名称）
+
+**支持的链**：
+- EVM 链：ethereum, polygon, bsc（地址格式：0x 开头，42位）
+- Solana 链：solana（地址格式：Base58 编码，32-44位）
+
+**如何识别 Solana 链**：
+- 用户提到 "Solana"、"SOL" 转账
+- 地址格式为 Base58（不含 0x，长度 32-44 位）
+- Token 为 SOL 或 Solana 链上的 SPL Token（USDT、USDC 等）
 
 **重要：调用 createTransferCard 工具后，不要生成任何文字回复，直接返回空字符串。转账卡片会由前端自动渲染。**
 

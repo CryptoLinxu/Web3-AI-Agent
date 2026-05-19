@@ -14,11 +14,24 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey) as any
 
 /**
  * 验证钱包地址格式
+ * 支持 EVM (0x 开头, 42 位) 和 Solana (Base58, 32-44 位)
  */
 export function validateWalletAddress(address: string): boolean {
-  return typeof address === 'string' && 
-         address.startsWith('0x') && 
-         address.length === 42
+  if (typeof address !== 'string' || !address) return false
+  
+  // EVM 地址: 0x 开头 + 40 位十六进制 = 42 位
+  if (address.startsWith('0x') && address.length === 42) {
+    return true
+  }
+  
+  // Solana 地址: Base58 编码, 32-44 位字符
+  // Base58 字符集: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+  const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
+  if (base58Regex.test(address)) {
+    return true
+  }
+  
+  return false
 }
 
 /**
