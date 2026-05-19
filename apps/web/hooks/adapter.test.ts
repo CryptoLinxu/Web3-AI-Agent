@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { validateAddress, isValidEVMAddress, isValidSolanaAddress } from '@/utils/address-validator';
+import { AdapterFactory } from '@/adapters/AdapterFactory';
 
 describe('地址格式校验', () => {
   describe('EVM 地址校验', () => {
@@ -77,13 +78,11 @@ describe('地址格式校验', () => {
 
 describe('适配器工厂', () => {
   it('应该返回支持的网络列表', () => {
-    const { AdapterFactory } = require('@/adapters/AdapterFactory');
     const networks = AdapterFactory.getSupportedNetworks();
     expect(networks).toContain('solana-mainnet');
   });
 
   it('应该正确判断网络是否支持', () => {
-    const { AdapterFactory } = require('@/adapters/AdapterFactory');
     expect(AdapterFactory.isNetworkSupported('solana-mainnet')).toBe(true);
     expect(AdapterFactory.isNetworkSupported('evm-1')).toBe(false);
   });
