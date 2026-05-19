@@ -1,534 +1,622 @@
-# Web3 AI Agent 技术文档
+# Web3 AI Agent 项目技术文档
 
-> 版本：v0.8.0 | 最后更新：2026-05-08
-
----
+> 版本: v0.8.0 | 最后更新: 2026-05-07 | 维护: AI Agent 开发团队
 
 ## 目录
 
-- [一、技术栈与选型](#一技术栈与选型)
-- [二、系统架构设计](#二系统架构设计)
-- [三、Monorepo 与构建系统](#三monorepo-与构建系统)
-- [四、AI Agent 核心模块](#四ai-agent-核心模块)
-- [五、Web3 工具层](#五web3-工具层)
-- [六、钱包与身份系统](#六钱包与身份系统)
-- [七、转账系统架构](#七转账系统架构)
-- [八、会话与数据持久化](#八会话与数据持久化)
-- [九、前端 UI 架构](#九前端-ui-架构)
-- [十、测试体系](#十测试体系)
-- [十一、部署与 CI/CD](#十一部署与-cicd)
-- [十二、环境变量配置](#十二环境变量配置)
-- [十三、扩展指南](#十三扩展指南)
+1. [技术栈概览](#1-技术栈概览)
+2. [Monorepo 架构](#2-monorepo-架构)
+3. [系统架构设计](#3-系统架构设计)
+4. [AI 模型集成 (ai-config)](#4-ai-模型集成-ai-config)
+5. [Agent Loop 核心实现](#5-agent-loop-核心实现)
+6. [SSE 流式输出](#6-sse-流式输出)
+7. [Web3 工具层 (web3-tools)](#7-web3-工具层-web3-tools)
+8. [钱包集成架构](#8-钱包集成架构)
+9. [转账系统](#9-转账系统)
+10. [会话管理系统](#10-会话管理系统)
+11. [Memory 记忆管理](#11-memory-记忆管理)
+12. [UI 组件架构](#12-ui-组件架构)
+13. [Supabase 数据持久化](#13-supabase-数据持久化)
+14. [RLS 行级安全策略](#14-rls-行级安全策略)
+15. [测试体系](#15-测试体系)
+16. [CI/CD 与部署](#16-cicd-与部署)
+17. [x-ray Skills 技能系统](#17-x-ray-skills-技能系统)
+18. [API 参考](#18-api-参考)
 
 ---
 
-## 一、技术栈与选型
+## 1. 技术栈概览
 
-### 1.1 核心技术栈
+### 1.1 核心框架
 
-| 类别 | 技术 | 版本 | 选型理由 |
-|------|------|------|----------|
-| 前端框架 | Next.js (App Router) | 14 | 全栈框架，API Routes 支持，Vercel 部署友好 |
-| UI 框架 | React | 18 | 生态成熟，组件化开发 |
-| 类型系统 | TypeScript | 5.x | 严格类型检查，IDE 智能提示 |
-| 样式方案 | Tailwind CSS | 3.x | 原子化 CSS，快速 UI 开发，主题变量支持 |
-| 包管理 | pnpm | 8.x | workspace monorepo 支持，磁盘效率高 |
-| 构建系统 | Turborepo | 2.x | 增量构建，缓存策略，任务编排 |
+| 层级 | 技术 | 版本 | 用途 |
+|------|------|------|------|
+| 前端框架 | Next.js (App Router) | 14.x | SSR/CSR 混合渲染、API Routes |
+| UI 框架 | React | 18.x | 组件化 UI 开发 |
+| 类型系统 | TypeScript | 5.x | 全栈类型安全 |
+| 样式方案 | Tailwind CSS | 3.x | 原子化 CSS、响应式设计 |
+| UI 组件库 | Radix UI | 最新 | 无障碍弹窗/按钮/Select 基础组件 |
 
-### 1.2 AI 能力
+### 1.2 AI/LLM 集成
 
-| 技术 | 用途 |
-|------|------|
-| OpenAI API | GPT-3.5 / GPT-4 对话、Function Calling |
-| Anthropic API | Claude 对话（备用 Provider） |
-| LLMFactory | 工厂模式，环境变量驱动动态切换 Provider |
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| openai | 6.x | OpenAI API SDK (GPT-4o, o4-mini, gpt-4.1) |
+| @anthropic-ai/sdk | 1.x | Anthropic API SDK (Claude 4 Sonnet) |
 
 ### 1.3 Web3 技术栈
 
-| 技术 | 链 | 用途 |
-|------|-----|------|
-| ethers.js | EVM (ETH/Polygon/BSC) | 链上数据查询、ERC20 合约交互 |
-| @solana/web3.js | Solana | SOL/SPL Token 转账、余额查询 |
-| @solana/spl-token | Solana | SPL Token 标准库 |
-| wagmi | EVM | React Hooks，链状态管理 |
-| viem | EVM | 底层 RPC 客户端 |
-| RainbowKit | EVM | 钱包连接 UI（9+ 钱包） |
-| @solana/wallet-adapter | Solana | 钱包连接（Phantom/Solflare） |
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| ethers | 6.x | EVM 链 JSON-RPC 交互 |
+| @solana/web3.js | 最新 | Solana 链交互、SPL Token 操作 |
+| @solana/spl-token | 最新 | SPL Token 转账/余额 |
+| @solana/wallet-adapter | 最新 | Solana 钱包连接 (Phantom/Solflare) |
+| wagmi | 2.19.5 | EVM 钱包 React Hooks |
+| viem | 最新 | EVM 底层工具库 |
+| RainbowKit | 2.2.10 | EVM 钱包 UI 组件 (9+ 钱包) |
 
 ### 1.4 数据与存储
 
 | 技术 | 用途 |
 |------|------|
-| Supabase (PostgreSQL) | 对话持久化、转账记录、RLS 安全策略 |
-| localStorage | 主题偏好、临时状态 |
-| cookieStorage | 钱包连接状态持久化（wagmi） |
+| @supabase/supabase-js | PostgreSQL + RLS 行级安全、对话/消息持久化 |
+| localStorage | 主题偏好存储 |
+| cookieStorage (wagmi) | 钱包连接状态 SSR 持久化 |
 
-### 1.5 测试
+### 1.5 构建与工具链
 
 | 技术 | 用途 |
 |------|------|
-| Vitest 3.2.4 | 单元测试（Monorepo Workspace） |
-| @testing-library/react | 组件测试 |
-| Playwright 1.59.x | E2E 端到端测试 |
+| pnpm 8.x | 包管理 + Workspace Monorepo |
+| Turborepo 2.x | 增量构建、任务编排、缓存 |
+| ESLint | 代码规范 |
+| Prettier | 代码格式化 |
+| lint-staged + husky | Git Hooks |
+| TypeScript `tsc --noEmit` | 类型检查 |
+
+### 1.6 测试
+
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| Vitest | 3.2.4 | 单元测试 (Workspace 模式) |
+| @testing-library/react | 最新 | 组件交互测试 |
+| Playwright | 1.59.3 | E2E 端到端测试 |
+
+### 1.7 运行时要求
+
+- Node.js: >= 22
+- pnpm: >= 8
+- 推荐包管理器: pnpm
 
 ---
 
-## 二、系统架构设计
+## 2. Monorepo 架构
 
-### 2.1 分层架构
+### 2.1 工作区结构
+
+```
+web3-ai-agent/
+├── apps/
+│   └── web/                       # @web3-ai-agent/web (Next.js 应用)
+│       ├── app/
+│       │   ├── api/               # API Routes (chat, tools, health, supabase)
+│       │   ├── globals.css        # 全局样式 + CSS 变量主题系统
+│       │   ├── layout.tsx         # 根布局 (含 SSR 主题闪烁修复)
+│       │   ├── page.tsx           # 聊天主界面
+│       │   ├── config.ts          # wagmi 多钱包配置
+│       │   └── providers.tsx      # 多 Provider 嵌套
+│       ├── adapters/              # 转账适配器层
+│       │   ├── TransferAdapter.ts # 抽象基类
+│       │   ├── AdapterFactory.ts  # 工厂模式
+│       │   ├── evm/EVMAdapter.ts  # EVM 适配器
+│       │   └── solana/SolanaAdapter.ts # Solana 适配器
+│       ├── components/            # UI 组件
+│       │   ├── cards/             # 转账卡片 (TransferCard, SolanaTransferCard, DexSwapCard)
+│       │   ├── unified/           # 统一钱包 UI
+│       │   └── ui/                # 基础 UI (Select, Alert, ConfirmDialog)
+│       ├── hooks/                 # 自定义 Hooks
+│       │   ├── useChatStream.ts   # SSE 流式 Hook
+│       │   ├── useUnifiedWallet.ts # 统一钱包 Hook
+│       │   ├── useSettings.ts     # 全局设置管理
+│       │   └── useSupabaseStorage.ts # Supabase CRUD
+│       ├── lib/
+│       │   ├── memory/            # Memory 管理 (SlidingWindow, SummaryCompression)
+│       │   ├── theme/             # 主题系统 (ThemeProvider, ThemeContext, ThemeSwitcher)
+│       │   └── supabase/          # Supabase 客户端
+│       └── e2e/                   # Playwright E2E 测试
+├── packages/
+│   ├── ai-config/                 # @web3-ai-agent/ai-config
+│   │   └── src/
+│   │       ├── types.ts           # 共享类型定义
+│   │       ├── config.ts          # 配置加载 (环境变量)
+│   │       ├── factory.ts         # LLMFactory 工厂
+│   │       └── providers/         # Provider 实现
+│   │           ├── base.ts        # ILLMProvider 接口 + BaseProvider
+│   │           ├── openai.ts      # OpenAI Adapter
+│   │           └── anthropic.ts   # Anthropic Adapter
+│   └── web3-tools/                # @web3-ai-agent/web3-tools
+│       └── src/
+│           ├── types.ts           # 共享类型
+│           ├── balance.ts         # 多链余额查询
+│           ├── price.ts           # 多链价格查询
+│           ├── gas.ts             # Gas 价格查询
+│           ├── token.ts           # Token 信息/余额
+│           ├── transfer.ts        # 转账操作
+│           ├── index.ts           # 统一导出
+│           ├── chains/            # 链抽象层
+│           │   ├── config.ts      # 链配置管理 (5+ 链)
+│           │   ├── evm-adapter.ts # EVM 统一适配器
+│           │   ├── bitcoin.ts     # BTC 适配器
+│           │   └── solana.ts      # Solana 适配器
+│           └── tokens/            # Token 注册表
+│               └── registry.ts    # ERC20 Token 元数据
+├── docs/                          # 项目文档
+├── skills/                        # x-ray 技能配置
+├── .github/workflows/             # CI/CD Pipeline
+├── turbo.json                     # Turborepo 配置
+├── pnpm-workspace.yaml            # pnpm 工作区配置
+├── vitest.workspace.ts            # Vitest 工作区配置
+└── playwright.config.ts           # Playwright 配置
+```
+
+### 2.2 包依赖关系
+
+```
+@web3-ai-agent/web (apps/web)
+  ├── @web3-ai-agent/ai-config (workspace:*)
+  └── @web3-ai-agent/web3-tools (workspace:*)
+```
+
+### 2.3 Turborepo 任务编排
+
+- `build`: 包级构建，遵循依赖拓扑排序
+- `dev`: 开发模式并行启动
+- `lint`: ESLint 代码检查
+- `test`: Vitest 单元测试
+- `type-check`: TypeScript 类型检查
+
+所有构建产物通过 `.gitignore` 排除，Turborepo 缓存 `.turbo/`。
+
+### 2.4 开发工作流
+
+| 命令 | 用途 |
+|------|------|
+| `pnpm dev` | 启动所有包的开发模式 |
+| `pnpm build` | 生产构建 (增量) |
+| `pnpm lint` | ESLint 检查 |
+| `pnpm test` | 单元测试 (全部包) |
+| `pnpm test:e2e` | E2E 测试 (Playwright) |
+| `pnpm test:e2e:ui` | E2E 测试 UI 模式 |
+| `pnpm test:e2e:report` | 查看测试报告 |
+| `pnpm type-check` | TypeScript 类型检查 |
+
+---
+
+## 3. 系统架构设计
+
+### 3.1 五层架构
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          用户层 (User Layer)                         │
 │  Chat UI · MessageList · TransferCard · SolanaTransferCard          │
 │  UnifiedWalletButton · UnifiedWalletModal · ThemeSwitcher           │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────────┐
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼─────────────────────────────────┐
 │                          API 层 (API Layer)                          │
-│  POST /api/chat           (对话 + SSE 流式)                         │
-│  POST /api/tools          (Web3 工具直接调用)                       │
-│  GET  /api/health         (健康检查)                                │
-│  POST /api/supabase/verify-ownership  (所有权验证)                  │
-│  POST /api/supabase/delete-conversation (服务端删除)                │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────────┐
+│  POST /api/chat  · POST /api/tools  · GET /api/health              │
+│  POST /api/supabase/verify-ownership                                │
+│  POST /api/supabase/delete-conversation                             │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼─────────────────────────────────┐
 │                       Agent Core 层 (Agent Layer)                    │
-│  Intent Classifier · Agent Loop · Memory Manager                    │
-│  LLMFactory · createSystemPrompt · AI Intent Parser                 │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────────┐
-│                          工具层 (Tools Layer)                        │
-│  packages/web3-tools                                                │
+│  Intent Classifier · Agent Loop · Memory Manager · System Prompt    │
+│  LLMFactory · AI Intent Parser · Wallet Context Injection           │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼─────────────────────────────────┐
+│                        工具层 (Tools Layer)                          │
 │  getTokenPrice · getBalance · getGasPrice · getTokenInfo            │
 │  getTokenBalance · createTransferCard                               │
-│  ChainAdapter (EVM/BTC/Solana) · Token Registry                    │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────────┐
-│                          数据层 (Data Layer)                         │
-│  OpenAI/Anthropic API · Binance/Huobi API                           │
-│  Alchemy/Infura RPC · Supabase PostgreSQL                           │
-│  Solana JSON-RPC · Blockchain.info API                              │
+│  ChainAdapter · TransferAdapter · DexAggregator                     │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼─────────────────────────────────┐
+│                         数据层 (Data Layer)                          │
+│  OpenAI/Anthropic API · Binance/Huobi API · Alchemy/Infura RPC      │
+│  Blockchain.info API · Solana JSON-RPC · Supabase PostgreSQL        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 数据流
-
-#### 普通对话流（无工具调用）
+### 3.2 数据流 (Agent Loop)
 
 ```
-用户输入 → POST /api/chat → LLMFactory.getProvider() → provider.chat()
-  → AI 直接回复 → SSE stream / JSON → 前端展示
+用户输入 (自然语言)
+  │
+  ▼
+POST /api/chat ──► LLMFactory.getProvider()
+  │                     │
+  │                     ▼
+  │              第1次调用: provider.chat(messages, { tools })
+  │                     │
+  │              ┌──────┴──────┐
+  │              │             │
+  │          无需工具       需要工具 (toolCalls)
+  │              │             │
+  │              │      执行工具函数
+  │              │             │
+  │              │      工具结果注入消息
+  │              │             │
+  │              │      第2次调用: provider.chat(messages + toolResults)
+  │              │             │
+  │              ▼             ▼
+  │         ┌──────────────────┐
+  │         │   最终回复内容     │
+  │         └──────────────────┘
+  │                │
+  │          ┌─────┴─────┐
+  │          │           │
+  │       SSE 流式     JSON 响应
+  │          │           │
+  ▼          ▼           ▼
+useChatStream Hook ──► 渲染 UI
 ```
 
-#### 工具调用流（两次 API 调用）
+### 3.3 错误处理策略
 
-```
-用户输入 → POST /api/chat → 第 1 次 provider.chat(messages, { tools })
-  → AI 返回 tool_calls → 执行 Web3 工具函数 → 获取结果
-  → 第 2 次 provider.chat(messagesWithToolResults)
-  → AI 基于工具结果生成自然语言回复 → SSE stream / JSON → 前端展示
-```
+| 错误类型 | 处理方式 |
+|----------|----------|
+| 模型 API Key 未配置 | 返回 503 + "模型配置错误" 提示 |
+| 工具执行失败 | 返回 `{ success: false, error }` , AI 用自然语言解释 |
+| SSE 流式错误 | 发送 `error` chunk，前端 Toast 提示 |
+| 4xx 客户端错误 | 不重试，直接展示 |
+| 5xx 服务端错误 | 前端自动重试最多 2 次 |
+| 超时 (>30s) | AbortController 取消，提示重试 |
 
-#### 转账流
+### 3.4 安全边界
 
-```
-用户输入 "转 1 SOL 到 xxx"
-  → AI 识别转账意图 → 调用 createTransferCard 工具
-  → 返回 transferData → SSE transfer_data 事件
-  → 前端渲染 TransferCard / SolanaTransferCard
-  → 用户确认 → wagmi/Solana wallet adapter 签名
-  → 链上执行 → 状态更新 → Supabase 持久化
-```
-
-### 2.3 错误处理策略
-
-| 错误类型 | HTTP 状态码 | 处理方式 | 用户感知 |
-|----------|------------|----------|----------|
-| 钱包地址格式无效 | 400 | 返回错误提示 | "无效的钱包地址格式" |
-| 模型未配置 | 503 | 配置错误提示 | "模型配置错误: 未配置 OPENAI_API_KEY" |
-| 工具执行失败 | 200 | 降级为说明性回复 | 工具返回 error，AI 用自然语言解释 |
-| API 超时 | 500 | 前端自动重试（最多 2 次） | "请求超时，请重试" |
-| 流式中断 | - | SSE error 事件 | "抱歉，处理您的请求时出现了错误" |
-| 4xx 客户端错误 | 4xx | 不重试，直接展示 | 具体错误信息 |
-
-### 2.4 安全边界
-
-1. **只读查询优先**：价格、余额、Gas 等工具均为只读
-2. **写操作需用户确认**：转账需用户在钱包中主动签名
-3. **数据来源透明**：工具返回值标注 `source` 和 `timestamp`
-4. **风险提示**：高风险问题返回数据参考 + 免责声明
-5. **禁止伪造数据**：工具失败时 AI 不允许编造链上数据
-6. **RLS 行级安全**：数据库按 `wallet_address` 隔离
-7. **DELETE 双重验证**：应用层 verifyWalletContext + 服务端 verify-ownership
+- 所有区块链工具均为**只读查询**，不存在直接修改链上状态
+- 转账操作需要用户在钱包中主动签名
+- 工具返回数据标注 `source` 和 `timestamp`，AI 不允许编造链上数据
+- 高风险问题返回数据参考 + 免责声明
+- 钱包地址通过 System Prompt 注入，用户可确认 AI 使用的地址
 
 ---
 
-## 三、Monorepo 与构建系统
-
-### 3.1 工作区结构
-
-```
-AI-Agent/
-├── apps/
-│   └── web/                    # @web3-ai-agent/web (Next.js 应用)
-├── packages/
-│   ├── ai-config/              # @web3-ai-agent/ai-config (AI 模型配置)
-│   └── web3-tools/             # @web3-ai-agent/web3-tools (Web3 工具集)
-├── pnpm-workspace.yaml         # workspace 声明
-├── package.json                # 根 scripts + devDependencies
-└── turbo.json                  # Turborepo 任务编排
-```
-
-### 3.2 依赖关系
-
-```
-apps/web
-  ├── @web3-ai-agent/ai-config    (AI Provider)
-  └── @web3-ai-agent/web3-tools   (Web3 工具)
-
-packages/ai-config
-  └── openai / @anthropic-ai/sdk
-
-packages/web3-tools
-  └── ethers / @solana/web3.js
-```
-
-### 3.3 构建命令
-
-```bash
-pnpm dev            # turbo run dev（并行启动所有包的 dev 模式）
-pnpm build          # turbo run build（增量构建）
-pnpm lint           # turbo run lint
-pnpm test           # turbo run test（并行运行所有包的单元测试）
-pnpm type-check     # turbo run type-check（并行类型检查）
-pnpm test:e2e       # playwright test（E2E 测试）
-```
-
-### 3.4 包间引用
-
-Monorepo 内包通过 workspace 协议引用：
-
-```json
-// apps/web/package.json
-{
-  "dependencies": {
-    "@web3-ai-agent/ai-config": "workspace:*",
-    "@web3-ai-agent/web3-tools": "workspace:*"
-  }
-}
-```
-
----
-
-## 四、AI Agent 核心模块
+## 4. AI 模型集成 (ai-config)
 
 ### 4.1 LLMFactory 工厂模式
 
-**文件**: [packages/ai-config/src/factory.ts](file:///d:/2026/code/AI-Agent/packages/ai-config/src/factory.ts)
+`@web3-ai-agent/ai-config` 包实现了 Provider 工厂模式，核心类:
 
-LLMFactory 负责创建和管理 AI Provider 实例：
-
-```typescript
-class LLMFactory {
-  private static providers = new Map<ModelProvider, ProviderFactory>()
-  private static instances = new Map<ModelProvider, ILLMProvider>()
-  private static config = loadConfigFromEnv()
-
-  // 注册 Provider
-  static register(name: ModelProvider, factory: ProviderFactory): void
-
-  // 获取 Provider 实例（单例缓存）
-  static getProvider(name?: ModelProvider): ILLMProvider
-
-  // 清除缓存（测试用）
-  static clearCache(): void
-}
+```
+LLMFactory
+  ├── providers: Map<string, ProviderFactory>    // 已注册的工厂
+  ├── instances: Map<string, ILLMProvider>        // 单例缓存
+  ├── config: LLMConfig                          // 环境变量配置
+  │
+  ├── register(name, factory)    // 注册 Provider
+  ├── getProvider(name?)         // 获取 Provider 实例 (单例)
+  ├── create(name)               // 创建新实例 (不缓存)
+  ├── getProviderNames()         // 获取所有已注册名称
+  └── clearCache()               // 清除缓存 (测试用)
 ```
 
-内置 Provider：
-- **OpenAIAdapter**：OpenAI GPT-3.5/GPT-4
-- **AnthropicAdapter**：Anthropic Claude
-
-切换方式：修改环境变量 `DEFAULT_MODEL_PROVIDER=openai|anthropic`
-
 ### 4.2 ILLMProvider 接口
-
-**文件**: [packages/ai-config/src/providers/base.ts](file:///d:/2026/code/AI-Agent/packages/ai-config/src/providers/base.ts)
 
 ```typescript
 interface ILLMProvider {
   readonly name: string
   chat(messages: Message[], options?: ChatOptions): Promise<ChatResponse>
-  chatStream(messages: Message[], options?: ChatOptions): StreamResponse
+  chatStream(messages: Message[], options?: ChatOptions): AsyncGenerator<StreamChunk>
 }
 ```
 
-- `chat()`：同步对话，返回完整响应
-- `chatStream()`：流式对话，返回 `AsyncIterable<StreamChunk>`
+### 4.3 内置 Provider
 
-### 4.3 Agent Loop 实现
+| Provider | 模型 | 特点 |
+|----------|------|------|
+| OpenAI | GPT-4o, gpt-4.1, o4-mini | Function Calling, 流式输出, 工具调用 |
+| Anthropic | Claude 4 Sonnet | 工具使用, 流式输出, 思维链 |
 
-**文件**: [apps/web/app/api/chat/route.ts](file:///d:/2026/code/AI-Agent/apps/web/app/api/chat/route.ts)
+### 4.4 配置管理
 
-Agent Loop 采用简化的 ReAct 模式：
+通过环境变量驱动:
 
-```
-第 1 次 API 调用:
-  messages + tools → provider.chat() → response
-  ├─ response.toolCalls 为空 → 直接返回 response.content
-  └─ response.toolCalls 不为空 → 执行工具 → 第 2 次调用
-
-工具执行:
-  for (toolCall of response.toolCalls) {
-    switch (functionName) {
-      case 'getTokenPrice': result = await getTokenPrice(args.symbol)
-      case 'getBalance':    result = await getBalance(args.chain, args.address)
-      case 'getGasPrice':   result = await getGasPrice(args.chain)
-      case 'getTokenInfo':  result = await getTokenInfo(args.chain, args.symbol)
-      case 'getTokenBalance': result = await getTokenBalance(...)
-      case 'createTransferCard': result = { transferData: {...} }
-    }
-  }
-
-第 2 次 API 调用:
-  messages + toolResults → provider.chat() → finalResponse
+```bash
+DEFAULT_MODEL_PROVIDER=openai|anthropic  # 默认 Provider
+OPENAI_API_KEY=sk-xxx                    # OpenAI Key
+OPENAI_BASE_URL=...                      # OpenAI Base URL (可选)
+OPENAI_MODEL=gpt-4.1                     # OpenAI 模型
+ANTHROPIC_API_KEY=sk-ant-xxx             # Anthropic Key
+ANTHROPIC_MODEL=claude-4-sonnet          # Anthropic 模型
 ```
 
-### 4.4 动态 System Prompt
+Provider 特性配置 (providers config):
+- `supportsStreaming`: 是否支持流式输出
+- `supportsTools`: 是否支持工具调用
+- `maxTokens`: 最大输出 Token 数
+
+### 4.5 消息类型
 
 ```typescript
-function createSystemPrompt(walletAddress?: string, chainId?: number): string
-```
+type MessageRole = 'system' | 'user' | 'assistant' | 'tool'
+type ContentType = 'text' | 'image_url' | 'tool_use' | 'tool_result'
 
-基础 prompt（`SYSTEM_PROMPT_BASE`）定义了 AI 的角色、能力边界和行为规范。当用户连接钱包后，动态注入：
-
-```
-## 当前用户信息
-- 用户已连接钱包，地址为：0x...
-- 当用户查询"我的余额"或"我的钱包"时，使用此地址
-- 用户当前所在网络：Ethereum (ChainId: 1)
-```
-
-### 4.5 会话 Memory 管理
-
-**目录**: [apps/web/lib/memory/](file:///d:/2026/code/AI-Agent/apps/web/lib/memory)
-
-采用 Strategy 模式，支持多种 Memory 策略：
-
-```typescript
-interface MemoryManager {
-  addMessage(message: Message): void
-  getMessages(): Message[]
-  shouldCompress(): boolean
-  compress(): Promise<void>
-  clear(): void
+interface Message {
+  role: MessageRole
+  content: string | ContentPart[]
+  tool_calls?: ToolCall[]
+  tool_call_id?: string
+  name?: string
 }
-```
-
-#### L2 滑动窗口（SlidingWindowMemory）
-
-- 只保留最近 N 条消息
-- 无 LLM 调用，零开销
-- 57 行实现
-
-#### L3 摘要压缩（SummaryCompressionMemory）
-
-- 固定条数触发（默认 10 条），保留最近 5 条
-- 异步调用 LLM 生成摘要，不阻塞用户输入
-- 摘要作为 system 消息注入
-- `isCompressing` 标志位防护并发
-
-```
-消息积累 → shouldCompress() → true
-  → 异步 compress() → LLM 生成摘要
-  → summary = 摘要, originalMessages = 最近 5 条
-  → getMessages() → [摘要(system), ...最近5条]
 ```
 
 ---
 
-## 五、Web3 工具层
+## 5. Agent Loop 核心实现
 
-### 5.1 包结构
+### 5.1 端到端流程
 
-**目录**: [packages/web3-tools/src/](file:///d:/2026/code/AI-Agent/packages/web3-tools/src)
+`apps/web/app/api/chat/route.ts` 实现了完整的 Agent Loop:
+
+1. **请求解析**: 提取 messages, walletAddress, chainId
+2. **钱包地址校验**: 如果提供则验证格式 (42 字符十六进制 / Solana Base58)
+3. **动态 System Prompt**: 根据钱包地址生成上下文 Prompt
+4. **第 1 次 LLM 调用**: 发送消息 + 工具定义，让模型决策
+5. **工具执行**: 如果模型返回 toolCalls，逐个执行对应工具函数
+6. **结果注入**: 将工具结果作为 `tool` role 消息注入对话
+7. **第 2 次 LLM 调用**: 基于工具结果生成自然语言回复
+8. **流式输出**: 通过 SSE 逐步推送到前端
+
+### 5.2 工具注册表
+
+```typescript
+const tools: Tool[] = [
+  { name: 'getTokenPrice',     description: '查询加密货币实时价格' },
+  { name: 'getBalance',        description: '查询指定链上的钱包余额' },
+  { name: 'getGasPrice',       description: '查询 EVM 链的 Gas 价格' },
+  { name: 'getTokenInfo',      description: '查询 ERC20 Token 元数据' },
+  { name: 'getTokenBalance',   description: '查询 ERC20 Token 余额' },
+  { name: 'createTransferCard', description: '创建转账卡片' },
+]
+```
+
+### 5.3 工具执行路由
+
+```typescript
+switch (functionName) {
+  case 'getTokenPrice':       → web3-tools.getTokenPrice()
+  case 'getBalance':          → web3-tools.getMultiChainBalance()
+  case 'getGasPrice':         → web3-tools.getGasPrice()
+  case 'getTokenInfo':        → web3-tools.getTokenInfo()
+  case 'getTokenBalance':     → web3-tools.getTokenBalance()
+  case 'createTransferCard':  → 返回前端渲染用的 transferData
+}
+```
+
+### 5.4 动态 System Prompt
+
+当用户连接钱包后，System Prompt 自动注入钱包上下文:
 
 ```
-src/
-├── chains/                  # 链抽象层
-│   ├── config.ts            # 链配置管理（RPC、浏览器链接）
-│   ├── evm-adapter.ts       # EVM 适配器（ethers.js）
-│   ├── bitcoin.ts           # Bitcoin 适配器（Blockchain.info API）
-│   ├── solana.ts            # Solana 适配器（@solana/web3.js）
-│   └── index.ts             # 模块导出
-├── tokens/                  # Token 注册表
-│   ├── registry.ts          # 11 个主流 Token，3 条 EVM 链
-│   └── index.ts
-├── balance.ts               # 多链余额查询
-├── price.ts                 # 多链价格查询（Binance/Huobi 容错）
-├── gas.ts                   # EVM Gas 查询（EIP-1559）
-├── token.ts                 # Token 信息 + ERC20 余额查询
-├── transfer.ts              # 转账工具（Gas 估算、地址验证）
-├── types.ts                 # 类型定义
-└── index.ts                 # 统一导出
+## 当前用户信息
+- 用户已连接钱包，地址为: 0x...
+- 当用户查询"我的余额"或"我的钱包"时，使用此地址
+- 用户当前所在网络: [链名] (ChainId: [chainId])
 ```
 
-### 5.2 类型系统
+---
 
-**文件**: [packages/web3-tools/src/types.ts](file:///d:/2026/code/AI-Agent/packages/web3-tools/src/types.ts)
+## 6. SSE 流式输出
+
+### 6.1 后端 SSE 协议
+
+流式响应使用标准 SSE 格式:
+
+```
+event: chunk
+data: {"type":"content","content":"你好"}
+
+event: chunk
+data: {"type":"tool_call","toolCall":{...}}
+
+event: chunk
+data: {"type":"transfer_data","transferData":{...}}
+
+event: chunk
+data: {"type":"done"}
+
+event: chunk
+data: {"type":"error","error":"错误信息"}
+```
+
+### 6.2 前端 useChatStream Hook
+
+核心特性:
+
+| 特性 | 参数 | 说明 |
+|------|------|------|
+| 自动重试 | `MAX_RETRIES = 2` | 5xx 错误自动重试 |
+| 超时处理 | `TIMEOUT_MS = 30000` | 30 秒无响应自动取消 |
+| 节流更新 | `THROTTLE_MS = 50` | 50ms 节流合并 UI 更新 |
+| 主动中断 | `AbortController` | 用户可随时停止生成 |
+
+### 6.3 StreamChunk 类型
+
+```typescript
+type StreamChunk =
+  | { type: 'content'; content: string }
+  | { type: 'tool_call'; toolCall: {...} }
+  | { type: 'transfer_data'; transferData: {...} }
+  | { type: 'done' }
+  | { type: 'error'; error: string }
+```
+
+### 6.4 SSE 解析器 (SSEParser)
+
+状态机解析 SSE 文本流:
+- `parseLine()` → 按 `\n\n` 分割事件
+- 解析 `event:` 和 `data:` 行
+- 处理换行符转义 (`\\n` → `\n`)
+- 处理截断 JSON 的容错
+
+---
+
+## 7. Web3 工具层 (web3-tools)
+
+### 7.1 链抽象层
+
+支持 5 条区块链:
+
+| 链 | ChainId | 类型 | RPC/数据源 |
+|----|---------|------|-----------|
+| Ethereum | 1 | EVM | Alchemy JSON-RPC |
+| Polygon | 137 | EVM | Alchemy JSON-RPC |
+| BSC | 56 | EVM | Binance JSON-RPC |
+| Hardhat | 31337 | EVM | 本地 Hardhat 节点 |
+| Bitcoin | - | 非 EVM | Blockchain.info / Blockchair API |
+| Solana | - | 非 EVM | Solana JSON-RPC |
+
+### 7.2 多 RPC 容错
+
+每条链配置多个 RPC 节点，支持自动切换:
+- Ethereum: Alchemy + 自建 + 公共
+- Polygon: Alchemy + QuickNode + 公共
+- BSC: 自建节点 + 公共节点
+- Hardhat: 本地 + 外网端口
+
+### 7.3 工具函数一览
+
+| 工具 | 文件 | 输入 | 输出 | 特点 |
+|------|------|------|------|------|
+| `getTokenPrice()` | price.ts | symbol (BTC/ETH/SOL 等) | ToolResult | 支持 Binance → Huobi 容错 |
+| `getMultiChainBalance()` | balance.ts | chain, address | ToolResult | 统一接口，按链路由 |
+| `getGasPrice()` | gas.ts | chain (EVM) | ToolResult | EIP-1559 三字段返回 |
+| `getTokenInfo()` | token.ts | chain, symbol | ToolResult | 从 TokenRegistry 查询 |
+| `getTokenBalance()` | token.ts | chain, address, tokenSymbol | ToolResult | 余额 + 价格 + USD 价值 |
+
+### 7.4 Token 注册表
+
+`packages/web3-tools/src/tokens/registry.ts` 维护了主流 ERC20 Token 的元数据:
+- 包含合约地址、Decimals、Logo URI
+- 支持多链同名 Token (USDT 在 ETH/Polygon/BSC 的不同合约地址)
+- 通过 `getTokenInfo(chain, symbol)` 查询
+
+### 7.5 类型定义
 
 ```typescript
 type EvmChainId = 'ethereum' | 'polygon' | 'bsc'
 type NonEvmChainId = 'bitcoin' | 'solana'
 type ChainId = EvmChainId | NonEvmChainId
 
-interface ToolResult<T> {
+interface ToolResult<T = unknown> {
   success: boolean
   data?: T
   error?: string
   timestamp: string
   source: string
 }
-
-interface TokenPriceData { symbol, price, change24h, currency }
-interface BalanceData { chain, address, balance, unit, decimals }
-interface GasData { chain, gasPrice, maxFeePerGas, maxPriorityFeePerGas, unit }
-interface TokenMetadata { chain, symbol, name, decimals, contractAddress }
 ```
-
-### 5.3 链适配器模式
-
-```typescript
-interface ChainAdapter {
-  getBalance(address: string): Promise<ToolResult<BalanceData>>
-  getGasPrice?(): Promise<ToolResult<GasData>>   // 仅 EVM
-  validateAddress(address: string): boolean
-}
-```
-
-- **EvmChainAdapter**：统一处理 Ethereum/Polygon/BSC，通过 chainId 路由到不同 RPC
-- **BitcoinAdapter**：Blockchain.info / Blockchair API
-- **SolanaAdapter**：Solana JSON-RPC
-
-### 5.4 工具清单
-
-| 工具函数 | 输入 | 输出 | 数据源 |
-|---------|------|------|--------|
-| `getTokenPrice(symbol)` | ETH/BTC/SOL/MATIC/BNB | 价格、24h 涨跌 | Binance → Huobi 容错 |
-| `getBalance(chain, address)` | chain + address | 余额、单位 | RPC 节点 |
-| `getGasPrice(chain)` | ethereum/polygon/bsc | gasPrice、EIP-1559 | RPC 节点 |
-| `getTokenInfo(chain, symbol)` | chain + symbol | 名称、合约、精度 | Token 注册表 |
-| `getTokenBalance(chain, address, tokenSymbol)` | chain + address + symbol | ERC20 余额 | ERC20 balanceOf |
-| `createTransferCard(to, tokenSymbol, amount, chain)` | 转账参数 | 转账卡片数据 | 前端渲染 |
-
-### 5.5 Token 注册表
-
-**文件**: [packages/web3-tools/src/tokens/registry.ts](file:///d:/2026/code/AI-Agent/packages/web3-tools/src/tokens/registry.ts)
-
-支持 11 个主流 Token，覆盖 3 条 EVM 链：
-
-| Token | Ethereum | Polygon | BSC | 精度 |
-|-------|----------|---------|-----|------|
-| USDT | ✅ | ✅ | ✅ | 6 |
-| USDC | ✅ | ✅ | ✅ | 6 |
-| DAI | ✅ | ✅ | ✅ | 18 |
-| UNI | ✅ | ❌ | ❌ | 18 |
-| LINK | ✅ | ✅ | ✅ | 18 |
-| ... | ... | ... | ... | ... |
 
 ---
 
-## 六、钱包与身份系统
+## 8. 钱包集成架构
 
-### 6.1 双链钱包架构
+### 8.1 双链并行架构
 
-项目采用双 Provider 并行架构，EVM 和 Solana 完全解耦：
+项目同时支持 EVM 和 Solana 链的钱包连接:
+
+**EVM (RainbowKit)**:
+- RainbowKit 2.2.10 + wagmi 2.19.5
+- 支持 9+ 钱包: MetaMask, WalletConnect, Coinbase, OKX, Binance, Rabby, Trust, Phantom EVM, 浏览器注入
+- 3 条链: Ethereum (1), Polygon (137), BSC (56)
+
+**Solana**:
+- @solana/wallet-adapter-react
+- 支持钱包: Phantom, Solflare
+- 链: Solana Mainnet
+
+### 8.2 统一钱包系统
 
 ```
-providers.tsx
-  └─ WagmiProvider (EVM)
-       └─ RainbowKitProvider (EVM 钱包 UI)
-            └─ ThemeProvider
+UnifiedWalletButton ──► UnifiedWalletModal
+                            │
+                    ┌───────┼───────┐
+                    │               │
+              EVM 钱包列表    Solana 钱包列表
+                    │               │
+            RainbowKit Modal   WalletModal
+                    │               │
+                    ▼               ▼
+              useAccount()    useWallet()
+                    │               │
+                    └───────┬───────┘
+                            │
+                    useUnifiedWallet()
+                            │
+                    ┌───────┼───────┐
+                    │       │       │
+                  chain  address  connected
+```
+
+### 8.3 Provider 嵌套顺序
+
+```
+QueryClientProvider (TanStack Query)
+  └─ WagmiProvider (EVM 状态)
+       └─ RainbowKitProvider (EVM UI)
+            └─ ThemeProvider (全局主题)
                  └─ ConnectionProvider (Solana RPC)
-                      └─ WalletProvider (Solana 钱包)
-                           └─ WalletModalProvider
-                                └─ {children}
+                      └─ WalletProvider (Solana 钱包状态)
+                           └─ WalletModalProvider (Solana 弹窗)
 ```
 
-### 6.2 EVM 钱包配置
+### 8.4 SSR 兼容策略
 
-**文件**: [apps/web/app/config.ts](file:///d:/2026/code/AI-Agent/apps/web/app/config.ts)
+- **问题**: walletConnect connector 初始化时访问 `indexedDB`，SSR 环境不支持
+- **方案**: 使用 `cookieStorage` + `cookieToInitialState` 实现 SSR 安全的状态恢复
+- **layout.tsx**: 在 `<head>` 中插入同步脚本设置 `data-theme` 属性，防止主题闪烁
 
-- **RainbowKit v2.2.10**：支持 9+ 钱包
-- **wagmi v2.19.5**：React Hooks 链状态管理
-- **双配置策略**：
-  - `getConfig()`：SSR 基础配置（仅 injected connector）
-  - `getFullConfig()`：客户端完整配置（walletConnect + 所有钱包）
+### 8.5 钱包上下文注入
 
-SSR 兼容性问题解决：
-- walletConnect connector 在 SSR 阶段访问 indexedDB 会报错
-- 采用 cookieStorage + cookieToInitialState 方案
-- 从 Server Component (layout.tsx) 提取 cookie 状态注入 WagmiProvider
-
-支持的 EVM 链：Ethereum (1), Polygon (137), BSC (56)
-
-### 6.3 Solana 钱包集成
-
-- **@solana/wallet-adapter-react**：钱包连接 React 绑定
-- **支持钱包**：Phantom、Solflare
-- **Provider 嵌套**：ConnectionProvider → WalletProvider → WalletModalProvider
-
-### 6.4 统一钱包 UI
-
-**文件**: [apps/web/components/UnifiedWalletButton.tsx](file:///d:/2026/code/AI-Agent/apps/web/components/UnifiedWalletButton.tsx) + [UnifiedWalletModal.tsx](file:///d:/2026/code/AI-Agent/apps/web/components/UnifiedWalletModal.tsx)
-
-```typescript
-// useUnifiedWallet Hook 合并双链状态
-interface UnifiedWalletContext {
-  chain: 'evm' | 'solana' | 'none'
-  address: string
-  connected: boolean
-  chainId?: number
-  networkId?: string
-  disconnect: () => void
-}
-```
-
-优先级：EVM > Solana > None
-
-钱包连接流程：
-```
-用户点击 Connect Wallet
-  → UnifiedWalletModal 打开
-  → 选择链类型（EVM / Solana）
-  → EVM：直接触发 RainbowKit ConnectButton
-  → Solana：显示钱包列表（Phantom/Solflare）
-  → 连接成功 → useUnifiedWallet 合并状态
-```
-
-### 6.5 钱包上下文注入
-
-连接钱包后，AI 自动感知用户身份：
-
-```
-wagmi useAccount() → address
-  → page.tsx 传递 walletAddress 到 sendMessage()
-  → useChatStream → POST /api/chat { walletAddress, chainId }
-  → createSystemPrompt(walletAddress, chainId) → 动态注入 system prompt
-  → AI 查询"我的余额"时自动使用当前地址
-```
+连接钱包后，AI 自动获取钱包地址上下文:
+- `page.tsx` 通过 `useAccount()` (EVM) 或 `useWallet()` (Solana) 获取地址
+- 地址通过 `walletAddress` 参数传入 `sendMessage()`
+- API Route 将地址注入 System Prompt
+- AI 查询"我的余额"时自动使用该地址
 
 ---
 
-## 七、转账系统架构
+## 9. 转账系统
 
-### 7.1 适配器模式
+### 9.1 适配器模式
 
-**目录**: [apps/web/adapters/](file:///d:/2026/code/AI-Agent/apps/web/adapters)
+```
+TransferAdapter (抽象基类)
+  ├── EVMAdapter      (ETH/Polygon/BSC 转账)
+  └── SolanaAdapter   (SOL 转账)
+
+AdapterFactory.createAdapter(networkId, walletParams?, chainId?)
+```
+
+### 9.2 转账卡片架构
+
+**EVM 转账 (TransferCard)**:
+- ETH 原生转账: `useSendTransaction` (wagmi)
+- ERC20 转账: `useWriteContract` (wagmi) + ERC20 `transfer` ABI
+- Approve 授权: `useWriteContract` + `useWaitForTransactionReceipt`
+- 状态机: pending → signing → submitted → confirmed/failed
+
+**Solana 转账 (SolanaTransferCard)**:
+- SOL 原生: `SystemProgram.transfer`
+- SPL Token: `createTransferInstruction` + `getAssociatedTokenAddress`
+- 状态机: pending → sending → confirmed/failed
+
+### 9.3 适配器接口
 
 ```typescript
 abstract class TransferAdapter {
@@ -541,366 +629,380 @@ abstract class TransferAdapter {
 }
 ```
 
-| 实现 | 文件 | 支持功能 |
-|------|------|---------|
-| SolanaAdapter | adapters/solana/SolanaAdapter.ts (226 行) | SOL 转账、SPL Token 转账、余额查询、费用估算 |
-| EVMAdapter | adapters/evm/EVMAdapter.ts (82 行) | 网络配置、地址校验（wagmi hooks 限制，转账逻辑在 TransferCard 中） |
-| AdapterFactory | adapters/AdapterFactory.ts | 工厂模式，根据 networkId 创建对应适配器 |
-
-### 7.2 转账卡片组件
-
-#### TransferCard（EVM）
-
-**文件**: [apps/web/components/cards/TransferCard.tsx](file:///d:/2026/code/AI-Agent/apps/web/components/cards/TransferCard.tsx)（338 行）
-
-- ETH 原生转账（useSendTransaction）
-- ERC20 Token 转账（useWriteContract）
-- 完整 Approve 流程：allowance 查询 → approve 调用 → 交易监听 → 二次校验
-- 状态管理：pending → signing → confirmed/failed
-- Supabase 持久化
-
-#### SolanaTransferCard（Solana）
-
-**文件**: [apps/web/components/cards/SolanaTransferCard.tsx](file:///d:/2026/code/AI-Agent/apps/web/components/cards/SolanaTransferCard.tsx)（416 行）
-
-- SOL 原生转账（SystemProgram.transfer）
-- SPL Token 转账（createTransferInstruction）
-- 无需 Approve（SPL Token 直接转账）
-- Solscan 浏览器链接
-
-### 7.3 条件渲染
-
-**文件**: [apps/web/components/MessageItem.tsx](file:///d:/2026/code/AI-Agent/apps/web/components/MessageItem.tsx)
-
-```typescript
-const isSolana = message.transferData.chain === 'solana'
-const CardComponent = isSolana ? SolanaTransferCard : TransferCard
-```
-
-### 7.4 AI 意图解析
-
-**文件**: [apps/web/lib/ai-intent-parser.ts](file:///d:/2026/code/AI-Agent/apps/web/lib/ai-intent-parser.ts)
-
-- `parseTransferIntent`：从 AI 回复中解析转账意图
-- `checkNetworkConsistency`：校验用户当前网络与目标链是否一致
-
----
-
-## 八、会话与数据持久化
-
-### 8.1 Supabase 数据模型
-
-#### conversations 表
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | UUID | 主键 |
-| wallet_address | TEXT | 钱包地址（隔离键） |
-| title | TEXT | 对话标题 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-| updated_at | TIMESTAMPTZ | 更新时间 |
-
-#### messages 表
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | UUID | 主键 |
-| conversation_id | UUID | 关联对话 |
-| role | TEXT | user / assistant / system |
-| content | TEXT | 消息内容 |
-| created_at | TIMESTAMPTZ | 创建时间 |
-
-#### transfer_cards 表
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | UUID | 主键 |
-| conversation_id | UUID | 关联对话 |
-| from_address | TEXT | 发送地址 |
-| to_address | TEXT | 接收地址 |
-| token_symbol | TEXT | Token 符号 |
-| amount | TEXT | 转账金额 |
-| chain | TEXT | 链标识 |
-| status | TEXT | pending/confirmed/failed |
-| tx_hash | TEXT | 交易哈希 |
-
-### 8.2 RLS 安全策略
-
-- **开发环境**：`USING (true)` 临时放开
-- **生产环境**：DELETE 策略升级为 `current_setting('app.current_wallet_address', true)` 严格模式
-- **服务端双重验证**：
-  1. `/api/supabase/verify-ownership`：数据库查询确认对话归属
-  2. `/api/supabase/delete-conversation`：内置所有权验证后执行删除
-
-### 8.3 对话管理流程
+### 9.4 TransferData 数据流
 
 ```
-钱包连接 → getOrCreateConversation(walletAddress)
-  → 侧边栏展示对话列表
-  → 发送消息 → saveMessages(conversationId, messages)
-  → 第一条消息 → generateConversationTitle() → updateConversationTitle()
-  → 新建对话 → createNewConversation() → CustomEvent 增量更新侧边栏
-  → 断开连接 → UI 清空，Supabase 数据保留
-  → 重连 → loadConversationHistory() 恢复
+AI 返回 createTransferCard toolCall
+  → API Route 提取 transferData
+  → SSE 发送 transfer_data chunk
+  → useChatStream 解析并存储
+  → MessageItem 渲染 TransferCard/SolanaTransferCard
+  → 用户确认 → 钱包签名 → 链上执行 → 结果回调 → Supabase 持久化
 ```
 
 ---
 
-## 九、前端 UI 架构
+## 10. 会话管理系统
 
-### 9.1 组件目录结构
+### 10.1 架构设计
 
 ```
-components/
-├── cards/                    # 卡片组件
-│   ├── TransferCard.tsx      # EVM 转账卡片 (338 行)
-│   ├── SolanaTransferCard.tsx # Solana 转账卡片 (416 行)
-│   ├── DexSwapCard.tsx       # DexSwap 预留
-│   └── index.ts              # 统一导出
-├── ChatInput.tsx             # 聊天输入框
-├── ConfirmDialog.tsx         # 自定义确认弹窗
-├── ConversationHistory.tsx   # 对话历史侧边栏
-├── EVMWalletList.tsx         # EVM 钱包列表
-├── MarkdownRenderer.tsx      # Markdown 渲染
-├── MessageItem.tsx           # 单条消息（条件渲染卡片）
-├── MessageList.tsx           # 消息列表
-├── PromptSelector.tsx        # 提示选择器
-├── SettingsPanel.tsx         # 设置面板
-├── SolanaWalletList.tsx      # Solana 钱包列表
-├── ThemeSwitcher.tsx         # 主题切换
-├── UnifiedWalletButton.tsx   # 统一钱包按钮
-├── UnifiedWalletModal.tsx    # 统一钱包弹窗
-└── WalletConnectButton.tsx   # RainbowKit 封装
+SupabaseConversations (lib/supabase.ts)
+  ├── getOrCreateConversation(walletAddress)
+  ├── loadConversationHistory(conversationId)
+  ├── saveMessages(conversationId, messages)
+  ├── loadAllConversationsWithMessages()
+  ├── deleteConversationWithOwnershipCheck()
+  └── generateConversationTitle()
 ```
 
-### 9.2 主题系统
+### 10.2 核心流程
 
-**目录**: [apps/web/lib/theme/](file:///d:/2026/code/AI-Agent/apps/web/lib/theme)
+1. **钱包连接** → `getOrCreateConversation(walletAddress)` 自动创建/获取对话
+2. **用户发送消息** → `saveMessages()` 实时保存
+3. **第一条消息** → `generateConversationTitle()` 自动生成标题 → 更新侧边栏
+4. **新建对话** → `createNewConversation()` → CustomEvent 增量更新侧边栏
+5. **重连** → `loadConversationHistory()` 恢复完整历史
 
-```typescript
-type ThemeMode = 'light' | 'dark' | 'system'
-type ResolvedTheme = 'light' | 'dark'
+### 10.3 侧边栏交互
 
-interface ThemeContextType {
-  theme: ThemeMode
-  setTheme: (theme: ThemeMode) => void
-  resolvedTheme: ResolvedTheme
-}
+- 对话列表展示: 标题 + 时间 + 预览
+- 新建对话: CustomEvent `conversation-changed` 增量更新
+- 删除对话: ConfirmDialog → 服务端双重验证 → 删除
+- 数据隔离: 按 `wallet_address` 字段区分不同用户
+
+---
+
+## 11. Memory 记忆管理
+
+### 11.1 策略模式架构
+
+```
+MemoryManager (接口)
+  ├── L1 (Conversation Buffer) - 基础
+  ├── L2 (Sliding Window) - 实现
+  └── L3 (Summary Compression) - 实现
+
+lib/memory/
+  ├── types.ts              // MemoryManager 接口 + MessagePart 类型
+  ├── SlidingWindowMemory.ts // L2: 滑动窗口
+  └── SummaryCompressionMemory.ts // L3: 摘要压缩
 ```
 
-- CSS 变量架构（globals.css）
+### 11.2 L2 SlidingWindow
+
+- 只保留最近 N 条消息
+- 无 LLM 调用，零开销
+- 配置项: `maxMessages`
+
+### 11.3 L3 SummaryCompression
+
+- **触发条件**: `compressThreshold` (默认 10 条)
+- **压缩策略**: 保留最近 `keepRecentCount` (默认 5 条) + 生成摘要
+- **异步压缩**: 使用 `isCompressing` 标志位防止并发
+- **LLM 调用**: 通过 `/api/chat` 生成摘要
+- **优势**: Token 消耗降低 ≥ 50%
+
+---
+
+## 12. UI 组件架构
+
+### 12.1 核心组件
+
+| 组件 | 文件 | 行数 | 职责 |
+|------|------|------|------|
+| ChatInput | ChatInput.tsx | ~100 | 输入框 + 发送按钮 + 连接状态提示 |
+| MessageList | MessageList.tsx | ~150 | 消息列表容器 |
+| MessageItem | MessageItem.tsx | ~200 | 单条消息渲染 + 转账卡片条件渲染 |
+| TransferCard | cards/TransferCard.tsx | ~415 | EVM 转账交互卡片 |
+| SolanaTransferCard | cards/SolanaTransferCard.tsx | ~416 | Solana 转账交互卡片 |
+| UnifiedWalletButton | unified/UnifiedWalletButton.tsx | ~100 | 统一钱包连接按钮 |
+| UnifiedWalletModal | unified/UnifiedWalletModal.tsx | ~160 | 钱包选择弹窗 |
+| ThemeSwitcher | ThemeSwitcher.tsx | - | 主题切换 (Light/Dark/System) |
+| ConversationHistory | ConversationHistory.tsx | - | 对话历史侧边栏 |
+| PromptSelector | PromptSelector.tsx | - | 预设提示选择 |
+| MarkdownRenderer | MarkdownRenderer.tsx | - | Markdown 渲染 |
+| ConfirmDialog | ConfirmDialog.tsx | - | 确认弹窗 (替代浏览器 confirm) |
+| SettingsPanel | SettingsPanel.tsx | - | 设置面板 |
+
+### 12.2 主题系统
+
+```
+lib/theme/
+  ├── ThemeContext.ts    // React Context
+  ├── ThemeProvider.tsx  // Provider 实现
+  └── ThemeSwitcher.tsx  // 切换组件
+
+类型:
+  ThemeMode = 'light' | 'dark' | 'system'
+  ResolvedTheme = 'light' | 'dark'
+```
+
+特性:
+- CSS 变量全局管理
 - localStorage 持久化
-- 系统主题监听（prefers-color-scheme）
-- 平滑过渡动画（transition-colors duration-300）
-- SSR 闪烁修复：layout.tsx `<head>` 内联同步脚本
+- 系统主题监听
+- 平滑过渡动画 (transition-colors)
+- SSR 闪烁修复 (layout.tsx head script)
 
-### 9.3 流式输出 Hook
+### 12.3 React Hooks 一览
 
-**文件**: [apps/web/hooks/useChatStream.ts](file:///d:/2026/code/AI-Agent/apps/web/hooks/useChatStream.ts)
+| Hook | 文件 | 职责 |
+|------|------|------|
+| `useChatStream` | hooks/useChatStream.ts | SSE 流式对话 |
+| `useUnifiedWallet` | hooks/useUnifiedWallet.ts | 统一钱包状态 |
+| `useSettings` | hooks/useSettings.ts | 全局设置管理 |
+| `useSupabaseStorage` | hooks/useSupabaseStorage.ts | Supabase CRUD |
+| `useConversationSidebar` | hooks/useConversationSidebar.ts | 侧边栏状态 |
+| `useTheme` | lib/theme/ | 主题切换 |
 
+---
+
+## 13. Supabase 数据持久化
+
+### 13.1 数据模型
+
+**conversations 表**:
+```sql
+CREATE TABLE conversations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  wallet_address TEXT NOT NULL,
+  title TEXT DEFAULT '新对话',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**messages 表**:
+```sql
+CREATE TABLE messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+  role TEXT NOT NULL,
+  content TEXT,
+  tool_calls JSONB,
+  tool_call_id TEXT,
+  name TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 13.2 查询优化
+
+- `loadAllConversationsWithMessages`: 单次查询 + 内存组装，避免 N+1
+- 使用 `order` 排序: conversations 按 `updated_at DESC`, messages 按 `created_at ASC`
+
+---
+
+## 14. RLS 行级安全策略
+
+### 14.1 开发阶段
+
+```sql
+-- 全部使用宽松策略
+CREATE POLICY "Allow all" ON conversations FOR ALL USING (true);
+CREATE POLICY "Allow all" ON messages FOR ALL USING (true);
+```
+
+### 14.2 生产阶段 (UPDATE/INSERT 保持宽松, DELETE 升级严格)
+
+**messages DELETE 策略**:
+```sql
+CREATE POLICY "Users can delete own messages" ON messages
+  FOR DELETE
+  USING (
+    conversation_id IN (
+      SELECT id FROM conversations
+      WHERE wallet_address = current_setting('app.current_wallet_address', true)
+    )
+  );
+```
+
+### 14.3 服务端双重验证
+
+DELETE 请求走两步:
+1. `/api/supabase/verify-ownership` → 查询数据库确认对话归属
+2. `/api/supabase/delete-conversation` → 内置 `verifyOwnership()` 函数再次校验
+
+---
+
+## 15. 测试体系
+
+### 15.1 单元测试 (Vitest)
+
+**统计**: 31 个测试文件 | 238 个测试用例 | 100% 通过率
+
+**Workspace 配置** (`vitest.workspace.ts`):
+```
+apps/web/vitest.config.ts          → jsdom 环境
+packages/ai-config/vitest.config.ts → node 环境
+packages/web3-tools/vitest.config.ts → node 环境
+```
+
+**模块覆盖**:
+
+| 模块 | 测试文件数 | 测试用例数 |
+|------|-----------|-----------|
+| apps/web | 17 | 130 |
+| packages/ai-config | 4 | 34 |
+| packages/web3-tools | 10 | 74 |
+
+### 15.2 E2E 测试 (Playwright)
+
+**统计**: 4 个测试文件 | 18 个用例
+
+| 文件 | 用例数 | 覆盖范围 |
+|------|--------|---------|
+| basic.spec.ts | 3 | 页面加载、标题验证、主题切换 |
+| api.spec.ts | 9 | Chat API、健康检查、工具调用、SSE 流式 |
+| chat.spec.ts | 3 | 消息发送、聊天流程、工具执行 |
+| transfer.spec.ts | 3 | 转账卡片渲染、组件结构 |
+
+### 15.3 Mock 策略
+
+| 外部依赖 | Mock 方式 |
+|----------|----------|
+| openai SDK | `vi.mock('openai')` + `vi.hoisted()` |
+| @supabase/supabase-js | `vi.mock()` + 链式调用 mock |
+| fetch | Vitest 内置 (jsdom) |
+| setTimeout/setInterval | `vi.useFakeTimers()` |
+| 匹配器 | `expect.extend(matchers)` from @testing-library |
+
+---
+
+## 16. CI/CD 与部署
+
+### 16.1 GitHub Actions Pipeline
+
+```yaml
+Trigger: push to main / PR to main
+
+Jobs:
+  lint-and-test:
+    - checkout
+    - setup pnpm + Node.js 22
+    - pnpm install
+    - pnpm type-check
+    - pnpm lint
+    - pnpm test
+
+  deploy: (仅 main 分支)
+    - vercel pull --yes
+    - vercel build
+    - vercel deploy --prebuilt --prod
+```
+
+### 16.2 部署方案
+
+| 平台 | 适用场景 | 特点 |
+|------|---------|------|
+| **Vercel** (推荐) | 快速上线、自动部署 | 全球 CDN、Edge Functions、Preview 部署 |
+| **Docker** | 私有化部署 | 容器化、可复现、支持自定义基础设施 |
+| **传统服务器** | 企业级部署 | PM2 进程管理、Nginx 反向代理 |
+
+### 16.3 环境变量
+
+| 变量 | 必填 | 说明 |
+|------|------|------|
+| `DEFAULT_MODEL_PROVIDER` | ✅ | AI Provider (openai/anthropic) |
+| `OPENAI_API_KEY` | 条件 | OpenAI API Key |
+| `ANTHROPIC_API_KEY` | 条件 | Anthropic API Key |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase 项目 URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase 匿名密钥 |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | ✅ | WalletConnect 项目 ID |
+| `ETHEREUM_RPC_URL` | 可选 | 以太坊 RPC |
+| `POLYGON_RPC_URL` | 可选 | Polygon RPC |
+| `BSC_RPC_URL` | 可选 | BSC RPC |
+| `HTTP_PROXY` / `HTTPS_PROXY` | 可选 | 代理 (国内开发环境) |
+
+---
+
+## 17. x-ray Skills 技能系统
+
+### 17.1 工作流
+
+```
+skills/x-ray/SKILL.md (入口)
+  └─ origin (需求分析)
+       └─ pipeline (路由)
+            ├─ check-in (技术栈检测)
+            ├─ architect (架构设计)
+            ├─ coder (代码实现)
+            └─ audit (审查)
+```
+
+### 17.2 文档输出规则
+
+- 每个阶段生成独立文档，带日期时间戳和迭代编号
+- 所有文档存放在 `docs/` 目录
+- 架构决策必须在文档中明确记录，便于回溯
+
+---
+
+## 18. API 参考
+
+### 18.1 POST /api/chat
+
+AI 对话主接口，支持 SSE 流式和 JSON 两种响应模式。
+
+**请求体**:
 ```typescript
-interface UseChatStreamReturn {
-  isStreaming: boolean
-  content: string
-  error: string | null
-  toolCalls: ToolCallUIState[]
-  transferData?: TransferData
-  sendMessage: (messages, walletAddress?, chainId?) => Promise<{ content, toolCalls, transferData }>
-  abort: () => void
+{
+  messages: Array<{ role: string; content: string }>
+  walletAddress?: string   // 钱包地址 (42字符十六进制 / Solana Base58)
+  chainId?: number         // 当前链 ID
 }
 ```
 
-关键参数：
-- `MAX_RETRIES = 2`：最大重试次数
-- `TIMEOUT_MS = 30000`：超时时间
-- `THROTTLE_MS = 50`：节流更新间隔
-
-SSE 解析流程：
-```
-fetch('/api/chat', { Accept: 'text/event-stream' })
-  → response.body.getReader()
-  → 按 \n\n 分割事件
-  → JSON.parse(data) → StreamChunk
-  → handleChunk() 按 type 分发
-    → content: 拼接到 buffer，节流更新 UI
-    → tool_call: 添加到 toolCalls
-    → transfer_data: 同步到 ref + state
-    → done: 最终更新，结束流
-    → error: 设置错误状态
+**响应** (JSON 模式):
+```typescript
+{
+  content: string
+  toolCalls?: Array<{ id, name, arguments, result }>
+  transferData?: { id, to, tokenSymbol, amount, chain, from, tokenAddress, status }
+}
 ```
 
----
+**响应** (SSE 模式): 逐行发送 `event: chunk\ndata: {...}\n\n`
 
-## 十、测试体系
+### 18.2 GET /api/health
 
-### 10.1 单元测试
+健康检查接口，返回模型配置状态。
 
-**框架**: Vitest 3.2.4 + vitest workspace
+### 18.3 POST /api/supabase/verify-ownership
 
-```
-vitest.workspace.ts
-├── apps/web/vitest.config.ts        (jsdom 环境)
-├── packages/ai-config/vitest.config.ts (node 环境)
-└── packages/web3-tools/vitest.config.ts (node 环境)
-```
+验证对话所有权 (DELETE 前置校验)。
 
-**统计**: 31 个测试文件，238 个测试用例，100% 通过率
-
-| 模块 | 测试文件 | 测试用例 | 覆盖内容 |
-|------|---------|---------|---------|
-| apps/web | 17 | 130 | supabase(46), theme(10), memory(22), tokens(6), hooks(9), components(21), api(8) |
-| packages/ai-config | 4 | 34 | config(11), factory(8), providers(15) |
-| packages/web3-tools | 10 | 74 | balance(6), chains(20), gas(4), price(6), token(10), transfer(8), registry(8) |
-
-### 10.2 Mock 策略
-
-| 场景 | 方案 | 示例 |
-|------|------|------|
-| 外部 SDK | `vi.mock()` + `vi.hoisted()` | openai, @supabase/supabase-js |
-| 浏览器 API | jsdom 内置 | fetch, localStorage |
-| 定时器 | `vi.useFakeTimers()` | 5xx 重试延迟 |
-| 链式调用 | 逐层 mock | `.from().select().eq()` |
-| React Hook | `renderHook + act` | useChatStream |
-
-### 10.3 E2E 测试
-
-**框架**: Playwright 1.59.x
-
-```
-e2e/
-├── basic.spec.ts       # 页面加载、主题切换 (3 tests)
-├── api.spec.ts         # API 接口测试 (9 tests)
-├── chat.spec.ts        # 对话功能测试 (3 tests)
-└── transfer.spec.ts    # 转账卡片 UI (3 tests)
+**请求体**:
+```typescript
+{
+  conversationId: string
+  walletAddress: string
+}
 ```
 
-**统计**: 18 个 E2E 测试用例，全部通过
+### 18.4 POST /api/supabase/delete-conversation
 
-运行命令：
-```bash
-pnpm test:e2e           # 无头模式
-pnpm test:e2e:ui        # UI 模式
-pnpm test:e2e:headed    # 有头模式
-pnpm test:e2e:report    # 查看报告
+服务端删除对话 (含内置所有权验证)。
+
+**请求体**:
+```typescript
+{
+  conversationId: string
+  walletAddress: string
+}
 ```
 
 ---
 
-## 十一、部署与 CI/CD
+## 附录: 核心设计模式总结
 
-### 11.1 部署方案
-
-| 方案 | 适用场景 | 推荐度 |
-|------|---------|--------|
-| Vercel | 快速上线、个人项目 | ⭐⭐⭐⭐⭐ |
-| Docker | 私有化部署 | ⭐⭐⭐⭐ |
-| 传统服务器 | 企业级部署 | ⭐⭐⭐ |
-
-Vercel 部署关键配置：
-- Root Directory: `apps/web`
-- Build Command: `pnpm install && pnpm build`
-- Output Directory: `.next`
-
-### 11.2 CI/CD 流水线
-
-**配置**: [.github/workflows/ci-cd.yml](file:///d:/2026/code/AI-Agent/.github/workflows/ci-cd.yml)
-
-```
-Push to main / PR
-  → lint-and-test 任务
-    ├─ pnpm install
-    ├─ pnpm type-check
-    ├─ pnpm lint
-    └─ pnpm test
-  → deploy 任务（仅 main 分支）
-    ├─ vercel pull
-    ├─ vercel build
-    └─ vercel deploy --prod
-```
-
-GitHub Secrets 配置：
-- `VERCEL_TOKEN`
-- `VERCEL_ORG_ID`
-- `VERCEL_PROJECT_ID`
-
----
-
-## 十二、环境变量配置
-
-### 12.1 AI 模型配置
-
-| 变量 | 必填 | 说明 |
-|------|------|------|
-| `DEFAULT_MODEL_PROVIDER` | 是 | `openai` 或 `anthropic` |
-| `OPENAI_API_KEY` | 条件 | OpenAI API 密钥 |
-| `OPENAI_MODEL` | 否 | 默认 `gpt-3.5-turbo` |
-| `ANTHROPIC_API_KEY` | 条件 | Anthropic API 密钥 |
-
-### 12.2 Web3 配置
-
-| 变量 | 必填 | 说明 |
-|------|------|------|
-| `ETHEREUM_RPC_URL` | 否 | Ethereum RPC 节点 |
-| `POLYGON_RPC_URL` | 否 | Polygon RPC 节点 |
-| `BSC_RPC_URL` | 否 | BSC RPC 节点 |
-| `NEXT_PUBLIC_HARDHAT_RPC_URL` | 否 | Hardhat 本地 RPC |
-
-### 12.3 钱包配置
-
-| 变量 | 必填 | 说明 |
-|------|------|------|
-| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | 是 | WalletConnect 项目 ID |
-
-### 12.4 Supabase 配置
-
-| 变量 | 必填 | 说明 |
-|------|------|------|
-| `NEXT_PUBLIC_SUPABASE_URL` | 是 | Supabase 项目 URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 是 | Supabase 匿名密钥 |
-| `SUPABASE_SERVICE_ROLE_KEY` | 否 | 服务端删除 API 用 |
-
-### 12.5 代理配置
-
-| 变量 | 说明 |
-|------|------|
-| `HTTP_PROXY` | HTTP 代理（国内开发环境） |
-| `HTTPS_PROXY` | HTTPS 代理（国内开发环境） |
-
----
-
-## 十三、扩展指南
-
-### 13.1 添加新的 AI Provider
-
-1. 在 `packages/ai-config/src/providers/` 创建新适配器，继承 `BaseProvider`
-2. 实现 `chat()` 和 `chatStream()` 方法
-3. 在 `LLMFactory` 注册新 Provider
-4. 在 `.env.example` 添加配置项
-
-### 13.2 添加新的 Web3 工具
-
-1. 在 `packages/web3-tools/src/` 创建工具函数
-2. 返回统一的 `ToolResult<T>` 格式
-3. 在 `packages/web3-tools/src/index.ts` 导出
-4. 在 `apps/web/app/api/chat/route.ts` 添加工具定义和路由
-
-### 13.3 添加新的链支持
-
-1. 在 `packages/web3-tools/src/chains/` 创建新适配器，实现 `ChainAdapter` 接口
-2. 在 `config.ts` 注册链配置
-3. 更新 `types.ts` 的 `ChainId` 类型
-4. 更新 `route.ts` 的工具定义 `enum` 值
-
-### 13.4 添加新的转账链
-
-1. 在 `apps/web/adapters/` 创建新适配器，继承 `TransferAdapter`
-2. 实现 `getBalance()` / `sendTransfer()` / `estimateFee()` / `validateAddress()`
-3. 在 `AdapterFactory` 注册新适配器
-4. 创建对应的 TransferCard 组件
-5. 在 `MessageItem` 添加条件渲染逻辑
-
-### 13.5 添加新的 Memory 策略
-
-1. 在 `apps/web/lib/memory/` 创建新实现，实现 `MemoryManager` 接口
-2. 在 `config.ts` 添加策略配置
-3. 在 `page.tsx` 切换使用新策略
+| 模式 | 应用位置 | 说明 |
+|------|---------|------|
+| **Factory** | LLMFactory, AdapterFactory | 统一创建入口，支持扩展 |
+| **Strategy** | Memory Manager | L2/L3 策略可切换 |
+| **Adapter** | ChainAdapter, TransferAdapter | 统一多链接口 |
+| **Provider** | ThemeProvider, WagmiProvider | React Context 状态共享 |
+| **Singleton** | LLMFactory Instances | Provider 实例缓存 |
+| **Observer** | CustomEvent (conversation-changed) | 侧边栏增量更新 |
+| **Template Method** | BaseProvider | 提供商基类 + 子类实现 |
