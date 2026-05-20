@@ -1,40 +1,60 @@
 # Web3 AI Agent
 
-一个面向 Web3 前端开发者的 AI Agent 项目，实现从需求定义到代码交付的完整 SDLC 自动化流程。
+一个能够理解用户意图、调用 Web3 工具、返回可信结果，并具备最小风险边界的 AI Agent。
 
 ## 项目简介
 
-本项目服务于个人转型目标：从 `Web3 前端工程师` 升级为 `AI 应用工程师 / Agent 工程师`。项目既是学习载体，也是未来可展示的作品集基础。
-
-产品层面，本项目验证的不是"做一个聊天页面"，而是"做一个能够理解用户意图、调用 Web3 工具、返回可信结果，并具备最小风险边界的 AI Agent"。
+Web3 AI Agent 是一个面向 Web3 开发者和用户的智能助手项目，通过自然语言交互实现链上数据查询、转账操作等 Web3 场景的自动化处理。项目验证的核心理念是：构建一个能够理解用户意图、调用 Web3 工具、返回可信结果，并具备最小风险边界的 AI Agent
 
 ## 核心能力
 
-- **对话能力**：基础聊天界面，支持流式输出
-- **Tool Calling**：调用 Web3 工具获取链上数据
-- **Agent Loop**：理解用户意图，自主决策工具调用
-- **最小 Memory**：保持会话上下文连续性
+- **多模型对话**：支持 OpenAI GPT / Anthropic Claude，流式输出 + SSE 实时推送
+- **Agent Loop**：理解用户意图，自主决策工具调用，循环执行直到任务完成
+- **Web3 工具集**：多链价格/余额/Gas/Token 查询，覆盖 ETH/BTC/SOL/MATIC/BNB
+- **链上转账**：EVM + Solana 双链转账卡片，含 ERC20 Approve 完整流程
+- **多链钱包**：RainbowKit（EVM）+ Solana wallet-adapter，统一钱包状态管理
+- **对话持久化**：Supabase 云端存储，对话历史侧边栏（创建/切换/删除）
+- **Memory 管理**：L2 滑动窗口 + L3 摘要压缩双策略，可切换
+- **提示词模板**：20+ 预设提示词，按分类一键填充
+- **安全加固**：RLS 行级安全、服务端所有权验证、钱包地址隔离
 
 ## 技术栈
 
-- **前端框架**: Next.js 14 + React + TypeScript
-- **样式**: Tailwind CSS
-- **AI 能力**: OpenAI API
-- **Web3**: ethers.js
-- **开发语言**: TypeScript
+| 层级 | 技术 |
+|------|------|
+| 前端框架 | Next.js 14 (App Router) + React 18 + TypeScript |
+| 样式 | Tailwind CSS + CSS 变量主题系统 |
+| AI | OpenAI API + Anthropic SDK（双 Provider 工厂模式） |
+| Web3 | wagmi + viem + RainbowKit（EVM），@solana/web3.js + wallet-adapter（Solana） |
+| 数据库 | Supabase（PostgreSQL + RLS） |
+| 测试 | Vitest（单元测试）+ Playwright（E2E） |
+| 构建 | pnpm workspace + Turborepo 2.x |
+| 部署 | Vercel + GitHub Actions CI/CD |
 
 ## 项目结构
 
 ```
 AI-Agent/
-├── apps/                   # 应用代码
-│   └── web/               # Next.js Web 应用
-├── packages/              # 共享包
-│   ├── ui/               # UI 组件库
-│   └── web3-tools/       # Web3 工具集
-├── docs/                  # 项目文档
-├── skills/                # Skill 体系
-└── README.md             # 本文件
+├── apps/
+│   └── web/                    # Next.js Web 应用
+│       ├── adapters/           # 转账适配器（TransferAdapter / SolanaAdapter / EVMAdapter）
+│       ├── app/                # App Router 页面 + API Routes
+│       │   └── api/            # chat / tools / health / supabase
+│       ├── components/         # UI 组件（20+）
+│       │   └── cards/          # 转账卡片（TransferCard / SolanaTransferCard / DexSwapCard）
+│       ├── config/             # 提示词模板 + Solana 链配置
+│       ├── hooks/              # useChatStream / useUnifiedWallet
+│       ├── lib/                # memory（L2/L3）/ supabase / theme / wallet
+│       ├── types/              # chat / stream / transfer 类型定义
+│       └── utils/              # 地址校验工具
+├── packages/
+│   ├── ai-config/              # AI Provider 抽象层（OpenAI + Anthropic + LLMFactory）
+│   └── web3-tools/             # Web3 工具集（价格/余额/Gas/Token/转账 + 链适配器）
+├── e2e/                        # Playwright E2E 测试
+├── supabase/                   # 数据库迁移脚本
+├── docs/                       # 项目文档（PRD / 部署 / API / Changelog）
+├── skills/                     # x-ray 技能体系 V3（SDLC 自动化）
+└── .github/workflows/          # CI/CD Pipeline
 ```
 
 ## 快速开始
@@ -57,6 +77,17 @@ cp apps/web/.env.example apps/web/.env.local
 # 编辑 .env.local 填入你的配置
 ```
 
+必需的环境变量：
+
+| 变量 | 说明 |
+|------|------|
+| `DEFAULT_MODEL_PROVIDER` | AI Provider（`openai` / `anthropic`） |
+| `OPENAI_API_KEY` | OpenAI API Key（使用 OpenAI 时必需） |
+| `ANTHROPIC_API_KEY` | Anthropic API Key（使用 Claude 时必需） |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 项目 URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 匿名密钥 |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect 项目 ID |
+
 ### 启动开发服务器
 
 ```bash
@@ -65,15 +96,26 @@ pnpm dev
 
 访问 http://localhost:3000
 
+### 运行测试
+
+```bash
+pnpm test          # 单元测试（Vitest）
+pnpm test:e2e      # E2E 测试（Playwright）
+pnpm type-check    # 类型检查
+pnpm lint          # 代码规范检查
+```
+
 ## 文档索引
 
 | 文档 | 说明 |
 |------|------|
-| [docs/Web3-AI-Agent-PRD-MVP.md](./docs/Web3-AI-Agent-PRD-MVP.md) | 产品需求文档 |
-| [docs/Web3-AI-Agent-阶段执行说明-V3.md](./docs/Web3-AI-Agent-阶段执行说明-V3.md) | 阶段执行说明 |
-| [docs/Web3-AI-Agent-项目里程碑-Checklist.md](./docs/Web3-AI-Agent-项目里程碑-Checklist.md) | 项目里程碑 Checklist |
-| [skills/x-ray/SKILL.md](./skills/x-ray/SKILL.md) | Skill 体系总览 |
-| [skills/x-ray/MAP-V3.md](./skills/x-ray/MAP-V3.md) | Skill 地图 V3 |
+| [CHANGELOG](./docs/CHANGELOG.md) | 完整变更历史（v0.1.0 ~ v0.9.0） |
+| [ROADMAP-CHECKLIST](./docs/ROADMAP-CHECKLIST.md) | 路线图与检查清单 |
+| [TECHNICAL-DOCUMENTATION](./docs/TECHNICAL-DOCUMENTATION.md) | 技术文档（1000+ 行） |
+| [API-REFERENCE](./docs/API-REFERENCE.md) | API 参考文档 |
+| [DEPLOYMENT](./docs/DEPLOYMENT.md) | 部署文档（Vercel / Docker / 传统服务器） |
+| [E2E-TESTING](./docs/E2E-TESTING.md) | E2E 测试文档 |
+| [CI-CD-SETUP-GUIDE](./docs/CI-CD-SETUP-GUIDE.md) | CI/CD 配置指南 |
 
 ## 开发规范
 
@@ -83,9 +125,12 @@ pnpm dev
 2. **交付型任务走 pipeline** - `/pipeline feat|patch|refactor`
 3. **实施前必须经过 check-in** - 确认问题、边界、方案
 
-## 当前阶段
+## 当前状态
 
-根据 [项目里程碑 Checklist](./docs/Web3-AI-Agent-项目里程碑-Checklist.md)，当前处于**阶段 1：项目初始化**。
+- **版本**: v0.9.0
+- **已完成**: Phase 1 ~ Phase 8（项目初始化、对话能力、Web3 工具、钱包系统、转账功能、Solana 多链、测试体系、安全加固）
+- **进行中**: Phase 9（用户体验优化）、Phase 10（生产就绪）
+- 详见 [ROADMAP-CHECKLIST](./docs/ROADMAP-CHECKLIST.md)
 
 ## License
 

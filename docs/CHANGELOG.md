@@ -4,6 +4,41 @@
 
 ---
 
+## v0.9.0 - 2026-05-19
+
+### CI 修复 + Solana 分支合并
+
+**类型**: FIX + MERGE | **提交**: 2bf12ef, 54283e8
+
+#### 测试修复
+
+- 修复适配器工厂测试用例导入方式（`require()` → ES `import`）
+- Vitest 环境下 CommonJS `require()` 绕过 Vite 模块解析器，导致 `@` 路径别名无法识别
+- 全部 13 个适配器测试用例通过
+
+#### 分支合并
+
+- 合并 Solana 多链钱包支持与转账功能到主线
+- 更新项目文档
+
+---
+
+## v0.8.1 - 2026-05-08
+
+### 文档体系重构
+
+**类型**: REFACTOR | **提交**: 7121ea1 ~ f7d84f3 | **影响模块**: docs/
+
+#### 文档结构调整
+
+- 重构文档体系，合并重复内容，优化结构
+- 迁移文档目录到 `content` 子目录
+- 清理 Regenerate 生成的旧文档结构
+- 添加 `_index.md` 索引文件兼容 Repo Wiki 识别
+- 文档适配 Repo Wiki 索引机制
+
+---
+
 ## v0.8.0 - 2026-05-07
 
 ### Solana 多链钱包支持 + 转账适配器架构
@@ -55,18 +90,102 @@
 
 ---
 
+## v0.7.3 - 2026-04-30
+
+### CI/CD Pipeline + Vercel 部署 + 钱包连接优化
+
+**类型**: FEAT + FIX | **提交**: 222c955 ~ bade282 | **影响模块**: .github, vercel.json, apps/web
+
+#### CI/CD 自动化部署
+
+- **GitHub Actions Workflow**（`.github/workflows/ci-cd.yml`）：
+  - 触发条件：push 到 main 分支或创建 PR
+  - `lint-and-test` 任务：类型检查 + Lint + 单元测试
+  - `deploy` 任务：Vercel 生产部署（仅 main 分支 push）
+  - pnpm + Node.js 18 环境配置
+- **Vercel 配置**（`vercel.json`）：构建命令、安装命令、框架识别
+
+#### Vercel 部署修复（10+ 次迭代）
+
+- 修复 Monorepo 架构生产环境依赖模型配置错误
+- 修复 Tailwind CSS 在 Vercel 构建环境找不到的问题（devDependencies 不安装）
+- 创建 `.npmrc` 解决 pnpm 隔离依赖问题
+- 添加 `baseUrl` 修复 `@` 路径别名，改用精确 Tailwind 提升规则
+- 修复 lockfile 同步问题（ERR_PNPM_OUTDATED_LOCKFILE）
+- 降级 Vitest 到 3.1.0 修复 ESM 兼容性错误
+- 修复 ERR_REQUIRE_ESM + jsdom/Vitest CI 崩溃的完整修复
+- 修复依赖链 ESM / CJS 混用冲突
+- 修复 8 个失败的单元测试
+- 新增 `Vercel 部署 FAQ` 文档（366 行，6 个常见问题详解）
+
+#### 钱包连接体验优化
+
+- **RainbowKit connectorsForWallets**：使用官方 API 优化钱包连接体验
+- **自定义钱包列表**：优化未安装钱包的引导体验
+- **依赖修复**：添加 `@coinbase/wallet-sdk` 和 `@base-org/account` 依赖解决模块编译错误
+
+---
+
 ## v0.7.2 - 2026-04-29
 
-### Hardhat 本地网络支持
+### Hardhat 本地网络支持 + 对话按需创建 + 系统 UI 重构
 
-**类型**: FEAT | **影响模块**: web3-tools, web-app
+**类型**: FEAT + REFACTOR | **影响模块**: web3-tools, web-app
+
+#### Hardhat 本地网络支持
 
 - 扩展 `EvmChainId` 类型新增 `'hardhat'`（chainId: 31337）
 - 链配置添加 Hardhat RPC 地址（默认 `http://127.0.0.1:8545`）
 - wagmi 配置添加 Hardhat 链定义和传输层
 - TransferCard 支持 Hardhat 网络展示
 - 环境变量 `NEXT_PUBLIC_HARDHAT_RPC_URL` 支持自定义 RPC
+
+#### 对话历史按需创建机制
+
+- 重构对话创建逻辑：连接钱包时只查询最新对话，不再自动创建空对话
+- 首次发送消息时才创建对话记录，避免数据库中产生大量空对话
+- 无历史对话时显示欢迎页面，保持界面简洁
+- `getLatestConversation()` 新增查询接口（仅查询不创建）
+
+#### 系统 UI 重构
+
+- 全面重构系统 UI 组件结构
+- 清理 Hardhat 相关模块（Hardhat 添加后移除）
+- 移除 Sepolia 测试网配置
 - 测试状态：74/74 tests passed
+
+---
+
+## v0.6.1 - 2026-04-28
+
+### 提示词模板管理 + Token Logo 展示 + Bug 修复
+
+**类型**: FEAT + FIX | **提交**: c264fe0 ~ 5eb7dad | **影响模块**: apps/web
+
+#### 提示词模板系统
+
+- **PromptSelector 组件**：按分类（价格/余额/Gas/Token/转账）展示快捷提示词列表
+- **PromptSelectorModal 弹窗**：沉浸式弹窗体验，ESC 键关闭，动画过渡
+- **prompts.ts 配置**：集中管理 20+ 个预设提示词模板，支持分类过滤和 ID 查询
+- **ChatInput 集成**：输入框新增"提示词模板"按钮，一键填充常用查询
+- 分类元数据系统（图标 + 标签）
+
+#### Token Logo 展示优化
+
+- MarkdownRenderer 智能识别 Token Logo 图片（alt 含 logo/icon 或空 alt）
+- Logo 图片行内渲染，16x16 尺寸 + `object-contain`
+- 图片加载失败时静默隐藏（onError → display:none）
+
+#### Favicon
+
+- 添加 `/public/favicon.ico` 网站图标
+- layout.tsx 配置 icon、shortcut、apple 三种 favicon 引用
+
+#### Bug 修复
+
+- 修复对话删除和切换时的两个交互 bug
+- 修复转账卡片状态刷新后回退为"待确认"的问题
+- 修复 Supabase RLS 迁移文件兼容性问题
 
 ---
 
@@ -176,6 +295,9 @@
 - 338 行完整转账卡片组件
 - 支持 ETH 原生转账和 ERC20 Token 转账
 - 完整 Approve 流程：allowance 查询 → approve 调用 → 交易监听 → 二次校验
+- 新增 `approving` 状态和授权 UI 按钮
+- 新增 `TransferStatus` 类型添加 `approving` 状态
+- 使用 `useReadContract` 检查授权额度，allowance 不足时自动显示授权步骤
 - 状态管理：pending → signing → confirmed/failed
 - Supabase 持久化：createTransferCard / updateTransferStatus / getTransferCardsByConversation
 
@@ -189,6 +311,13 @@
 - `createTransferCard` 工具定义，支持 EVM 和 Solana
 - SSE `transfer_data` 事件类型
 - useChatStream 新增 transfer_data 事件处理
+
+#### 集成与修复
+
+- 集成 AI 工具调用与前端覆查（chat API ↔ TransferCard 数据流）
+- 修复 RainbowKit SSR hydration 警告
+- 扩展 `ERC20_ABI` 增加 `allowance` 和 `approve` 方法
+- 配置与数据库迁移（Supabase schema）
 
 ---
 
@@ -228,6 +357,25 @@
 ### UI 增强与全局主题系统
 
 **类型**: FEAT | **Audit 评分**: 94/100
+
+#### Markdown 渲染
+
+- **MarkdownRenderer 组件**（222 行）：基于 `react-markdown` + `remark-gfm`
+- 完整语法支持：标题、列表、加粗/斜体、代码块、链接、引用、表格、图片
+- 双主题样式隔离（浅色/深色），品牌渐变色标记（cyan + violet）
+- 链接自动 `target="_blank"` + 外部图标
+- 代码块圆角背景 + 语法高亮区域
+- AI 消息自动使用 Markdown 渲染，用户消息保留纯文本
+
+#### Settings 面板
+
+- **SettingsPanel 组件**（319 行）：右侧滑入式设置面板
+- 主题模式切换（跟随系统/浅色/深色）三选一
+- Memory 策略切换（L3 摘要压缩/L2 滑动窗口）二选一
+- 多语言占位区（预留中英文切换）
+- 版本信息展示
+- 进场/退场动画（cubic-bezier 缓动 + 渐变光带）
+- ESC 键关闭 + 点击遮罩关闭
 
 #### ConfirmDialog 组件
 
@@ -416,20 +564,23 @@
 
 | 指标 | 数值 |
 |------|------|
-| 总版本数 | v0.1.0 ~ v0.8.0 |
-| 变更记录 | 19 条 |
-| FEAT | 17 |
+| 总版本数 | v0.1.0 ~ v0.9.0 |
+| 变更记录 | 23 条 |
+| FEAT | 20 |
 | PATCH | 1 |
-| REFACTOR | 1 |
-| 活跃周期 | 2026-04-17 ~ 2026-05-07（21 天） |
+| REFACTOR | 2 |
+| MERGE | 1 |
+| 活跃周期 | 2026-04-17 ~ 2026-05-19（33 天） |
 
 ## 模块变更频率
 
 | 模块 | 变更次数 | 主要变更 |
 |------|---------|---------|
-| apps/web（UI/组件/Hooks） | 12 | 转账卡片、钱包、主题、流式输出 |
+| apps/web（UI/组件/Hooks） | 15 | 转账卡片、钱包、主题、流式输出、提示词管理、Markdown 渲染 |
 | packages/web3-tools | 6 | 多链架构、Token 余额、转账工具 |
 | packages/ai-config | 3 | 多模型、代理支持、流式输出 |
+| .github/workflows | 3 | CI/CD Pipeline、Vercel 自动部署 |
 | e2e/ | 2 | E2E 测试框架、覆盖完善 |
 | supabase/ | 2 | 数据库初始化、RLS 升级 |
+| docs/ | 3 | 文档体系重构、Repo Wiki 适配 |
 | skills/x-ray | 1 | 技能体系 V3 |
