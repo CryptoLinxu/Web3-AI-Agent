@@ -127,7 +127,7 @@ pnpm lint          # 代码规范检查
 
 ## 当前状态
 
-- **版本**: v0.9.0
+- **版本**: v0.8.0
 - **已完成**: Phase 1 ~ Phase 8（项目初始化、对话能力、Web3 工具、钱包系统、转账功能、Solana 多链、测试体系、安全加固）
 - **进行中**: Phase 9（用户体验优化）、Phase 10（生产就绪）
 - 详见 [ROADMAP-CHECKLIST](./docs/ROADMAP-CHECKLIST.md)
