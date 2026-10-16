@@ -5,7 +5,7 @@ import { ChainConfig, EvmChainId } from '../types'
 // 默认 RPC 节点（公共节点，可能有限流）
 const DEFAULT_RPC_URLS: Record<EvmChainId, string[]> = {
   ethereum: [
-    process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
+    process.env.ETHEREUM_RPC_URL || 'https://rpc.flashbots.net',
     'https://rpc.ankr.com/eth',
   ],
   polygon: [

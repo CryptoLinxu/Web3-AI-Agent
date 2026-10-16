@@ -43,7 +43,7 @@ vi.mock('../tokens', () => ({
 }))
 
 vi.mock('../chains', () => ({
-  getRpcUrl: vi.fn(() => 'https://eth.llamarpc.com'),
+  getRpcUrl: vi.fn(() => 'https://rpc.flashbots.net'),
 }))
 
 vi.mock('ethers', () => ({

@@ -27,7 +27,7 @@ const mockEthConfig: EvmChainConfig = {
   name: 'Ethereum',
   nativeToken: 'ETH',
   chainId: 1,
-  rpcUrls: ['https://eth.llamarpc.com'],
+  rpcUrls: ['https://rpc.flashbots.net'],
   explorerUrl: 'https://etherscan.io',
 }
 
@@ -50,13 +50,13 @@ describe('EvmChainAdapter', () => {
   describe('constructor', () => {
     it('应使用链配置创建 provider', () => {
       mockGetChainConfig.mockReturnValue(mockEthConfig)
-      mockGetRpcUrl.mockReturnValue('https://eth.llamarpc.com')
+      mockGetRpcUrl.mockReturnValue('https://rpc.flashbots.net')
 
       const adapter = new EvmChainAdapter('ethereum')
 
       expect(mockGetChainConfig).toHaveBeenCalledWith('ethereum')
       expect(mockGetRpcUrl).toHaveBeenCalledWith('ethereum', undefined)
-      expect(ethers.JsonRpcProvider).toHaveBeenCalledWith('https://eth.llamarpc.com')
+      expect(ethers.JsonRpcProvider).toHaveBeenCalledWith('https://rpc.flashbots.net')
       expect(adapter).toBeDefined()
     })
 
@@ -86,7 +86,7 @@ describe('EvmChainAdapter', () => {
 
     beforeEach(() => {
       mockGetChainConfig.mockReturnValue(mockEthConfig)
-      mockGetRpcUrl.mockReturnValue('https://eth.llamarpc.com')
+      mockGetRpcUrl.mockReturnValue('https://rpc.flashbots.net')
       // Default: valid address
       ;(ethers.isAddress as any).mockReturnValue(true)
       // Default provider mock
@@ -137,7 +137,7 @@ describe('EvmChainAdapter', () => {
   describe('getGasPrice', () => {
     beforeEach(() => {
       mockGetChainConfig.mockReturnValue(mockEthConfig)
-      mockGetRpcUrl.mockReturnValue('https://eth.llamarpc.com')
+      mockGetRpcUrl.mockReturnValue('https://rpc.flashbots.net')
       ;(ethers.JsonRpcProvider as ReturnType<typeof vi.fn>).mockReturnValue({
         getFeeData: vi.fn().mockResolvedValue({
           gasPrice: BigInt('25000000000'), // 25 Gwei
@@ -181,7 +181,7 @@ describe('EvmChainAdapter', () => {
   describe('validateAddress', () => {
     beforeEach(() => {
       mockGetChainConfig.mockReturnValue(mockEthConfig)
-      mockGetRpcUrl.mockReturnValue('https://eth.llamarpc.com')
+      mockGetRpcUrl.mockReturnValue('https://rpc.flashbots.net')
     })
 
     it('有效地址应返回 true', () => {

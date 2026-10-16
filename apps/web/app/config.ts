@@ -51,7 +51,7 @@ export function getConfig() {
       storage: cookieStorage,
     }),
     transports: {
-      [mainnet.id]: http('https://eth.llamarpc.com'),
+      [mainnet.id]: http('https://rpc.flashbots.net'),
       [polygon.id]: http('https://polygon.llamarpc.com'),
       [bsc.id]: http('https://bsc.llamarpc.com'),
     },
@@ -78,7 +78,7 @@ export function getFullConfig() {
       storage: cookieStorage,
     }),
     transports: {
-      [mainnet.id]: http('https://eth.llamarpc.com'),
+      [mainnet.id]: http('https://rpc.flashbots.net'),
       [polygon.id]: http('https://polygon.llamarpc.com'),
       [bsc.id]: http('https://bsc.llamarpc.com'),
     },
